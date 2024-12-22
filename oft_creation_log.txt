@@ -1,0 +1,188 @@
+> solana-keygen new -o target/deploy/endpoint-keypair.json --force
+Generating a new keypair
+
+For added security, enter a BIP39 passphrase
+
+NOTE! This passphrase improves security of the recovery seed phrase NOT the
+keypair file itself, which is stored as insecure plain text
+
+BIP39 Passphrase (empty for none): 
+
+Wrote new keypair to target/deploy/endpoint-keypair.json
+============================================================================
+pubkey: DrHcs7pMFKzrapNyVoyGwTKF1TazGs4jsnYcEW153GGm
+============================================================================
+Save this seed phrase and your BIP39 passphrase to recover your new keypair:
+coffee result plate dream brave myth brass panic model cigar perfect inherit
+============================================================================
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> solana-keygen new -o target/deploy/oft-keypair.json --force
+Generating a new keypair
+
+For added security, enter a BIP39 passphrase
+
+NOTE! This passphrase improves security of the recovery seed phrase NOT the
+keypair file itself, which is stored as insecure plain text
+
+BIP39 Passphrase (empty for none): 
+
+Wrote new keypair to target/deploy/oft-keypair.json
+=================================================================================
+pubkey: rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa
+=================================================================================
+Save this seed phrase and your BIP39 passphrase to recover your new keypair:
+giggle wrong magnet begin reunion twist upon thought library orchard square force
+=================================================================================
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> anchor keys sync
+Found incorrect program id declaration in Anchor.toml for the program `oft`
+Updated to rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa
+
+Found incorrect program id declaration in "/proj/test/Solana/LayerZero/solana-proxy/programs/endpoint-mock/src/lib.rs"
+Updated to DrHcs7pMFKzrapNyVoyGwTKF1TazGs4jsnYcEW153GGm
+
+All program id declarations are synced.
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> anchor keys list
+oft: rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa
+endpoint: DrHcs7pMFKzrapNyVoyGwTKF1TazGs4jsnYcEW153GGm
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> solana rent $(wc -c < target/verifiable/oft.so)
+Rent-exempt minimum: 3.87878016 SOL
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> solana balance                                 
+35.438521039 SOL
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> solana program deploy --program-id target/deploy/oft-keypair.json target/verifiable/oft.so -u devnet
+Program Id: rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+pnpm hardhat lz:oft:solana:create --eid 40168 --program-id rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa --additional-minters DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE --amount 10000000000
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> pnpm hardhat lz:oft:solana:create --eid 40168 --program-id rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa --additional-minters DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE --amount 10000000000
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+created SPL multisig @ EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm
+createTokenTx: https://explorer.solana.com/tx/3diPBb1S4ikNC929dA7JscSKb47Ad3pBeiWbCHfpS4rEpkRLvGP5S8SHumfuPqhdq6o1jRbsuxVpzSRZkh5U319u?cluster=devnet
+initOftTx: https://explorer.solana.com/tx/4CrkJ1DYNzbTn3gGa5K1zLE71LCr5aAB5xCWBTJurPCya87dSRwqPTdqBGiKzXnFkAv94SdhnjmKNs9n6jhLV6bF?cluster=devnet
+setAuthorityTx: https://explorer.solana.com/tx/4ZiHrAdHKXNvR19cKhGwmhCA1oxdL67inKCDWVmZ43p5UJtwuhSPvMzjhMNwVjPPvJXvY6JZgE9jrDaJuCyWNjUm?cluster=devnet
+Accounts have been saved to ./deployments/solana-testnet/OFT.json
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> pnpm hardhat lz:deploy
+info:    Compiling your hardhat project
+Nothing to compile
+✔ Which networks would you like to deploy? › sepolia-testnet
+✔ Which deploy script tags would you like to use? … 
+info:    Will deploy 1 network: sepolia-testnet
+warn:    Will use all deployment scripts
+✔ Do you want to continue? … yes
+Network: sepolia-testnet
+Deployer: 0x8307c9FEB668784394fa17234B9991091acF5234
+Deployed contract: MyOFTMock, network: sepolia-testnet, address: 0x6392Fc538aEE313286F1c0fC1387eF6c6Ed0dE12
+info:    ✓ Your contracts are now deployed
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+npx hardhat lz:oapp:init:solana --oapp-config layerzero.config.ts --solana-secret-key <SECRET_KEY> --solana-program-id rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Endpoint            SOLANA_V2_TESTNET                                                                                                                                                             │
+│ OmniAddress         AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg                                                                                                                                  │
+│ OmniContract        -                                                                                                                                                                             │
+│ Function Name       -                                                                                                                                                                             │
+│ Function Arguments  -                                                                                                                                                                             │
+│ Description         oft.initConfig(40161)                                                                                                                                                         │
+│ Data                01000609b5bbc87a85a188c167e8c8a973c358220dfeedf9aacb198080169936e050c18300fa51602c01aafe5e242730a5a61c571901b6861f7c20e31611ad84788a75a914484cbd0778be479259e33b2801159d6826b │
+│                     56ade556ba77116faeaad111f4e000000000000000000000000000000000000000000000000000000000000000016b7830c3f8a44c810ca87de56e032889c358ec75d4732bf7361862658acb2af3bb66c6947983775eb │
+│                     253df3d1c9818c2f958899b64a23b05a51bc8ed358f6e95aad76da514b6e1dcf11037e904dac3d375f525c9fbafcb19507b78907d8c18b619e429a1de67854bd455ee6643f568d6236cde8e9442a3abf029f016faae63 │
+│                     0b57381fc03a1ed129618e4f92148b9099efaceba6c6a654f134ca1f238f37eec4e3d72d6af96f99a63f8af03b94d985133b5f0e72995cb89e0f3693cd68b90d801060a000805040700040102032c17eb73e8a86001e7 │
+│                     89ef569b16ba17a82e1e52816937f98ffc4ef56bda0218129f3855269f86415be19c0000                                                                                                      │
+│ Value               -                                                                                                                                                                             │
+│ Gas Limit           -                                                                                                                                                                             │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+✔ Would you like to submit the required transactions? … yes
+info:    Successfully sent 1 transaction
+info:    ✓ Your OApp is now configured
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts --solana-secret-key <SECRET_KEY> --solana-program-id rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa
+info:    [OApp] Checking OApp configuration
+info:    [OApp] Checking OApp peers configuration
+info:    [OApp] ✓ Checked OApp peers configuration
+info:    [OApp] Checking send libraries configuration
+info:    [OApp] ✓ Checked send libraries configuration
+info:    [OApp] Checking receive libraries configuration
+info:    [OApp] ✓ Checked receive libraries configuration
+info:    [OApp] Checking receive library timeout configuration
+info:    [OApp] ✓ Checked receive library timeout configuration
+info:    [OApp] Checking send configuration
+info:    [OApp] ✓ Checked send configuration
+info:    [OApp] Checking receive configuration
+info:    [OApp] ✓ Checked receive configuration
+info:    [OApp] Checking enforced options
+info:    [OApp] ✓ Checked enforced options
+info:    [OApp] Checking OApp callerBpsCap configuration
+info:    [OApp] ✓ Checked OApp callerBpsCap configuration
+info:    [OApp] Checking OApp delegates configuration
+info:    [OApp] ✓ Checked OApp delegates
+info:    [OApp] ✓ Checked OApp configuration
+info:    There are 2 transactions required to configure the OApp
+✔ Would you like to preview the transactions before continuing? … yes
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Endpoint            SEPOLIA_V2_TESTNET                                                                                                                                                                              │
+│ OmniAddress         0x6392Fc538aEE313286F1c0fC1387eF6c6Ed0dE12                                                                                                                                                      │
+│ OmniContract        -                                                                                                                                                                                               │
+│ Function Name       -                                                                                                                                                                                               │
+│ Function Arguments  -                                                                                                                                                                                               │
+│ Description         Setting peer for eid 40168 (SOLANA_V2_TESTNET) to address 0x89ef569b16ba17a82e1e52816937f98ffc4ef56bda0218129f3855269f86415b                                                                    │
+│ Data                0x3400288b0000000000000000000000000000000000000000000000000000000000009ce889ef569b16ba17a82e1e52816937f98ffc4ef56bda0218129f3855269f86415b                                                      │
+│ Value               -                                                                                                                                                                                               │
+│ Gas Limit           -                                                                                                                                                                                               │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Endpoint            SOLANA_V2_TESTNET                                                                                                                                                                               │
+│ OmniAddress         AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg                                                                                                                                                    │
+│ OmniContract        -                                                                                                                                                                                               │
+│ Function Name       -                                                                                                                                                                                               │
+│ Function Arguments  -                                                                                                                                                                                               │
+│ Description         Setting peer for eid 40161 (SEPOLIA_V2_TESTNET) to address 0x0000000000000000000000006392fc538aee313286f1c0fc1387ef6c6ed0de12                                                                   │
+│ Data                0100050bb5bbc87a85a188c167e8c8a973c358220dfeedf9aacb198080169936e050c1835cf1a8e53698e809fa0a8fc172adcd2ed12e7268920e38991ad69b93fbfccb4b71b22b24d862873963a998e7103b180ee732961d30e3b35a84b0e10 │
+│                     397d61ca0740b9196f6c2a6623bbb8ec13e69c823f709bd6ddd0f9c69aebc9e4c1a0cb5947f87e5af4cf7bedf16e66193c920ec734395fd8ed21c7c1d5cbeb860d7d4a1bcccd80f21722deb53b3eed502d3054b6cff5324f9b09d4c3054427e │
+│                     4f1cd3987200000000000000000000000000000000000000000000000000000000000000005aad76da514b6e1dcf11037e904dac3d375f525c9fbafcb19507b78907d8c18b89ef569b16ba17a82e1e52816937f98ffc4ef56bda0218129f385 │
+│                     5269f86415bb57381fc03a1ed129618e4f92148b9099efaceba6c6a654f134ca1f238f37eec0cac0f472e365d3edd12aec440b0742a3546d0e3ef8b704b8d8acb3990799085315a7923d7dfc228760875eb0a557855249f70d09314ab2bd006 │
+│                     07ec8c5aafe4070a04000408062d4fbba8398b8c5d2fe19c0000000000000000000000000000006392fc538aee313286f1c0fc1387ef6c6ed0de120704000901062c9c18eb7849c1901389ef569b16ba17a82e1e52816937f98ffc4ef56bda0 │
+│                     218129f3855269f86415be19c00000704000903062cc57251642de924e689ef569b16ba17a82e1e52816937f98ffc4ef56bda0218129f3855269f86415be19c00000a0400040806194fbba8398b8c5d2fe19c00000202000000000302000000 │
+│                     00030a0400040806104fbba8398b8c5d2fe19c000001010000070500090502064cccab10d6b6bf1bc489ef569b16ba17a82e1e52816937f98ffc4ef56bda0218129f3855269f86415be19c00000000000000000000000000006392fc538aee3 │
+│                     13286f1c0fc1387ef6c6ed0de120a04000408062d4fbba8398b8c5d2fe19c0000000000000000000000000000006392fc538aee313286f1c0fc1387ef6c6ed0de12                                                             │
+│ Value               -                                                                                                                                                                                               │
+│ Gas Limit           -                                                                                                                                                                                               │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+✔ Would you like to submit the required transactions? … yes
+info:    Successfully sent 2 transactions
+info:    ✓ Your OApp is now configured
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> spl-token create-account 8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN
+Creating account DoYNsBQoeaCXFiV2hKxbi6M2CLSDrzn5JT38pgHyHAeE
+Error: "Error: Account already exists: DoYNsBQoeaCXFiV2hKxbi6M2CLSDrzn5JT38pgHyHAeE"
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> spl-token balance 8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN
+1
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> spl-token mint 8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN 1 --multisig-signer ~/.config/solana/id.json --owner EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm 
+Minting 1 tokens
+  Token: 8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN
+  Recipient: DoYNsBQoeaCXFiV2hKxbi6M2CLSDrzn5JT38pgHyHAeE
+
+Signature: Uz1WRkYinnqH6DsFGuM95jg71VuiK7Aw2YUcoQ2ednCTMeWgy7X5jDwaMs7MV9QbjYw3Vjdqj6DHHoH6bLMr1ht
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> spl-token balance 8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN
+2
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+> npx hardhat lz:oft:solana:send --amount 10000000000 --from-eid 40168 --to 0xb846DF606b592B9646db03aE2568951651D9D5BC --to-eid 40161 --mint 8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN --program-id rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa --escrow 2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+An unexpected error occurred:
+
+Error: Simulate Fail: {"context":{"apiVersion":"2.0.18","slot":348779367},"value":{"accounts":null,"err":{"InstructionError":[1,{"Custom":6004}]},"innerInstructions":null,"logs":["Program ComputeBudget111111111111111111111111111111 invoke [1]","Program ComputeBudget111111111111111111111111111111 success","Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa invoke [1]","Program log: Instruction: QuoteSend","Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 invoke [2]","Program log: Instruction: Quote","Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH invoke [3]","Program log: Instruction: Quote","Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn invoke [4]","Program log: Instruction: QuoteExecutor","Program log: AnchorError thrown in programs/executor/src/instructions/quote.rs:77. Error Code: ZeroLzReceiveGasProvided. Error Number: 6004. Error Message: ZeroLzReceiveGasProvided.","Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn consumed 10948 of 926723 compute units","Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn failed: custom program error: 0x1774","Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH consumed 28454 of 944229 compute units","Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH failed: custom program error: 0x1774","Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 consumed 55884 of 971659 compute units","Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 failed: custom program error: 0x1774","Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa consumed 84075 of 999850 compute units","Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa failed: custom program error: 0x1774"],"replacementBlockhash":null,"returnData":null,"unitsConsumed":84225}}
+    at Object.simulateTransaction (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/@layerzerolabs+lz-solana-sdk-v2@3.0.0_bufferutil@4.0.8_fastestsmallesttextencoderdecoder@1.0._ccbeuwinzdotstqasx54eq3nt4/node_modules/@layerzerolabs/lz-solana-sdk-v2/src/generated/executor/instructions/nativeDrop.ts:156:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.quote (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/@layerzerolabs+oft-v2-solana-sdk@3.0.0_bufferutil@4.0.8_fastestsmallesttextencoderdecoder@1.0_4b2zwoyo3oupezfqoqcgckx6by/node_modules/@layerzerolabs/oft-v2-solana-sdk/src/oft.ts:228:13)
+    at async SimpleTaskDefinition.action (/proj/test/Solana/LayerZero/solana-proxy/tasks/solana/sendOFT.ts:71:35)
+    at async Environment._runTaskDefinition (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/hardhat@2.22.17_bufferutil@4.0.8_ts-node@10.9.2_@swc+core@1.10.1_@swc+helpers@0.5.15__@types+_fxainxy2gfgbcgzkge2y4jm7va/node_modules/hardhat/src/internal/core/runtime-environment.ts:351:14)
+    at async Environment.run (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/hardhat@2.22.17_bufferutil@4.0.8_ts-node@10.9.2_@swc+core@1.10.1_@swc+helpers@0.5.15__@types+_fxainxy2gfgbcgzkge2y4jm7va/node_modules/hardhat/src/internal/core/runtime-environment.ts:184:14)
+    at async main (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/hardhat@2.22.17_bufferutil@4.0.8_ts-node@10.9.2_@swc+core@1.10.1_@swc+helpers@0.5.15__@types+_fxainxy2gfgbcgzkge2y4jm7va/node_modules/hardhat/src/internal/cli/cli.ts:324:7)
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------

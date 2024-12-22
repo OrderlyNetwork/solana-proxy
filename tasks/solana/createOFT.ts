@@ -28,7 +28,7 @@ import { assertAccountInitialized } from './utils'
 
 import { addComputeUnitInstructions, deriveConnection, deriveKeys, getExplorerTxLink, output } from './index'
 
-const DEFAULT_LOCAL_DECIMALS = 9
+const DEFAULT_LOCAL_DECIMALS = 10
 
 interface CreateOFTTaskArgs {
     /**
@@ -115,13 +115,13 @@ interface CreateOFTTaskArgs {
 task('lz:oft:solana:create', 'Mints new SPL Token and creates new OFT Store account')
     .addOptionalParam('amount', 'The initial supply to mint on solana', undefined, devtoolsTypes.int)
     .addParam('eid', 'Solana mainnet or testnet', undefined, devtoolsTypes.eid)
-    .addOptionalParam('localDecimals', 'Token local decimals (default=9)', DEFAULT_LOCAL_DECIMALS, devtoolsTypes.int)
+    .addOptionalParam('localDecimals', 'Token local decimals (default=10)', DEFAULT_LOCAL_DECIMALS, devtoolsTypes.int)
     .addOptionalParam('sharedDecimals', 'OFT shared decimals (default=6)', DEFAULT_SHARED_DECIMALS, devtoolsTypes.int)
-    .addParam('name', 'Token Name', 'MockOFT', devtoolsTypes.string)
+    .addParam('name', 'Token Name', 'Orderly Network', devtoolsTypes.string)
     .addParam('mint', 'The Token mint public key (used for MABA only)', '', devtoolsTypes.string)
     .addParam('programId', 'The OFT Program id')
     .addParam('sellerFeeBasisPoints', 'Seller fee basis points', 0, devtoolsTypes.int)
-    .addParam('symbol', 'Token Symbol', 'MOFT', devtoolsTypes.string)
+    .addParam('symbol', 'Token Symbol', 'ORDER', devtoolsTypes.string)
     .addParam('tokenMetadataIsMutable', 'Token metadata is mutable', true, devtoolsTypes.boolean)
     .addParam('additionalMinters', 'Comma-separated list of additional minters', undefined, devtoolsTypes.csv, true)
     .addOptionalParam(
