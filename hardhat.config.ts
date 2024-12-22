@@ -31,8 +31,8 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY
 const accounts: HttpNetworkAccountsUserConfig | undefined = MNEMONIC
     ? { mnemonic: MNEMONIC }
     : PRIVATE_KEY
-      ? [PRIVATE_KEY]
-      : undefined
+        ? [PRIVATE_KEY]
+        : undefined
 
 if (accounts == null) {
     console.warn(
@@ -62,6 +62,11 @@ const config: HardhatUserConfig = {
         'sepolia-testnet': {
             eid: EndpointId.SEPOLIA_V2_TESTNET,
             url: process.env.RPC_URL_SEPOLIA || 'https://gateway.tenderly.co/public/sepolia',
+            accounts,
+        },
+        'orderly-sepolia': {
+            eid: EndpointId.ORDERLY_V2_TESTNET,
+            url: process.env.RPC_URL_ORDERLY_SEPOLIA || 'https://testnet-rpc.orderly.org',
             accounts,
         },
         hardhat: {
