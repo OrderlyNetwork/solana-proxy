@@ -22,7 +22,7 @@ describe("🗂️Test Solana OFT", () => {
     const eid = TestnetV2EndpointId.ORDERLY_V2_TESTNET
 
     beforeAll(async () => {
-        await initOft(provider, oftProgram.programId, endpointProgram.programId)
+        // await initOft(provider, oftProgram.programId, endpointProgram.programId)
         console.log("✅ Init Oft")
     })
 

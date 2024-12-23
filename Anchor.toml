@@ -7,13 +7,14 @@ skip-lint = false
 
 [programs.localnet]
 oft = "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa"
+solana_proxy = "2mk17sMDoTrxWKYm2hCVpD4pQcbSG2mnQdQzfdHVTKey"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
-wallet = "./junk-id.json"
+wallet = "/home/dmitry/.config/solana/id.json"
 
 [scripts]
 test = "npx jest test/anchor"

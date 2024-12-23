@@ -1,17 +1,9 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-
+import { AnchorProvider, Wallet } from '@coral-xyz/anchor'
 import { mplToolbox } from '@metaplex-foundation/mpl-toolbox'
-import { EddsaInterface, createSignerFromKeypair, publicKey, signerIdentity } from '@metaplex-foundation/umi'
+import { createSignerFromKeypair, signerIdentity } from '@metaplex-foundation/umi'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
-import { createWeb3JsEddsa } from '@metaplex-foundation/umi-eddsa-web3js'
-import bs58 from 'bs58'
-
-import { EndpointId, endpointIdToNetwork } from '@layerzerolabs/lz-definitions'
-import { OftPDA } from '@layerzerolabs/oft-v2-solana-sdk'
-
-// import { createSolanaConnectionFactory } from '../common/utils'
-import { AnchorProvider, Provider, Wallet } from '@coral-xyz/anchor'
 import { fromWeb3JsKeypair } from '@metaplex-foundation/umi-web3js-adapters'
+import bs58 from 'bs58'
 
 const getFromEnv = (key: string): string => {
     const value = process.env[key]

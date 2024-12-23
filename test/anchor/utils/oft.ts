@@ -85,6 +85,8 @@ export const initOft = async (provider: AnchorProvider, oftProgramId: PublicKey,
     await connection.requestAirdrop(toWeb3JsPublicKey(umi.payer.publicKey), 1e12)
     const balanceAfter = await connection.getBalance(wallet.publicKey);
     console.log(`balanceAfter: ${balanceAfter}`)
+    console.log(`mint: ${mint.publicKey.toString()}`)
+    await connection.requestAirdrop(toWeb3JsPublicKey(mint.publicKey), 1e12)
 
     const createV1Args: CreateV1InstructionAccounts & CreateV1InstructionArgs = {
         mint,
@@ -98,16 +100,15 @@ export const initOft = async (provider: AnchorProvider, oftProgramId: PublicKey,
         tokenStandard: TokenStandard.Fungible,
     }
     let txBuilder = transactionBuilder().add(createV1(umi, createV1Args))
-    // txBuilder = await addComputeUnitInstructions(
-    //     connection,
-    //     umi,
-    //     EndpointId.SOLANA_V2_TESTNET,
-    //     txBuilder,
-    //     umiWalletSigner,
-    //     4
-    // )
+    txBuilder = await addComputeUnitInstructions(
+        connection,
+        umi,
+        EndpointId.SOLANA_V2_TESTNET,
+        txBuilder,
+        umiWalletSigner,
+        4
+    )
     const createTokenTx = await txBuilder.sendAndConfirm(umi)
     await assertAccountInitialized(connection, toWeb3JsPublicKey(mint.publicKey))
     console.log(`createTokenTx: ${getExplorerTxLink(bs58.encode(createTokenTx.signature), true)}`)
-    console.log(`mint: ${mint.publicKey.toString()}`)
 }
