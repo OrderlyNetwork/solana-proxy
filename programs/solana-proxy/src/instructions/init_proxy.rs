@@ -27,6 +27,7 @@ impl SetProxy<'_> {
         ctx.accounts.proxy_authority.nonce = params.nonce;
         ctx.accounts.proxy_authority.dst_eid = params.dst_eid;
         ctx.accounts.proxy_authority.sol_chain_id = params.sol_chain_id;
+        ctx.accounts.proxy_authority.oft_program = params.oft_program;
         msg!("Set Proxy Authority");
         Ok(())
     }
@@ -38,4 +39,5 @@ pub struct SetProxyParams {
     pub nonce: u64,
     pub dst_eid: u32,
     pub sol_chain_id: u128,
+    pub oft_program: Pubkey
 }

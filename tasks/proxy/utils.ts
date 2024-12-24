@@ -4,13 +4,15 @@ import { ethers } from 'ethers';
 import { DEV_PROXY_PROGRAM_ID, MAIN_PROXY_PROGRAM_ID, PROXY_AUTHORITY_SEED, QA_PROXY_PROGRAM_ID, STAGING_PROXY_PROGRAM_ID } from "./constants";
 import { IDL, SolanaProxy } from "../../target/types/solana_proxy";
 import { EndpointId } from "@layerzerolabs/lz-definitions";
+import dev_config from "../../config/dev.json";
+import test_config from "../../config/test.json";
 
 export function getEnv(): String {
     const ENV = process.env.ENV;
     if (!ENV) {
-        throw new Error("Please set ENV variable in .env file");
+        throw new Error("Please set ENV variable in .env file (can be DEV, TEST, QA, STAGING, MAIN)");
     }
-    return ENV;
+    return ENV.toUpperCase();
 }
 
 export function setAnchor(): [AnchorProvider, Wallet, string] {
@@ -32,35 +34,34 @@ export function setAnchor(): [AnchorProvider, Wallet, string] {
     return [provider, wallet, rpc];
 }
 
-export function getSolanaEid(ENV: String): number {
-    if (ENV === "MAIN") {
+export function getSolanaEid(): number {
+    if (getEnv() === "MAIN") {
         return EndpointId.SOLANA_V2_MAINNET;
     }
     return EndpointId.SOLANA_V2_TESTNET;
 }
 
-export function getOrderlyEid(ENV: String): number {
-    if (ENV === "MAIN") {
+export function getOrderlyEid(): number {
+    if (getEnv() === "MAIN") {
         return EndpointId.ORDERLY_V2_MAINNET;
     }
     return EndpointId.ORDERLY_V2_TESTNET;
 }
 
-export function getDeployedProgram(ENV: String, provider: AnchorProvider) {
-    let PROXY_PROGRAM_ID
+export function getConfig() {
+    const ENV = getEnv();
     if (ENV === "DEV") {
-        PROXY_PROGRAM_ID = DEV_PROXY_PROGRAM_ID;
-    } else if (ENV === "QA") {
-        PROXY_PROGRAM_ID = QA_PROXY_PROGRAM_ID;
-    } else if (ENV === "STAGING") {
-        PROXY_PROGRAM_ID = STAGING_PROXY_PROGRAM_ID;
-    } else if (ENV === "MAIN") {
-        PROXY_PROGRAM_ID = MAIN_PROXY_PROGRAM_ID;
-    } else {
-        throw new Error("Invalid Environment");
+        return dev_config;
+    } else if (ENV === "TEST") {
+        return test_config;
     }
-    const proxyProgram = new Program<SolanaProxy>(IDL, PROXY_PROGRAM_ID, provider);
-    return [PROXY_PROGRAM_ID, proxyProgram];
+    throw new Error("Invalid Environment");
+}
+
+export function getDeployedProxyProgram(provider: AnchorProvider): [PublicKey, Program<SolanaProxy>] {
+    const proxyProgramIdStr = getConfig().proxyProgramId;
+    const proxyProgram = new Program<SolanaProxy>(IDL, proxyProgramIdStr, provider);
+    return [new PublicKey(proxyProgramIdStr), proxyProgram];
 }
 
 export function stringToBytes32(str: string): number[] {
@@ -83,9 +84,10 @@ export function printProxyAuthority(title: string, proxyAuthority: any) {
     console.log("  nonce:", proxyAuthority.nonce.toString());
     console.log("  dstEid:", proxyAuthority.dstEid.toString());
     console.log("  solChainId:", proxyAuthority.solChainId.toString());
+    console.log("  oftProgram:", proxyAuthority.oftProgram.toBase58());
 }
 
-export async function initProxy(provider: AnchorProvider, proxyProgram: Program<SolanaProxy>, nonce: number = 0) {
+export async function initProxy(provider: AnchorProvider, proxyProgram: Program<SolanaProxy>, oftProgramId: PublicKey, nonce: number = 0) {
     const wallet = provider.wallet as Wallet;
     const proxyAuthorityPda = getProxyAuthorityPda(proxyProgram.programId);
 
@@ -96,8 +98,9 @@ export async function initProxy(provider: AnchorProvider, proxyProgram: Program<
     const initProxyParams = {
         owner: wallet.publicKey,
         nonce: new BN(nonce),
-        dstEid: getOrderlyEid(getEnv()),
-        solChainId: new BN(getSolanaEid(getEnv())),
+        dstEid: getOrderlyEid(),
+        solChainId: new BN(getSolanaEid()),
+        oftProgram: oftProgramId
     };
 
     const initProxyAccounts = {
@@ -135,4 +138,20 @@ export async function createAndSendV0Tx(txInstructions: TransactionInstruction[]
 
     await new Promise((r) => setTimeout
         (r, 2000));
+}
+
+export function bytes32ToEvmAddress(bytes32Address: Uint8Array): string {
+    if (bytes32Address.length !== 32) {
+        throw new Error("Invalid peerAddress length. Expected 32 bytes.");
+    }
+
+    // Slice the last 20 bytes
+    const evmAddressBytes = bytes32Address.slice(-20);
+
+    // Convert to hexadecimal string and prepend '0x'
+    const evmAddress = '0x' + Array.from(evmAddressBytes)
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+
+    return evmAddress;
 }

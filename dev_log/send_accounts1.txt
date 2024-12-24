@@ -1,0 +1,184 @@
+Send accounts1: [
+  {
+    pubkey: PublicKey [PublicKey(76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6)] {
+      _bn: <BN: 5aad76da514b6e1dcf11037e904dac3d375f525c9fbafcb19507b78907d8c18b>
+    },
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg)] {
+      _bn: <BN: 89ef569b16ba17a82e1e52816937f98ffc4ef56bda0218129f3855269f86415b>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH)] {
+      _bn: <BN: 619e429a1de67854bd455ee6643f568d6236cde8e9442a3abf029f016faae630>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(DFQfCeNpWYZCxaUA1qcwnACHuM8LjNnVMQH7yeopw9Jh)] {
+      _bn: <BN: b5fd2016ab54eb922e42a9cc9ccf1cf29064e56c862c199d03d73b4aefd3cf82>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(3hfYq9afjFbedp4GZk6n9ZefuCbhvgf4z4Jiyw2QEEPY)] {
+      _bn: <BN: 28223187c1167e25f624820ae13421476b5baee4ef3e8eba180399d2758d6a87>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(526PeNZfw8kSnDU4nmzJFVJzJWNhwmZykEyJr5XWz5Fv)] {
+      _bn: <BN: 3bb66c6947983775eb253df3d1c9818c2f958899b64a23b05a51bc8ed358f6e9>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(2uk9pQh3tB5ErV7LGQJcbWjb4KeJ2UJki5qJZ8QG56G3)] {
+      _bn: <BN: 1c5eae5faa88478e8729bc45057eb95154f0f7ec4a3ec80503c62b8b7cdd97cc>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(GQGf8sqsCDbUTVYuUNJZ4Y49DD7vgHxdavDqzv1Xhkpr)] {
+      _bn: <BN: e4d55dd3b053246da708c855093868fb2a336ca17fc71272341f78fc560ca3c3>
+    },
+    isWritable: true,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(F8E8QGhKmHEx2esh5LpVizzcP4cHYhzXdXTwg9w3YYY2)] {
+      _bn: <BN: d1dd86ac361b6252c406c281f3912ab13b924126c011b587278e8af0b08ef09b>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6)] {
+      _bn: <BN: 5aad76da514b6e1dcf11037e904dac3d375f525c9fbafcb19507b78907d8c18b>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ)] {
+      _bn: <BN: 16b7830c3f8a44c810ca87de56e032889c358ec75d4732bf7361862658acb2af>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(6R7bwnNJEEKrcWKrY64LKSmGTPaQsJMTDtuV8Z5fAjCX)] {
+      _bn: <BN: 5077d6ea2d779919ded2a6fc9ca68898bced92b969d50514c89fadeaefe33e4c>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(Fwp955krKJXiyYRY1Ex2VFcrMJD2kLBp8X7mxakRffPe)] {
+      _bn: <BN: de0e47f38500e737e6685d3d861ec044364dd63a995296a3d456a17253862d89>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE)] {
+      _bn: <BN: b5bbc87a85a188c167e8c8a973c358220dfeedf9aacb198080169936e050c183>
+    },
+    isWritable: true,
+    isSigner: true
+  },
+  {
+    pubkey: PublicKey [PublicKey(7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH)] {
+      _bn: <BN: 619e429a1de67854bd455ee6643f568d6236cde8e9442a3abf029f016faae630>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(11111111111111111111111111111111)] {
+      _bn: <BN: 0>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(7n1YeBMVEUCJ4DscKAcpVQd6KXU7VpcEcc15ZuMcL4U3)] {
+      _bn: <BN: 64addff32f7e70f064aaeb7199486126df6abfa7e1b33d41a4673fab17868534>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH)] {
+      _bn: <BN: 619e429a1de67854bd455ee6643f568d6236cde8e9442a3abf029f016faae630>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn)] {
+      _bn: <BN: 53b82142f29732a56fb6c88fa402fd18a1ddca13741d6ba73d3fcf9ae81021c1>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(AwrbHeCyniXaQhiJZkLhgWdUCteeWSGaSN1sTfLiY7xK)] {
+      _bn: <BN: 93c69e71c758b9a308dd542e1c7f6edbf4b2342a6b74a0ce955ea97675f85528>
+    },
+    isWritable: true,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP)] {
+      _bn: <BN: 70a3a32bf0513da92b05bed7ded97b739207b454ec7511f70803effbd7ca7ed6>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ)] {
+      _bn: <BN: a9e8e3f0cc7faf9e3d83bbc89f2a3ee83997cb1d181a51c09e8fe565c7c0d755>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW)] {
+      _bn: <BN: fadaeccd4478463214d9a94537bfa687a1e9176e12a48888491d9502f7dace21>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb)] {
+      _bn: <BN: 33cdb9fb56d28a2f028cbb36c254a7d54c92f0419b53e44ddcc0a5c373f854f2>
+    },
+    isWritable: true,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP)] {
+      _bn: <BN: 70a3a32bf0513da92b05bed7ded97b739207b454ec7511f70803effbd7ca7ed6>
+    },
+    isWritable: false,
+    isSigner: false
+  },
+  {
+    pubkey: PublicKey [PublicKey(CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ)] {
+      _bn: <BN: a9e8e3f0cc7faf9e3d83bbc89f2a3ee83997cb1d181a51c09e8fe565c7c0d755>
+    },
+    isWritable: false,
+    isSigner: false
+  }
+]

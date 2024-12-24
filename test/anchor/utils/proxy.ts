@@ -1,7 +1,7 @@
 import { AnchorProvider, Program, BN } from '@coral-xyz/anchor';
 import { SolanaProxy } from "../../../target/types/solana_proxy";
-import { stringToBytes32, getProxyAuthorityPda, printProxyAuthority, initProxy } from '../../../tasks/proxy/utils';
-import { ConfirmOptions } from '@solana/web3.js';
+import { stringToBytes32, getProxyAuthorityPda, printProxyAuthority, initProxy, getConfig } from '../../../tasks/proxy/utils';
+import { ConfirmOptions, PublicKey } from '@solana/web3.js';
 
 export const confirmOptions: ConfirmOptions = { maxRetries: 6, commitment: "confirmed", preflightCommitment: "confirmed" };
 
@@ -14,7 +14,9 @@ export const testInitProxy = async (provider: AnchorProvider, proxyProgram: Prog
         proxyAuthority = await proxyProgram.account.proxyAuthority.fetch(proxyAuthorityPda);
         printProxyAuthority("Proxy Authority already initialized", proxyAuthority);
     } catch {
-        await initProxy(provider, proxyProgram);
+        const config = getConfig();
+        const oftProgram = new PublicKey(config.oftProgramId);
+        await initProxy(provider, proxyProgram, oftProgram);
         proxyAuthority = await proxyProgram.account.proxyAuthority.fetch(proxyAuthorityPda);
         printProxyAuthority("Proxy Authority initialized:", proxyAuthority);
     }
