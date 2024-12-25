@@ -6,11 +6,11 @@ import { EventPDADeriver } from '@layerzerolabs/lz-solana-sdk-v2'
 import { publicKey as metaplexPublicKey } from '@metaplex-foundation/umi'
 import { toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
-import { getProxyAuthorityPda, setAnchor, getConfig, getDeployedProxyProgram, getOrderlyEid, bytes32ToEvmAddress } from './utils'
+import { getProxyAuthorityPda, setupAnchor, getConfig, getDeployedProxyProgram, getOrderlyEid, bytes32ToEvmAddress } from './utils'
 
 task('proxy:printConfig', 'Print Proxy and related PDA')
     .setAction(async () => {
-        const [provider, wallet] = setAnchor();
+        const [provider, wallet] = setupAnchor();
         const umi = createUmi(provider.connection)
         const config = getConfig();
 
@@ -28,10 +28,10 @@ task('proxy:printConfig', 'Print Proxy and related PDA')
         const oftProgramId = config.oftProgramId;
         console.log("OFT program ID:          ", oftProgramId);
         console.log("  - mint:                ", config.oftMint);
-        console.log("  - escrow ATA:          ", config.oftEscrow);
+        console.log("  - escrow ATA:          ", config.oftEscrowPda);
 
         const deriver = new OftPDA(metaplexPublicKey(oftProgramId));
-        const [oftStore] = deriver.oftStore(metaplexPublicKey(config.oftEscrow));
+        const [oftStore] = deriver.oftStore(metaplexPublicKey(config.oftEscrowPda));
         console.log("  - store PDA:           ", toWeb3JsPublicKey(oftStore).toBase58());
 
         const dstEid = getOrderlyEid();

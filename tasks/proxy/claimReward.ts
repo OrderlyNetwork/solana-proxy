@@ -1,7 +1,7 @@
 import { task } from 'hardhat/config'
 import { Program, workspace } from '@coral-xyz/anchor'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { createAndSendV0Tx, getProxyAuthorityPda, setAnchor, stringToBytes32 } from './utils'
+import { createAndSendV0Tx, getProxyAuthorityPda, setupAnchor, stringToBytes32 } from './utils'
 import { SolanaProxy } from '../../target/types/solana_proxy'
 import { ComputeBudgetProgram } from '@solana/web3.js'
 
@@ -25,7 +25,7 @@ task('proxy:claim-reward', 'Claim reward from the Solana network')
     .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', "0", devtoolsTypes.string)
     .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
     .setAction(async ({ distributionId, cumulativeAmount, merkleProof }: ClaimRewardTaskArgs) => {
-        const [provider, wallet] = setAnchor();
+        const [provider, wallet] = setupAnchor();
         const proxyProgram = workspace.SolanaProxy as Program<SolanaProxy>;
         const proxyAuthorityPda = getProxyAuthorityPda(proxyProgram.programId);
 

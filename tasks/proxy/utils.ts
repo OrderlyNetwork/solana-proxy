@@ -6,30 +6,61 @@ import { IDL, SolanaProxy } from "../../target/types/solana_proxy";
 import { EndpointId } from "@layerzerolabs/lz-definitions";
 import dev_config from "../../config/dev.json";
 import test_config from "../../config/test.json";
+import qa_config from "../../config/qa.json";
+import staging_config from "../../config/staging.json";
+import main_config from "../../config/main.json";
+import { getAccount, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { OftPDA, accounts, oft, instructions } from '@layerzerolabs/oft-v2-solana-sdk';
+import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2';
+import { publicKey as metaplexPublicKey, createNoopSigner } from '@metaplex-foundation/umi';
+import { fromWeb3JsPublicKey, toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities';
+import { hexlify } from '@layerzerolabs/lz-utilities';
+import { assert } from "console";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const VALID_ENVS = ["LOCAL", "DEV", "QA", "STAGING", "MAIN"];
+const LOCALHOST_RPC_URL = "http://localhost:8899";
+const SOLANA_DEVNET_RPC_URL = "https://api.devnet.solana.com";
+const SOLANA_MAINNET_RPC_URL = "https://api.mainnet-beta.solana.com";
 
 export function getEnv(): String {
-    const ENV = process.env.ENV;
+    let ENV = process.env.ENV;
     if (!ENV) {
-        throw new Error("Please set ENV variable in .env file (can be DEV, TEST, QA, STAGING, MAIN)");
+        throw new Error("Please set ENV variable in the .env file (can be LOCAL, DEV, QA, STAGING, MAIN)");
     }
-    return ENV.toUpperCase();
+
+    ENV = ENV.trim().toUpperCase();
+
+    if (!VALID_ENVS.includes(ENV)) {
+        throw new Error("Invalid ENV variable. It can be LOCAL, DEV, QA, STAGING, MAIN");
+    }
+
+    return ENV;
 }
 
-export function setAnchor(): [AnchorProvider, Wallet, string] {
-    console.log(`Running on ${getEnv()}`);
+export function setupAnchor(): [AnchorProvider, Wallet, string] {
+    const ENV = getEnv();
 
     let ANCHOR_PROVIDER_URL = process.env.ANCHOR_PROVIDER_URL;
     if (!ANCHOR_PROVIDER_URL) {
-        if (getEnv() === "MAIN" && !!process.env.RPC_URL_SOLANA) {
+        if (ENV === "LOCAL") {
+            process.env.RPC_URL_SOLANA_TESTNET = LOCALHOST_RPC_URL;
+            process.env.ANCHOR_PROVIDER_URL = process.env.RPC_URL_SOLANA_TESTNET;
+        } else if (ENV === "MAIN") {
+            process.env.RPC_URL_SOLANA = SOLANA_MAINNET_RPC_URL;
             process.env.ANCHOR_PROVIDER_URL = process.env.RPC_URL_SOLANA;
         } else {
+            process.env.RPC_URL_SOLANA_TESTNET = SOLANA_DEVNET_RPC_URL;
             process.env.ANCHOR_PROVIDER_URL = process.env.RPC_URL_SOLANA_TESTNET;
         }
     }
-    console.log('ANCHOR_PROVIDER_URL:', process.env.ANCHOR_PROVIDER_URL)
     const provider = AnchorProvider.env();
-    const rpc = provider.connection.rpcEndpoint;
     setProvider(provider);
+    const rpc = provider.connection.rpcEndpoint;
+    console.log(`Running on ${ENV} environment. Rpc: ${rpc}`)
     const wallet = provider.wallet as Wallet;
     return [provider, wallet, rpc];
 }
@@ -48,14 +79,23 @@ export function getOrderlyEid(): number {
     return EndpointId.ORDERLY_V2_TESTNET;
 }
 
-export function getConfig() {
+export function getConfigPath() {
     const ENV = getEnv();
-    if (ENV === "DEV") {
-        return dev_config;
-    } else if (ENV === "TEST") {
-        return test_config;
+    return join(__dirname, `../../config/${ENV.toLowerCase()}.json`);
+}
+
+export function getConfig(): any {
+    const configPath = getConfigPath();
+    try {
+        const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+        return config;
+    } catch (error) {
+        if (error instanceof Error) {
+            throw new Error(`Failed to load config file at ${configPath}: ${error.message}`);
+        } else {
+            throw new Error(`Failed to load config file at ${configPath}: Unknown error`);
+        }
     }
-    throw new Error("Invalid Environment");
 }
 
 export function getDeployedProxyProgram(provider: AnchorProvider): [PublicKey, Program<SolanaProxy>] {
@@ -70,10 +110,10 @@ export function stringToBytes32(str: string): number[] {
     return Array.from(bytes32);
 }
 
-export function getProxyAuthorityPda(PROXY_PROGRAM_ID: PublicKey): PublicKey {
+export function getProxyAuthorityPda(proxyProgramId: PublicKey): PublicKey {
     return PublicKey.findProgramAddressSync(
         [Buffer.from(PROXY_AUTHORITY_SEED, "utf8")],
-        PROXY_PROGRAM_ID
+        proxyProgramId
     )[0];
 }
 
@@ -154,4 +194,78 @@ export function bytes32ToEvmAddress(bytes32Address: Uint8Array): string {
         .join('');
 
     return evmAddress;
+}
+
+export async function getOftSendAccounts(provider: AnchorProvider, oftProgramIdStr: string, oftEscrowPdaStr: string, signerPubKey: PublicKey, dstEid: number) {
+    const umi = createUmi(provider.connection)
+
+    const oftProgramId = metaplexPublicKey(oftProgramIdStr)
+    const deriver = new OftPDA(oftProgramId);
+
+    const tokenEscrow = metaplexPublicKey(oftEscrowPdaStr)
+    const tokenEscrowInfo = await getAccount(provider.connection, new PublicKey(tokenEscrow))
+    const tokenMint = fromWeb3JsPublicKey(tokenEscrowInfo.mint);
+
+    const tokenSource = await getAssociatedTokenAddress(toWeb3JsPublicKey(tokenMint), signerPubKey, true)
+
+    const [oftStore] = deriver.oftStore(tokenEscrow)
+    const [peer] = deriver.peer(oftStore, dstEid)
+    const peerInfo = await accounts.fetchPeerConfig(umi, peer)
+
+    const [eventAuthorityPDA] = new EventPDADeriver(new PublicKey(oftProgramIdStr)).eventAuthority()
+    const tokenProgram = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
+    const helper = new SendHelper()
+
+    const txBuilder = instructions.send(
+        { programs: oft.createOFTProgramRepo(oftProgramId) },
+        {
+            signer: createNoopSigner(fromWeb3JsPublicKey(signerPubKey)),
+            peer: peer,
+            oftStore: oftStore,
+            tokenSource: fromWeb3JsPublicKey(tokenSource),
+            tokenEscrow: tokenEscrow,
+            tokenMint: tokenMint,
+            tokenProgram: tokenProgram,
+            eventAuthority: fromWeb3JsPublicKey(eventAuthorityPDA),
+            program: oftProgramId,
+
+            // The following parameters can be any value and will not affect obtaining the accounts.
+            dstEid: dstEid,
+            to: addressToBytes32('0xDead'),
+            amountLd: 1n,
+            minAmountLd: 1n,
+            options: new Uint8Array(),
+            composeMsg: null,
+            nativeFee: 0n,
+            lzTokenFee: 0n,
+        }
+    )
+
+    // Get remaining accounts from msgLib(simple_msgLib or uln)
+    const ix = txBuilder.addRemainingAccounts(
+        (
+            await helper.getSendAccounts(
+                provider.connection,
+                signerPubKey,
+                toWeb3JsPublicKey(oftStore),
+                dstEid,
+                hexlify(peerInfo.peerAddress)
+            )
+        ).map((acc) => {
+            return {
+                pubkey: fromWeb3JsPublicKey(acc.pubkey),
+                isSigner: acc.isSigner,
+                isWritable: acc.isWritable,
+            }
+        })
+    ).items[0]
+
+    return [
+        {
+            pubkey: ix.instruction.programId,
+            isSigner: false,
+            isWritable: false,
+        },
+        ...ix.instruction.keys,
+    ]
 }

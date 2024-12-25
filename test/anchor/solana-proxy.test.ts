@@ -6,7 +6,7 @@ describe("solana-proxy", () => {
     const jestConsole = console;
     global.console = require('console');
 
-    process.env.ENV = "TEST";
+    process.env.ENV = "LOCAL";
     const provider = AnchorProvider.local(undefined, { commitment: 'confirmed', preflightCommitment: 'confirmed', })
     const wallet = provider.wallet as Wallet
     const connection = provider.connection

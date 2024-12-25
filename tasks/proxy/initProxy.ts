@@ -1,7 +1,7 @@
 import { task } from 'hardhat/config'
 import { Program, workspace } from '@coral-xyz/anchor'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { getProxyAuthorityPda, setAnchor, initProxy, printProxyAuthority } from './utils'
+import { getProxyAuthorityPda, setupAnchor, initProxy, printProxyAuthority } from './utils'
 import { SolanaProxy } from '../../target/types/solana_proxy'
 import { PublicKey } from '@solana/web3.js'
 
@@ -25,7 +25,7 @@ task('proxy:init', 'Create and init Proxy Authority PDA')
     .addParam('oftProgramId', 'The OFT program ID, Proxy will connect to', undefined, devtoolsTypes.string)
     .addFlag('force', 'Force reinitialization of the proxy authority')
     .setAction(async ({ nonce, oftProgramId, force }: InitProxyTaskArgs) => {
-        const [provider] = setAnchor();
+        const [provider] = setupAnchor();
         const proxyProgram = workspace.SolanaProxy as Program<SolanaProxy>;
         const proxyAuthorityPda = getProxyAuthorityPda(proxyProgram.programId);
 
