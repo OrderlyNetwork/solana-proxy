@@ -4,11 +4,6 @@ import { ethers } from 'ethers';
 import { DEV_PROXY_PROGRAM_ID, MAIN_PROXY_PROGRAM_ID, PROXY_AUTHORITY_SEED, QA_PROXY_PROGRAM_ID, STAGING_PROXY_PROGRAM_ID } from "./constants";
 import { IDL, SolanaProxy } from "../../target/types/solana_proxy";
 import { EndpointId } from "@layerzerolabs/lz-definitions";
-import dev_config from "../../config/dev.json";
-import test_config from "../../config/test.json";
-import qa_config from "../../config/qa.json";
-import staging_config from "../../config/staging.json";
-import main_config from "../../config/main.json";
 import { getAccount, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { OftPDA, accounts, oft, instructions } from '@layerzerolabs/oft-v2-solana-sdk';
 import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2';
@@ -17,7 +12,6 @@ import { fromWeb3JsPublicKey, toWeb3JsPublicKey } from '@metaplex-foundation/umi
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities';
 import { hexlify } from '@layerzerolabs/lz-utilities';
-import { assert } from "console";
 import { readFileSync } from "fs";
 import { join } from "path";
 

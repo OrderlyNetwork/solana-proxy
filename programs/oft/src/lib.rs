@@ -92,10 +92,25 @@ pub mod oft {
 }
 
 #[derive(Accounts)]
-pub struct OFTVersion {}
+pub struct OFTVersion<'info> {
+    pub system_program: Program<'info, System>,
+}
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct Version {
     pub interface: u64,
     pub message: u64,
+}
+
+#[cfg(feature = "cpi")]
+pub trait ConstructCPIContext<'a, 'b, 'c, 'info, T>
+where
+    T: ToAccountMetas + ToAccountInfos<'info>,
+{
+    const MIN_ACCOUNTS_LEN: usize;
+
+    fn construct_context(
+        program_id: Pubkey,
+        accounts: &[AccountInfo<'info>],
+    ) -> Result<CpiContext<'a, 'b, 'c, 'info, T>>;
 }

@@ -1371,8 +1371,10 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "cpi-helper",
  "oapp",
  "solana-helper",
+ "solana-program",
  "utils",
 ]
 
@@ -1948,6 +1950,8 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "oapp",
+ "oft",
  "solana-program",
 ]
 

@@ -3,9 +3,10 @@ use anchor_spl::token_interface::{
     self, Burn, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 use oapp::endpoint::{instructions::SendParams as EndpointSendParams, MessagingReceipt};
+use cpi_helper::CpiContext;
 
 #[event_cpi]
-#[derive(Accounts)]
+#[derive(CpiContext, Accounts)]
 #[instruction(params: SendParams)]
 pub struct Send<'info> {
     pub signer: Signer<'info>,

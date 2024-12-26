@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 
 use crate::{state::ProxyAuthority, PROXY_AUTHORITY_SEED};
+use oft::{cpi::accounts::Send, instructions::OFTReceipt, ConstructCPIContext};
+use oapp::endpoint::MessagingReceipt;
 
 #[derive(Accounts)]
 #[instruction(params: ClaimRewardParams)]
@@ -16,16 +18,33 @@ pub struct ClaimReward<'info> {
 }
 
 impl ClaimReward<'_> {
-	pub fn apply(_ctx: &mut Context<ClaimReward>, params: &ClaimRewardParams) -> Result<()> {
+	pub fn apply(ctx: &mut Context<ClaimReward>, claim_reward_params: &ClaimRewardParams, oapp_params: &OAppSendParams) -> Result<(MessagingReceipt, OFTReceipt)> {
 		msg!("ClaimReward instruction called");
-		msg!("distribution_id: {}", params.distribution_id);
-		msg!("cumulative_amount: {:?}", params.cumulative_amount);
-		msg!("merkle_proof: {:?}", params.merkle_proof);
+		msg!("distribution_id: {}", claim_reward_params.distribution_id);
+		msg!("cumulative_amount: {:?}", claim_reward_params.cumulative_amount);
+		msg!("merkle_proof: {:?}", claim_reward_params.merkle_proof);
+		msg!("native_fee: {}", oapp_params.native_fee);
+		msg!("lz_token_fee: {}", oapp_params.lz_token_fee);
 
-		let params_encoded = params.encode();
+		let params_encoded = claim_reward_params.encode();
 		msg!("Encoded params: {:?}", params_encoded);
 
-		Ok(())
+		let send_params = oft::instructions::SendParams {
+			dst_eid: ctx.accounts.proxy_authority.dst_eid,
+			to: ctx.accounts.proxy_authority.occ_manager_address,
+			amount_ld: 0,
+			min_amount_ld: 0,
+			options: vec![],
+			compose_msg: None,
+			native_fee: oapp_params.native_fee,
+			lz_token_fee: oapp_params.lz_token_fee,
+		};
+
+		let cpi_context = Send::construct_context(ctx.accounts.proxy_authority.oft_program, ctx.remaining_accounts)?;
+
+		let rtn = oft::cpi::send(cpi_context, send_params)?;
+
+		Ok(rtn.get())
 	}
 }
 
@@ -47,4 +66,10 @@ impl ClaimRewardParams {
 		}
 		buf
 	}
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+pub struct OAppSendParams {
+    pub native_fee: u64,
+    pub lz_token_fee: u64,
 }

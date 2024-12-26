@@ -1,5 +1,5 @@
 import { task } from 'hardhat/config'
-import { Program, workspace } from '@coral-xyz/anchor'
+import { Program, workspace, BN } from '@coral-xyz/anchor'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
 import { createAndSendV0Tx, getProxyAuthorityPda, setupAnchor, stringToBytes32 } from './utils'
 import { SolanaProxy } from '../../target/types/solana_proxy'
@@ -48,7 +48,15 @@ task('proxy:claim-reward', 'Claim reward from the Solana network')
             proxyAuthority: proxyAuthorityPda
         };
 
-        const ixClaimReward = await proxyProgram.methods.claimReward(claimRewardParams).accounts(claimRewardAccounts).instruction();
+        // TODO: Call quote to get the fee
+        const nativeFee = 123456;
+
+        const sendParam = {
+            nativeFee: new BN(nativeFee),
+            lzTokenFee: new BN(0),
+        }
+
+        const ixClaimReward = await proxyProgram.methods.claimReward(claimRewardParams, sendParam).accounts(claimRewardAccounts).instruction();
         const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 });
 
         await createAndSendV0Tx(
