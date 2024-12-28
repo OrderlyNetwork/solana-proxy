@@ -8,7 +8,7 @@
   "oftMintAuthorityPda": "EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm",
   "orderlyEid": 40200,
   "solanaEid": 40168,
-  "proxyAuthorityPda": "F1SvpRRicfNKfky49kqW5gZkeBQqSh2XmQBvCvPULbw1",
+  "proxyConfigPda": "F1SvpRRicfNKfky49kqW5gZkeBQqSh2XmQBvCvPULbw1",
   "peerPda": "G6VK2LVKfZf3R7gt23GRGavsPkw9mutcXFnSELD4pRNh",
   "oftStorePda": "AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg",
   "proxyAta": "8tWoPL7k9b4RBGw8C6kH3pC2DwwungmRnY3HYm9C4418",
@@ -45,7 +45,7 @@ OFT send accounts for Proxy: [
     isWritable: false
   },
   {
-    signer - Proxy Authority PDA
+    signer - Proxy Config PDA
     pubkey: 'F1SvpRRicfNKfky49kqW5gZkeBQqSh2XmQBvCvPULbw1',
     isSigner: true,
     isWritable: false
@@ -178,7 +178,7 @@ OFT send accounts for Proxy: [
     isWritable: false
   },
   {
-    signer - Proxy Authority PDA
+    signer - Proxy Config PDA
     pubkey: 'F1SvpRRicfNKfky49kqW5gZkeBQqSh2XmQBvCvPULbw1',
     isSigner: true,
     isWritable: true

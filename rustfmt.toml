@@ -1,0 +1,36 @@
+# Basic
+edition = "2024"
+hard_tabs = false
+max_width = 150
+use_small_heuristics = "Max"
+tab_spaces = 4
+
+# Imports
+imports_granularity = "Preserve"
+reorder_imports = true
+reorder_modules = true
+
+# Consistency
+newline_style = "Unix"
+
+# Format comments
+comment_width = 150
+wrap_comments = true
+
+# Misc
+chain_width = 80
+spaces_around_ranges = false
+binop_separator = "Front"
+reorder_impl_items = false
+match_arm_leading_pipes = "Preserve"
+match_arm_blocks = true
+match_block_trailing_comma = true
+trailing_comma = "Vertical"
+trailing_semicolon = true
+use_field_init_shorthand = true
+remove_nested_parens = true
+merge_derives = true
+use_try_shorthand = false
+force_explicit_abi = true
+normalize_comments = true
+normalize_doc_attributes = true

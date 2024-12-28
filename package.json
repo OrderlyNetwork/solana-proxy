@@ -45,7 +45,7 @@
     "@layerzerolabs/oapp-evm": "^0.3.0",
     "@layerzerolabs/oft-evm": "^3.1.0",
     "@layerzerolabs/oft-v2-solana-sdk": "3.0.0",
-    "@layerzerolabs/prettier-config-next": "^2.3.39",
+    "@layerzerolabs/prettier-config-next": "3.0.36",
     "@layerzerolabs/protocol-devtools": "^1.1.2",
     "@layerzerolabs/protocol-devtools-evm": "~3.0.3",
     "@layerzerolabs/protocol-devtools-solana": "^4.0.3",
@@ -101,7 +101,8 @@
     "solhint": "^4.1.1",
     "solidity-bytes-utils": "^0.8.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.4"
+    "typescript": "^5.4.4",
+    "web3-validator": "^2.0.6"
   },
   "engines": {
     "node": ">=18.16.0"

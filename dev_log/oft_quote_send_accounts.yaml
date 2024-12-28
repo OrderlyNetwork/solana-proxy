@@ -1,0 +1,112 @@
+Quote remaining accounts: [
+  {
+    pubkey: 'rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'G6VK2LVKfZf3R7gt23GRGavsPkw9mutcXFnSELD4pRNh',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'DFQfCeNpWYZCxaUA1qcwnACHuM8LjNnVMQH7yeopw9Jh',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '3hfYq9afjFbedp4GZk6n9ZefuCbhvgf4z4Jiyw2QEEPY',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '526PeNZfw8kSnDU4nmzJFVJzJWNhwmZykEyJr5XWz5Fv',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '2uk9pQh3tB5ErV7LGQJcbWjb4KeJ2UJki5qJZ8QG56G3',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'GQGf8sqsCDbUTVYuUNJZ4Y49DD7vgHxdavDqzv1Xhkpr',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '6R7bwnNJEEKrcWKrY64LKSmGTPaQsJMTDtuV8Z5fAjCX',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'Fwp955krKJXiyYRY1Ex2VFcrMJD2kLBp8X7mxakRffPe',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'AwrbHeCyniXaQhiJZkLhgWdUCteeWSGaSN1sTfLiY7xK',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: '8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    pubkey: 'CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ',
+    isSigner: false,
+    isWritable: false
+  }
+]
