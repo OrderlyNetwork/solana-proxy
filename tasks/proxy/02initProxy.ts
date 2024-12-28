@@ -8,6 +8,7 @@ import {
     printProxyConfig,
     getConfig,
     getDeployedProxyProgram,
+    updateConfig,
 } from './utils'
 import { SolanaProxy } from '../../target/types/solana_proxy'
 import { PublicKey } from '@solana/web3.js'
@@ -65,5 +66,7 @@ task('proxy:init', 'Create and init Proxy Config PDA')
             await initProxy(provider, proxyProgram, oftProgramId, mintPda, config.occManagerAddress)
             const proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
             printProxyConfig('Proxy Config initialized:', proxyConfig)
+
+            updateConfig(config)
         }
     })

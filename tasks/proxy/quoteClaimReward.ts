@@ -1,7 +1,16 @@
 import { task } from 'hardhat/config'
 import { Program, workspace, BN } from '@coral-xyz/anchor'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { createAndSendV0Tx, getConfig, getOftQuoteSendAccounts, getOrderlyEid, getProxyConfigPda, metaplexToWeb3AccountMetaArray, setupAnchor, amountStrToBytes32 } from './utils'
+import {
+    createAndSendV0Tx,
+    getConfig,
+    getOftQuoteSendAccounts,
+    getOrderlyEid,
+    getProxyConfigPda,
+    metaplexToWeb3AccountMetaArray,
+    setupAnchor,
+    amountStrToBytes32,
+} from './utils'
 import { SolanaProxy } from '../../target/types/solana_proxy'
 import { AccountMeta, ComputeBudgetProgram } from '@solana/web3.js'
 
@@ -22,13 +31,13 @@ interface ClaimRewardTaskArgs {
 
 task('proxy:quote-claim-reward', 'Quote claim reward cross-chain fee')
     .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
-    .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', "0", devtoolsTypes.string)
+    .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', '0', devtoolsTypes.string)
     .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
     .setAction(async ({ distributionId, cumulativeAmount, merkleProof }: ClaimRewardTaskArgs) => {
-        const config = getConfig();
-        const [provider, wallet] = setupAnchor();
-        const proxyProgram = workspace.SolanaProxy as Program<SolanaProxy>;
-        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId);
+        const config = getConfig()
+        const [provider, wallet] = setupAnchor()
+        const proxyProgram = workspace.SolanaProxy as Program<SolanaProxy>
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
 
         console.log('Quote claim reward cross-chain fee...')
         console.log('Distribution ID:', distributionId)
@@ -36,42 +45,48 @@ task('proxy:quote-claim-reward', 'Quote claim reward cross-chain fee')
         console.log('Merkle proof:', merkleProof)
         console.log('Proxy program ID:', proxyProgram.programId.toBase58())
 
-        const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount);
-        const proofArray = merkleProof.map((p) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))));
+        const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount)
+        const proofArray = merkleProof.map((p) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
 
         const claimRewardParams = {
             distributionId: distributionId,
             cumulativeAmount: cumulativeAmountArray,
             merkleProof: proofArray,
-        };
+        }
 
         const quoteClaimRewardAccounts = {
-            proxyConfig: proxyConfigPda
-        };
+            proxyConfig: proxyConfigPda,
+        }
 
-        const metaplexQuoteRemainingAccounts = await getOftQuoteSendAccounts(provider, config.oftProgramId, config.oftEscrowPda, proxyConfigPda, getOrderlyEid());
+        const metaplexQuoteRemainingAccounts = await getOftQuoteSendAccounts(
+            provider,
+            config.oftProgramId,
+            config.oftEscrowAta,
+            proxyConfigPda,
+            getOrderlyEid()
+        )
 
-        console.log('Quote remaining accounts:', metaplexQuoteRemainingAccounts);
+        console.log('Quote remaining accounts:', metaplexQuoteRemainingAccounts)
 
-        const web3QuoteClaimRewardAccounts = metaplexToWeb3AccountMetaArray(metaplexQuoteRemainingAccounts);
+        const web3QuoteClaimRewardAccounts = metaplexToWeb3AccountMetaArray(metaplexQuoteRemainingAccounts)
 
-        console.log('web3 quote remaining accounts:', web3QuoteClaimRewardAccounts);
+        console.log('web3 quote remaining accounts:', web3QuoteClaimRewardAccounts)
 
         try {
             const { lzTokenFee, nativeFee } = await proxyProgram.methods
                 .quoteClaimReward(claimRewardParams)
                 .accounts(quoteClaimRewardAccounts)
                 .remainingAccounts(web3QuoteClaimRewardAccounts)
-                .view();
+                .view()
             // const { lzTokenFee, nativeFee } = await proxyProgram.methods
             //     .quoteClaimReward(claimRewardParams)
             //     .accounts(quoteClaimRewardAccounts)
             //     .view();
 
-            console.log('Quote claim reward cross-chain fee:');
-            console.log('Native fee:', nativeFee.toString());
-            console.log('LZ token fee:', lzTokenFee.toString());
+            console.log('Quote claim reward cross-chain fee:')
+            console.log('Native fee:', nativeFee.toString())
+            console.log('LZ token fee:', lzTokenFee.toString())
         } catch (e) {
-            console.error('Failed to quote claim reward cross-chain fee:', e);
+            console.error('Failed to quote claim reward cross-chain fee:', e)
         }
     })

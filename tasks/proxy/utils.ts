@@ -30,10 +30,8 @@ import { hexlify } from '@layerzerolabs/lz-utilities'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { sleep } from '@layerzerolabs/io-devtools'
-import { findAssociatedTokenPda } from '@metaplex-foundation/mpl-toolbox'
-import { Bytes32 } from '@layerzerolabs/devtools'
-import { associated } from '@coral-xyz/anchor/dist/cjs/utils/pubkey'
 import { isAddress } from 'web3-validator'
+import fs from 'fs'
 
 const PROXY_CONFIG_SEED = 'ProxyConfig'
 const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
@@ -111,6 +109,13 @@ export function getConfig(): any {
             throw new Error(`Failed to load config file at ${configPath}: Unknown error`)
         }
     }
+}
+
+export function updateConfig(config: any) {
+    console.log('Updated config:', config)
+    const configPath = getConfigPath()
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+    console.log(`Config saved to ${configPath}\n`)
 }
 
 export function getDeployedProxyProgram(provider: AnchorProvider): Program<SolanaProxy> {
@@ -275,19 +280,18 @@ export function metaplexToWeb3AccountMetaArray(metaplexAccountMetaArray: Metaple
     })
 }
 
-export async function getOftQuoteSendAccounts(
+async function getCommonOftAccounts(
     provider: AnchorProvider,
     oftProgramIdStr: string,
-    oftEscrowPdaStr: string,
-    signerPubKey: PublicKey,
+    oftEscrowAtaStr: string,
     dstEid: number
-): Promise<MetaplexAccountMeta[]> {
+) {
     const umi = createUmi(provider.connection)
 
     const oftProgramId = metaplexPublicKey(oftProgramIdStr)
     const deriver = new OftPDA(oftProgramId)
 
-    const tokenEscrow = metaplexPublicKey(oftEscrowPdaStr)
+    const tokenEscrow = metaplexPublicKey(oftEscrowAtaStr)
     const tokenEscrowInfo = await getAccount(provider.connection, new PublicKey(tokenEscrow))
     const tokenMint = fromWeb3JsPublicKey(tokenEscrowInfo.mint)
 
@@ -295,22 +299,45 @@ export async function getOftQuoteSendAccounts(
     const [peer] = deriver.peer(oftStore, dstEid)
     const peerInfo = await accounts.fetchPeerConfig(umi, peer)
 
-    const helper = new SendHelper()
+    const sendHelper = new SendHelper()
+
+    return { oftProgramId, tokenEscrow, tokenMint, oftStore, peer, peerInfo, sendHelper }
+}
+
+function fakeSendInstructionData(dstEid: number) {
+    return {
+        dstEid: dstEid,
+        to: addressToBytes32('0xDead'),
+        amountLd: 1n,
+        minAmountLd: 1n,
+        options: new Uint8Array(),
+        composeMsg: null,
+    }
+}
+
+export async function getOftQuoteSendAccounts(
+    provider: AnchorProvider,
+    oftProgramIdStr: string,
+    oftEscrowAtaStr: string,
+    signerPubKey: PublicKey,
+    dstEid: number
+): Promise<MetaplexAccountMeta[]> {
+    const { oftProgramId, tokenMint, oftStore, peer, peerInfo, sendHelper } = await getCommonOftAccounts(
+        provider,
+        oftProgramIdStr,
+        oftEscrowAtaStr,
+        dstEid
+    )
 
     const txBuilder = instructions.quoteSend(
         { programs: oft.createOFTProgramRepo(oftProgramId) },
         {
-            peer: peer,
             oftStore: oftStore,
+            peer: peer,
             tokenMint: tokenMint,
 
             // The following parameters can be any value and will not affect obtaining the accounts.
-            dstEid: dstEid,
-            to: addressToBytes32('0xDead'),
-            amountLd: 1n,
-            minAmountLd: 1n,
-            options: new Uint8Array(),
-            composeMsg: null,
+            ...fakeSendInstructionData(dstEid),
             payInLzToken: false,
         }
     )
@@ -318,7 +345,7 @@ export async function getOftQuoteSendAccounts(
     // Get remaining accounts from msgLib(simple_msgLib or uln)
     const ix = txBuilder.addRemainingAccounts(
         (
-            await helper.getQuoteAccounts(
+            await sendHelper.getQuoteAccounts(
                 provider.connection,
                 signerPubKey,
                 toWeb3JsPublicKey(oftStore),
@@ -347,28 +374,20 @@ export async function getOftQuoteSendAccounts(
 export async function getOftSendAccounts(
     provider: AnchorProvider,
     oftProgramIdStr: string,
-    oftEscrowPdaStr: string,
+    oftEscrowAtaStr: string,
     signerPubKey: PublicKey,
     dstEid: number
 ): Promise<MetaplexAccountMeta[]> {
-    const umi = createUmi(provider.connection)
+    const { oftProgramId, tokenEscrow, tokenMint, oftStore, peer, peerInfo, sendHelper } = await getCommonOftAccounts(
+        provider,
+        oftProgramIdStr,
+        oftEscrowAtaStr,
+        dstEid
+    )
 
-    const oftProgramId = metaplexPublicKey(oftProgramIdStr)
-    const deriver = new OftPDA(oftProgramId)
-
-    const tokenEscrow = metaplexPublicKey(oftEscrowPdaStr)
-    const tokenEscrowInfo = await getAccount(provider.connection, toWeb3JsPublicKey(tokenEscrow))
-    const tokenMint = tokenEscrowInfo.mint
-
-    const signerAta = await getAssociatedTokenAddress(tokenMint, signerPubKey, true)
-
-    const [oftStore] = deriver.oftStore(tokenEscrow)
-    const [peer] = deriver.peer(oftStore, dstEid)
-    const peerInfo = await accounts.fetchPeerConfig(umi, peer)
-
+    const signerAta = await getAssociatedTokenAddress(toWeb3JsPublicKey(tokenMint), signerPubKey, true)
     const [eventAuthorityPDA] = new EventPDADeriver(new PublicKey(oftProgramIdStr)).eventAuthority()
     const tokenProgram = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
-    const helper = new SendHelper()
 
     const txBuilder = instructions.send(
         { programs: oft.createOFTProgramRepo(oftProgramId) },
@@ -378,18 +397,13 @@ export async function getOftSendAccounts(
             oftStore: oftStore,
             tokenSource: fromWeb3JsPublicKey(signerAta),
             tokenEscrow: tokenEscrow,
-            tokenMint: fromWeb3JsPublicKey(tokenMint),
+            tokenMint: tokenMint,
             tokenProgram: tokenProgram,
             eventAuthority: fromWeb3JsPublicKey(eventAuthorityPDA),
             program: oftProgramId,
 
             // The following parameters can be any value and will not affect obtaining the accounts.
-            dstEid: dstEid,
-            to: addressToBytes32('0xDead'),
-            amountLd: 1n,
-            minAmountLd: 1n,
-            options: new Uint8Array(),
-            composeMsg: null,
+            ...fakeSendInstructionData(dstEid),
             nativeFee: 0n,
             lzTokenFee: 0n,
         }
@@ -398,7 +412,7 @@ export async function getOftSendAccounts(
     // Get remaining accounts from msgLib(simple_msgLib or uln)
     const ix = txBuilder.addRemainingAccounts(
         (
-            await helper.getSendAccounts(
+            await sendHelper.getSendAccounts(
                 provider.connection,
                 signerPubKey,
                 toWeb3JsPublicKey(oftStore),
@@ -424,179 +438,51 @@ export async function getOftSendAccounts(
     ]
 }
 
-export function getOftSendRemainingAccounts(wallet: Wallet): AccountMeta[] {
+function accountMeta(pubkey: string | PublicKey, isSigner: boolean, isWritable: boolean): AccountMeta {
+    return { pubkey: (pubkey = typeof pubkey === 'string' ? new PublicKey(pubkey) : pubkey), isSigner, isWritable }
+}
+
+export function getOftSendRemainingAccounts(): AccountMeta[] {
     const config = getConfig()
     const remainingAccounts = [
-        {
-            pubkey: new PublicKey(config.oftProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.proxyConfigPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.peerPda),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: new PublicKey(config.oftStorePda),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: getAssociatedTokenAddressSync(new PublicKey(config.mintPda), wallet.publicKey),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: new PublicKey(config.oftEscrowPda),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: new PublicKey(config.mintPda),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: TOKEN_PROGRAM_ID,
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.endpointV2ProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.oftStorePda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.sendLibProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.sendLibConfigPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.defaultSendLibConfigPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.sendLibInfoPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.endpointSettingsPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.noncePda),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: new PublicKey(config.eventAuthorityPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.endpointV2ProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.ulnsettingsPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.sendConfigPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.defaultSendConfigPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: wallet.publicKey,
-            isSigner: true,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.treasuryProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.ulnEventAuthorityPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.sendLibProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.executorProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.executorConfigPda),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: new PublicKey(config.priceFeedProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.priceFeedConfigPda),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.dvnProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.dvnConfigPda),
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: new PublicKey(config.priceFeedProgramId),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: new PublicKey(config.priceFeedConfigPda),
-            isSigner: false,
-            isWritable: false,
-        },
+        // ----------- Oft send addresses -----------
+        accountMeta(config.oftProgramId, false, false),
+        accountMeta(config.proxyConfigPda, false, false),
+        accountMeta(config.peerPda, false, true),
+        accountMeta(config.oftStorePda, false, true),
+        accountMeta(config.proxyEscrowAta, false, true),
+        accountMeta(config.oftEscrowAta, false, true),
+        accountMeta(config.mintPda, false, true),
+        accountMeta(TOKEN_PROGRAM_ID, false, false),
+        // ----------- Endpoint V2 send addresses -----------
+        accountMeta(config.endpointV2ProgramId, false, false),
+        accountMeta(config.oftStorePda, false, false),
+        accountMeta(config.sendLibProgramId, false, false),
+        accountMeta(config.sendLibConfigPda, false, false),
+        accountMeta(config.defaultSendLibConfigPda, false, false),
+        accountMeta(config.sendLibInfoPda, false, false),
+        accountMeta(config.endpointSettingsPda, false, false),
+        accountMeta(config.noncePda, false, true),
+        // ----------- Unknown part -----------
+        accountMeta(config.eventAuthorityPda, false, false),
+        accountMeta(config.endpointV2ProgramId, false, false),
+        accountMeta(config.ulnsettingsPda, false, false),
+        accountMeta(config.sendConfigPda, false, false),
+        accountMeta(config.defaultSendConfigPda, false, false),
+        accountMeta(config.proxyConfigPda, true, false),
+        accountMeta(config.treasuryProgramId, false, false),
+        accountMeta(SystemProgram.programId, false, false),
+        accountMeta(config.ulnEventAuthorityPda, false, false),
+        // ----------- Send (Message) Library send addresses -----------
+        accountMeta(config.sendLibProgramId, false, false),
+        accountMeta(config.executorProgramId, false, false),
+        accountMeta(config.executorConfigPda, false, true),
+        accountMeta(config.priceFeedProgramId, false, false),
+        accountMeta(config.priceFeedConfigPda, false, false),
+        accountMeta(config.dvnProgramId, false, false),
+        accountMeta(config.dvnConfigPda, false, true),
+        accountMeta(config.priceFeedProgramId, false, false),
+        accountMeta(config.priceFeedConfigPda, false, false),
     ]
 
     return remainingAccounts

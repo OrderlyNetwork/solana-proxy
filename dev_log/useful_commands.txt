@@ -1,10 +1,8 @@
 =============== Switch to devnet ===============
-solana config set --url devnet
-set ENV="DEV" in .env
+pnpm env:dev
 
 =============== Switch to localhost ===============
-solana config set --url localhost
-set ENV="LOCAL" in .env
+pnpm env:local
 
 =============== Check current Solana config ===============
 solana config get
@@ -12,9 +10,14 @@ solana config get
 =============== Setup local solana node ===============
 solana-test-validator --clone-upgradeable-program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa --clone-upgradeable-program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 --clone-upgradeable-program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH --clone-upgradeable-program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn --clone-upgradeable-program 8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP --clone-upgradeable-program HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW -c 2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i -c AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg -c G6VK2LVKfZf3R7gt23GRGavsPkw9mutcXFnSELD4pRNh -c 8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN -c DFQfCeNpWYZCxaUA1qcwnACHuM8LjNnVMQH7yeopw9Jh -c 3hfYq9afjFbedp4GZk6n9ZefuCbhvgf4z4Jiyw2QEEPY -c 526PeNZfw8kSnDU4nmzJFVJzJWNhwmZykEyJr5XWz5Fv -c 2uk9pQh3tB5ErV7LGQJcbWjb4KeJ2UJki5qJZ8QG56G3 -c GQGf8sqsCDbUTVYuUNJZ4Y49DD7vgHxdavDqzv1Xhkpr -c 2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ -c 6R7bwnNJEEKrcWKrY64LKSmGTPaQsJMTDtuV8Z5fAjCX -c Fwp955krKJXiyYRY1Ex2VFcrMJD2kLBp8X7mxakRffPe -c AwrbHeCyniXaQhiJZkLhgWdUCteeWSGaSN1sTfLiY7xK -c CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ -c 4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb --url devnet --reset
 
-=============== Deploy and init proxy ===============
+=============== Deploy proxy ===============
 anchor deploy -p solana-proxy
-npx hardhat proxy:init
+
+=============== Update config ===============
+npx hardhat proxy:updateConfig --proxy-program-id 8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv --oft-program-id rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa --oft-escrow-ata 2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i
+
+=============== Initialize proxy ===============
+npx hardhat proxy:init --occ-manager-address '0xc0ffee254729296a45a3885639AC7E10F9d54979'
 
 =============== Create lookup table ===============
 npx hardhat proxy:createLookupTable

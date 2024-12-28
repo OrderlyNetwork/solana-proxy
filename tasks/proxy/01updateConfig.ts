@@ -6,12 +6,12 @@ import { fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import assert from 'assert'
 import fs from 'fs'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { setupAnchor, getConfig, getOrderlyEid, getProxyConfigPda, getOftSendAccounts, getConfigPath } from './utils'
+import { setupAnchor, getConfig, getOrderlyEid, getProxyConfigPda, getOftSendAccounts, getConfigPath, updateConfig } from './utils'
 
 interface UpdateConfigTaskArgs {
     proxyProgramId?: string
     oftProgramId?: string
-    oftEscrowPda?: string
+    oftEscrowAta?: string
 }
 
 /// Calling this task will find and update values in the Proxy config.
@@ -37,12 +37,12 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
         devtoolsTypes.string
     )
     .addOptionalParam(
-        'oftEscrowPda',
+        'oftEscrowAta',
         'OFT escrow ATA. If not provided, it will be taken from the config if exists',
         undefined,
         devtoolsTypes.string
     )
-    .setAction(async ({ proxyProgramId, oftProgramId, oftEscrowPda }: UpdateConfigTaskArgs) => {
+    .setAction(async ({ proxyProgramId, oftProgramId, oftEscrowAta }: UpdateConfigTaskArgs) => {
         const config = getConfig()
 
         if (proxyProgramId) {
@@ -63,11 +63,13 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
             )
         }
 
-        if (oftEscrowPda) {
-            config.oftEscrowPda = new PublicKey(oftEscrowPda).toBase58()
-            console.log(`oftEscrowPda updated in config: ${config.oftEscrowPda}`)
-        } else if (!config.oftEscrowPda) {
-            throw new Error('Please either define oftEscrowPda in the config or pass it as a parameter --oft-escrow')
+        if (oftEscrowAta) {
+            config.oftEscrowAta = new PublicKey(oftEscrowAta).toBase58()
+            console.log(`oftEscrowAta updated in config: ${config.oftEscrowAta}`)
+        } else if (!config.oftEscrowAta) {
+            throw new Error(
+                'Please either define oftEscrowAta in the config or pass it as a parameter --oft-escrow-ata'
+            )
         }
 
         const [provider] = setupAnchor()
@@ -78,7 +80,7 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
         const oftSendAccounts = await getOftSendAccounts(
             provider,
             config.oftProgramId,
-            config.oftEscrowPda,
+            config.oftEscrowAta,
             proxyConfigPda,
             getOrderlyEid()
         )
@@ -98,9 +100,9 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
         )
         config.peerPda = oftSendAccounts[2].pubkey.toString()
         config.oftStorePda = oftSendAccounts[3].pubkey.toString()
-        config.proxyAta = oftSendAccounts[4].pubkey.toString()
+        config.proxyEscrowAta = oftSendAccounts[4].pubkey.toString()
         assert(
-            oftSendAccounts[5].pubkey == metaplexPublicKey(config.oftEscrowPda),
+            oftSendAccounts[5].pubkey == metaplexPublicKey(config.oftEscrowAta),
             'Sixth OFT send account should be OFT escrow ATA'
         )
         config.mintPda = oftSendAccounts[6].pubkey.toString()
@@ -161,14 +163,10 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
             'Thirty-sixth OFT send account should be Price Feed config PDA'
         )
 
-        console.log('Updated config:', config)
-
-        const configPath = getConfigPath()
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
-        console.log(`Config saved to ${configPath}\n`)
+        updateConfig(config)
 
         console.log('Execute the following command to set up local solana node:\n')
         console.log(
-            `solana-test-validator --clone-upgradeable-program ${config.oftProgramId} --clone-upgradeable-program ${config.endpointV2ProgramId} --clone-upgradeable-program ${config.sendLibProgramId} --clone-upgradeable-program ${config.executorProgramId} --clone-upgradeable-program ${config.priceFeedProgramId} --clone-upgradeable-program ${config.dvnProgramId} --clone-upgradeable-program ${config.treasuryProgramId} -c ${config.oftEscrowPda} -c ${config.oftStorePda} -c ${config.peerPda} -c ${config.mintPda} -c ${config.sendLibConfigPda} -c ${config.defaultSendLibConfigPda} -c ${config.sendLibInfoPda} -c ${config.endpointSettingsPda} -c ${config.noncePda} -c ${config.ulnsettingsPda} -c ${config.sendConfigPda} -c ${config.defaultSendConfigPda} -c ${config.executorConfigPda} -c ${config.priceFeedConfigPda} -c ${config.dvnConfigPda} --url devnet --reset`
+            `solana-test-validator --clone-upgradeable-program ${config.oftProgramId} --clone-upgradeable-program ${config.endpointV2ProgramId} --clone-upgradeable-program ${config.sendLibProgramId} --clone-upgradeable-program ${config.executorProgramId} --clone-upgradeable-program ${config.priceFeedProgramId} --clone-upgradeable-program ${config.dvnProgramId} -c ${config.oftEscrowAta} -c ${config.oftStorePda} -c ${config.peerPda} -c ${config.mintPda} -c ${config.sendLibConfigPda} -c ${config.defaultSendLibConfigPda} -c ${config.sendLibInfoPda} -c ${config.endpointSettingsPda} -c ${config.noncePda} -c ${config.ulnsettingsPda} -c ${config.sendConfigPda} -c ${config.defaultSendConfigPda} -c ${config.executorConfigPda} -c ${config.priceFeedConfigPda} -c ${config.dvnConfigPda} --url devnet --reset`
         )
     })

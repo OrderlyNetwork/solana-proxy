@@ -1,15 +1,11 @@
 {
   "proxyProgramId": "8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv",
-  "proxyLookupTable": "7gDBCpemfK8sstrwZGtWWKRRjkwXZCPkGH9s69nPcwsG",
   "oftProgramId": "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa",
-  "oftEscrowPda": "2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i",
-  "oftMintAuthorityPda": "EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm",
-  "orderlyEid": 40200,
-  "solanaEid": 40168,
-  "proxyConfigPda": "2EAEmT8oTBtvS7ATphdmQqiFgv8xLqdQMbn3K7fiGwST",
+  "oftEscrowAta": "2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i",
+  "proxyConfigPda": "9zkrLLt77iFqy3Potj8o6mzBvknGqBFAfBC5mucpog64",
   "peerPda": "G6VK2LVKfZf3R7gt23GRGavsPkw9mutcXFnSELD4pRNh",
   "oftStorePda": "AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg",
-  "proxyAta": "BTaFz1ddNhL4MwLiMF2RyQAuJir73YQeYkPRczdPrgiz",
+  "proxyEscrowAta": "7dr32UcQgtZcAL9V49JeKAu2inaPQd2W217AVjgp9EGe",
   "mintPda": "8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN",
   "unknownPda": "FKwWQpGffghKyUExkAY8uxMKKHnyaX1UjGcUP6f72Y7P",
   "endpointV2ProgramId": "76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6",
@@ -30,5 +26,6 @@
   "priceFeedProgramId": "8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP",
   "priceFeedConfigPda": "CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ",
   "dvnProgramId": "HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW",
-  "dvnConfigPda": "4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb"
+  "dvnConfigPda": "4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb",
+  "occManagerAddress": "0xc0ffee254729296a45a3885639AC7E10F9d54979"
 }
