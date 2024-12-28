@@ -1,2 +1,2 @@
 // List all seeds related to the program.
-pub const PROXY_AUTHORITY_SEED: &[u8] = b"ProxyAuthority";
+pub const PROXY_CONFIG_SEED: &[u8] = b"ProxyConfig";

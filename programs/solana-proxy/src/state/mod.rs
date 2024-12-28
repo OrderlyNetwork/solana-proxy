@@ -1,3 +1,3 @@
-pub mod proxy_authority;
+pub mod proxy_config;
 
-pub use proxy_authority::*;
+pub use proxy_config::*;

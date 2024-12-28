@@ -4,5 +4,5 @@ use anchor_lang::prelude::error_code;
 #[error_code]
 pub enum ProxyError {
     #[msg("Proxy owner is not the same as the payer")]
-    InvalidVaultOwner,
+    InvalidProxyOwner,
 }

@@ -6,7 +6,7 @@ import { EventPDADeriver } from '@layerzerolabs/lz-solana-sdk-v2'
 import { publicKey as metaplexPublicKey } from '@metaplex-foundation/umi'
 import { toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
-import { getProxyAuthorityPda, setupAnchor, getConfig, getDeployedProxyProgram, getOrderlyEid, bytes32ToEvmAddress } from './utils'
+import { getProxyConfigPda, setupAnchor, getConfig, getDeployedProxyProgram, getOrderlyEid, bytes32ToEvmAddress } from './utils'
 
 task('proxy:printConfig', 'Print Proxy and related PDA')
     .setAction(async () => {
@@ -17,13 +17,13 @@ task('proxy:printConfig', 'Print Proxy and related PDA')
         const [proxyProgramId, proxyProgram] = getDeployedProxyProgram(provider);
         console.log("Proxy program ID:        ", config.proxyProgramId);
 
-        const proxyAuthorityPda = getProxyAuthorityPda(proxyProgramId);
-        console.log("Proxy Authority PDA:     ", proxyAuthorityPda.toBase58());
-        const proxyAuthorityPdaData = await proxyProgram.account.proxyAuthority.fetch(proxyAuthorityPda);
-        console.log("  - owner:               ", proxyAuthorityPdaData.owner.toBase58());
-        console.log("  - solChainId:          ", proxyAuthorityPdaData.solChainId.toString());
-        console.log("  - dstEid:              ", proxyAuthorityPdaData.dstEid.toString());
-        console.log("  - nonce:               ", proxyAuthorityPdaData.nonce.toString());
+        const proxyConfigPda = getProxyConfigPda(proxyProgramId);
+        console.log("Proxy Config PDA:     ", proxyConfigPda.toBase58());
+        const proxyConfigPdaData = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda);
+        console.log("  - owner:               ", proxyConfigPdaData.owner.toBase58());
+        console.log("  - solChainId:          ", proxyConfigPdaData.solChainId.toString());
+        console.log("  - dstEid:              ", proxyConfigPdaData.dstEid.toString());
+        console.log("  - nonce:               ", proxyConfigPdaData.nonce.toString());
 
         const oftProgramId = config.oftProgramId;
         console.log("OFT program ID:          ", oftProgramId);

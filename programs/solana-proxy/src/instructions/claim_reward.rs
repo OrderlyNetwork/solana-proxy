@@ -1,71 +1,87 @@
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Token, TokenAccount},
+};
 
-use crate::{state::ProxyAuthority, PROXY_AUTHORITY_SEED};
+use crate::{state::ProxyConfig, MessagingReceipt, PROXY_CONFIG_SEED};
 use oft::{cpi::accounts::Send, instructions::OFTReceipt, ConstructCPIContext};
-use oapp::endpoint::MessagingReceipt;
 
 #[derive(Accounts)]
 #[instruction(params: ClaimRewardParams)]
 pub struct ClaimReward<'info> {
-	#[account(mut)]
+    #[account(mut)]
     pub user: Signer<'info>,
 
-	#[account(mut, seeds = [PROXY_AUTHORITY_SEED], bump = proxy_authority.bump)]
-	pub proxy_authority: Account<'info, ProxyAuthority>,
-	pub associated_token_program: Program<'info, AssociatedToken>,
+    #[account(mut, seeds = [PROXY_CONFIG_SEED], bump = proxy_config.bump)]
+    pub proxy_config: Account<'info, ProxyConfig>,
+
+    #[account(
+        associated_token::mint = proxy_config.mint,
+        associated_token::authority = proxy_config
+    )]
+    pub proxy_token_account: Box<Account<'info, TokenAccount>>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
 impl ClaimReward<'_> {
-	pub fn apply(ctx: &mut Context<ClaimReward>, claim_reward_params: &ClaimRewardParams, oapp_params: &OAppSendParams) -> Result<(MessagingReceipt, OFTReceipt)> {
-		msg!("ClaimReward instruction called");
-		msg!("distribution_id: {}", claim_reward_params.distribution_id);
-		msg!("cumulative_amount: {:?}", claim_reward_params.cumulative_amount);
-		msg!("merkle_proof: {:?}", claim_reward_params.merkle_proof);
-		msg!("native_fee: {}", oapp_params.native_fee);
-		msg!("lz_token_fee: {}", oapp_params.lz_token_fee);
+    pub fn apply(
+        ctx: &mut Context<ClaimReward>,
+        claim_reward_params: &ClaimRewardParams,
+        oapp_params: &OAppSendParams,
+    ) -> Result<(MessagingReceipt, OFTReceipt)> {
+        msg!("ClaimReward instruction called");
+        msg!("distribution_id: {}", claim_reward_params.distribution_id);
+        msg!("cumulative_amount: {:?}", claim_reward_params.cumulative_amount);
+        msg!("merkle_proof: {:?}", claim_reward_params.merkle_proof);
+        msg!("native_fee: {}", oapp_params.native_fee);
+        msg!("lz_token_fee: {}", oapp_params.lz_token_fee);
 
-		let params_encoded = claim_reward_params.encode();
-		msg!("Encoded params: {:?}", params_encoded);
+        let params_encoded = claim_reward_params.encode();
+        msg!("Encoded params: {:?}", params_encoded);
 
-		let send_params = oft::instructions::SendParams {
-			dst_eid: ctx.accounts.proxy_authority.dst_eid,
-			to: ctx.accounts.proxy_authority.occ_manager_address,
-			amount_ld: 0,
-			min_amount_ld: 0,
-			options: vec![],
-			compose_msg: None,
-			native_fee: oapp_params.native_fee,
-			lz_token_fee: oapp_params.lz_token_fee,
-		};
+        let send_params = oft::instructions::SendParams {
+            dst_eid: ctx.accounts.proxy_config.dst_eid,
+            to: ctx.accounts.proxy_config.occ_manager_address,
+            amount_ld: 0,
+            min_amount_ld: 0,
+            options: vec![],
+            compose_msg: None,
+            native_fee: oapp_params.native_fee,
+            lz_token_fee: oapp_params.lz_token_fee,
+        };
 
-		let cpi_context = Send::construct_context(ctx.accounts.proxy_authority.oft_program, ctx.remaining_accounts)?;
+        let cpi_context = Send::construct_context(ctx.accounts.proxy_config.oft_program, ctx.remaining_accounts)?;
 
-		let rtn = oft::cpi::send(cpi_context, send_params)?;
+        let seeds = &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]];
 
-		Ok(rtn.get())
-	}
+        let rtn = oft::cpi::send(cpi_context.with_signer(&[seeds]), send_params)?;
+
+        Ok(rtn.get())
+    }
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct ClaimRewardParams {
     pub distribution_id: u32,
-	pub cumulative_amount: [u8; 32],
-	pub merkle_proof: Vec<[u8; 32]>
+    pub cumulative_amount: [u8; 32],
+    pub merkle_proof: Vec<[u8; 32]>,
 }
 
 impl ClaimRewardParams {
-	pub fn encode(&self) -> Vec<u8> {
-		let mut buf = Vec::with_capacity(36 + &self.merkle_proof.len() * 32); // 4 + 32 + 32 * n
-		buf.extend_from_slice(&self.distribution_id.to_be_bytes());
-		buf.extend_from_slice(&self.cumulative_amount);
-		buf.extend_from_slice(&(self.merkle_proof.len() as u32).to_le_bytes());
-		for proof in &self.merkle_proof {
-			buf.extend_from_slice(proof);
-		}
-		buf
-	}
+    pub fn encode(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(36 + &self.merkle_proof.len() * 32); // 4 + 32 + 32 * n
+        buf.extend_from_slice(&self.distribution_id.to_be_bytes());
+        buf.extend_from_slice(&self.cumulative_amount);
+        buf.extend_from_slice(&(self.merkle_proof.len() as u32).to_le_bytes());
+        for proof in &self.merkle_proof {
+            buf.extend_from_slice(proof);
+        }
+        buf
+    }
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]

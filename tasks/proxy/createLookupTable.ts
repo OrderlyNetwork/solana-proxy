@@ -1,5 +1,5 @@
 import { task } from 'hardhat/config';
-import { setupAnchor, getConfig, getOrderlyEid, getProxyAuthorityPda, getOftSendAccounts, createAndSendV0Tx, getConfigPath } from './utils';
+import { setupAnchor, getConfig, getOrderlyEid, getProxyConfigPda, getOftSendAccounts, createAndSendV0Tx, getConfigPath } from './utils';
 import { toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters';
 import {
     AddressLookupTableProgram,
@@ -27,9 +27,9 @@ task('proxy:createLookupTable', 'Print address, needed for Proxy as remain_accou
             }
         }
 
-        const proxyAuthorityPda = getProxyAuthorityPda(new PublicKey(config.proxyProgramId));
+        const proxyConfigPda = getProxyConfigPda(new PublicKey(config.proxyProgramId));
 
-        const oftSendAccounts = await getOftSendAccounts(provider, config.oftProgramId, config.oftEscrowPda, proxyAuthorityPda, getOrderlyEid());
+        const oftSendAccounts = await getOftSendAccounts(provider, config.oftProgramId, config.oftEscrowPda, proxyConfigPda, getOrderlyEid());
         const keys = oftSendAccounts.map((account) => toWeb3JsPublicKey(account.pubkey));
         keys.push(SystemProgram.programId);
 

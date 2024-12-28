@@ -1,9 +1,9 @@
 import { task } from 'hardhat/config'
 import { Program, workspace, BN } from '@coral-xyz/anchor'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { createAndSendV0Tx, createAndSendV0TxWithTable, getConfig, getOftSendAccounts, getOftSendRemainingAccounts, getOrderlyEid, getProxyConfigPda, metaplexToWeb3AccountMetaArray, setupAnchor, amountStrToBytes32 } from './utils'
+import { createAndSendV0Tx, getConfig, getOftQuoteSendAccounts, getOrderlyEid, getProxyConfigPda, metaplexToWeb3AccountMetaArray, setupAnchor, amountStrToBytes32 } from './utils'
 import { SolanaProxy } from '../../target/types/solana_proxy'
-import { ComputeBudgetProgram } from '@solana/web3.js'
+import { AccountMeta, ComputeBudgetProgram } from '@solana/web3.js'
 
 interface ClaimRewardTaskArgs {
     /**
@@ -20,7 +20,7 @@ interface ClaimRewardTaskArgs {
     merkleProof: string[]
 }
 
-task('proxy:claim-reward', 'Claim reward from the Solana network')
+task('proxy:quote-claim-reward', 'Quote claim reward cross-chain fee')
     .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
     .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', "0", devtoolsTypes.string)
     .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
@@ -30,7 +30,7 @@ task('proxy:claim-reward', 'Claim reward from the Solana network')
         const proxyProgram = workspace.SolanaProxy as Program<SolanaProxy>;
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId);
 
-        console.log('Claiming reward from the Solana network...')
+        console.log('Quote claim reward cross-chain fee...')
         console.log('Distribution ID:', distributionId)
         console.log('cumulative amount:', cumulativeAmount)
         console.log('Merkle proof:', merkleProof)
@@ -45,33 +45,33 @@ task('proxy:claim-reward', 'Claim reward from the Solana network')
             merkleProof: proofArray,
         };
 
-        const claimRewardAccounts = {
+        const quoteClaimRewardAccounts = {
             proxyConfig: proxyConfigPda
         };
 
-        // TODO: Call quote to get the fee
-        const nativeFee = 123456;
+        const metaplexQuoteRemainingAccounts = await getOftQuoteSendAccounts(provider, config.oftProgramId, config.oftEscrowPda, proxyConfigPda, getOrderlyEid());
 
-        const sendParam = {
-            nativeFee: new BN(nativeFee),
-            lzTokenFee: new BN(0),
+        console.log('Quote remaining accounts:', metaplexQuoteRemainingAccounts);
+
+        const web3QuoteClaimRewardAccounts = metaplexToWeb3AccountMetaArray(metaplexQuoteRemainingAccounts);
+
+        console.log('web3 quote remaining accounts:', web3QuoteClaimRewardAccounts);
+
+        try {
+            const { lzTokenFee, nativeFee } = await proxyProgram.methods
+                .quoteClaimReward(claimRewardParams)
+                .accounts(quoteClaimRewardAccounts)
+                .remainingAccounts(web3QuoteClaimRewardAccounts)
+                .view();
+            // const { lzTokenFee, nativeFee } = await proxyProgram.methods
+            //     .quoteClaimReward(claimRewardParams)
+            //     .accounts(quoteClaimRewardAccounts)
+            //     .view();
+
+            console.log('Quote claim reward cross-chain fee:');
+            console.log('Native fee:', nativeFee.toString());
+            console.log('LZ token fee:', lzTokenFee.toString());
+        } catch (e) {
+            console.error('Failed to quote claim reward cross-chain fee:', e);
         }
-
-        // const metaplexOftSendRemainingAccounts = await getOftSendAccounts(provider, config.oftProgramId, config.oftEscrowPda, wallet.publicKey, getOrderlyEid());
-        // console.log('Send remaining accounts:', metaplexOftSendRemainingAccounts);
-        // const web3OftSendRemainingAccounts = metaplexToWeb3AccountMetaArray(metaplexOftSendRemainingAccounts);
-        const oftSendRemainingAccounts = await getOftSendRemainingAccounts(wallet)
-
-        const ixClaimReward = await proxyProgram.methods
-            .claimReward(claimRewardParams, sendParam)
-            .accounts(claimRewardAccounts)
-            .remainingAccounts(oftSendRemainingAccounts)
-            .instruction();
-        const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 });
-
-        await createAndSendV0TxWithTable(
-            [ixClaimReward, ixAddComputeBudget],
-            provider,
-            wallet
-        );
     })
