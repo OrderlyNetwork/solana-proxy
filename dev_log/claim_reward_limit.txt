@@ -1,0 +1,80 @@
+> npx hardhat proxy:claim-reward --distribution-id 1 --cumulative-amount 1000000000000000000 --merkle-proof "0xae04af11dc3968a94f29f8d0b4f11c1890c2483a239c5a333545fc73d953bb1d","0x93544216020fd51b6fcaaa9a88420f01d90f6298a4c39c1d20b02653b578eb60","0xcf7d0d4c8b5c18c3788e473dc0cdc256c5f2b01c8eca797ea19ceded9a184c49"
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+Running on DEV environment. Rpc: https://api.devnet.solana.com
+Claiming reward from the Solana network...
+Distribution ID: 1
+cumulative amount: 1000000000000000000
+Merkle proof: [
+  '0xae04af11dc3968a94f29f8d0b4f11c1890c2483a239c5a333545fc73d953bb1d',
+  '0x93544216020fd51b6fcaaa9a88420f01d90f6298a4c39c1d20b02653b578eb60',
+  '0xcf7d0d4c8b5c18c3788e473dc0cdc256c5f2b01c8eca797ea19ceded9a184c49'
+]
+Proxy program ID: 8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv
+Lookup Table Address: 9WUgdSBdCQsAEy8URS1XyvURhwkUkfitdGP7jYXjeYKe
+1
+2
+3
+4
+An unexpected error occurred:
+
+SendTransactionError: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Cross-program invocation call depth too deep. 
+Logs: 
+[
+  "Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn consumed 12177 of 154174 compute units",
+  "Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn failed: Cross-program invocation call depth too deep",
+  "Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH consumed 38267 of 180264 compute units",
+  "Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH failed: Cross-program invocation call depth too deep",
+  "Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 consumed 73495 of 215492 compute units",
+  "Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 failed: Cross-program invocation call depth too deep",
+  "Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa consumed 131290 of 273287 compute units",
+  "Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa failed: Cross-program invocation call depth too deep",
+  "Program 8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv consumed 258003 of 400000 compute units",
+  "Program 8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv failed: Cross-program invocation call depth too deep"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+    at Connection.sendEncodedTransaction (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/@solana+web3.js@1.95.8_bufferutil@4.0.8_utf-8-validate@5.0.10/node_modules/@solana/web3.js/src/connection.ts:6045:13)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Connection.sendRawTransaction (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/@solana+web3.js@1.95.8_bufferutil@4.0.8_utf-8-validate@5.0.10/node_modules/@solana/web3.js/src/connection.ts:6001:20)
+    at async Connection.sendTransaction (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/@solana+web3.js@1.95.8_bufferutil@4.0.8_utf-8-validate@5.0.10/node_modules/@solana/web3.js/src/connection.ts:5950:14)
+    at async createAndSendV0TxWithTable (/proj/test/Solana/LayerZero/solana-proxy/tasks/proxy/utils.ts:251:21)
+    at async SimpleTaskDefinition.action (/proj/test/Solana/LayerZero/solana-proxy/tasks/proxy/claimReward.ts:75:9)
+    at async Environment._runTaskDefinition (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/hardhat@2.22.17_bufferutil@4.0.8_ts-node@10.9.2_@swc+core@1.10.1_@swc+helpers@0.5.15__@types+_fxainxy2gfgbcgzkge2y4jm7va/node_modules/hardhat/src/internal/core/runtime-environment.ts:351:14)
+    at async Environment.run (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/hardhat@2.22.17_bufferutil@4.0.8_ts-node@10.9.2_@swc+core@1.10.1_@swc+helpers@0.5.15__@types+_fxainxy2gfgbcgzkge2y4jm7va/node_modules/hardhat/src/internal/core/runtime-environment.ts:184:14)
+    at async main (/proj/test/Solana/LayerZero/solana-proxy/node_modules/.pnpm/hardhat@2.22.17_bufferutil@4.0.8_ts-node@10.9.2_@swc+core@1.10.1_@swc+helpers@0.5.15__@types+_fxainxy2gfgbcgzkge2y4jm7va/node_modules/hardhat/src/internal/cli/cli.ts:324:7) {
+  signature: '',
+  transactionMessage: 'Transaction simulation failed: Error processing Instruction 0: Cross-program invocation call depth too deep',
+  transactionLogs: [
+    'Program 8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv invoke [1]',
+    'Program log: Instruction: ClaimReward',
+    'Program log: ClaimReward instruction called',
+    'Program log: distribution_id: 1',
+    'Program log: cumulative_amount: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0]',
+    'Program log: merkle_proof: [[174, 4, 175, 17, 220, 57, 104, 169, 79, 41, 248, 208, 180, 241, 28, 24, 144, 194, 72, 58, 35, 156, 90, 51, 53, 69, 252, 115, 217, 83, 187, 29], [147, 84, 66, 22, 2, 15, 213, 27, 111, 202, 170, 154, 136, 66, 15, 1, 217, 15, 98, 152, 164, 195, 156, 29, 32, 176, 38, 83, 181, 120, 235, 96], [207, 125, 13, 76, 139, 92, 24, 195, 120, 142, 71, 61, 192, 205, 194, 86, 197, 242, 176, 28, 142, 202, 121, 126, 161, 156, 237, 237, 154, 24, 76, 73]]',
+    'Program log: native_fee: 123456',
+    'Program log: lz_token_fee: 0',
+    'Program log: Encoded params: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0, 3, 0, 0, 0, 174, 4, 175, 17, 220, 57, 104, 169, 79, 41, 248, 208, 180, 241, 28, 24, 144, 194, 72, 58, 35, 156, 90, 51, 53, 69, 252, 115, 217, 83, 187, 29, 147, 84, 66, 22, 2, 15, 213, 27, 111, 202, 170, 154, 136, 66, 15, 1, 217, 15, 98, 152, 164, 195, 156, 29, 32, 176, 38, 83, 181, 120, 235, 96, 207, 125, 13, 76, 139, 92, 24, 195, 120, 142, 71, 61, 192, 205, 194, 86, 197, 242, 176, 28, 142, 202, 121, 126, 161, 156, 237, 237, 154, 24, 76, 73]',
+    'Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa invoke [2]',
+    'Program log: Instruction: Send',
+    'Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]',
+    'Program log: Instruction: Burn',
+    'Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4844 of 245280 compute units',
+    'Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success',
+    'Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 invoke [3]',
+    'Program log: Instruction: Send',
+    'Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH invoke [4]',
+    'Program log: Instruction: Send',
+    'Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn invoke [5]',
+    'Program log: Instruction: QuoteExecutor',
+    'Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn consumed 12177 of 154174 compute units',
+    'Program 6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn failed: Cross-program invocation call depth too deep',
+    'Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH consumed 38267 of 180264 compute units',
+    'Program 7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH failed: Cross-program invocation call depth too deep',
+    'Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 consumed 73495 of 215492 compute units',
+    'Program 76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6 failed: Cross-program invocation call depth too deep',
+    'Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa consumed 131290 of 273287 compute units',
+    'Program rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa failed: Cross-program invocation call depth too deep',
+    'Program 8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv consumed 258003 of 400000 compute units',
+    'Program 8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv failed: Cross-program invocation call depth too deep'
+  ]
+}

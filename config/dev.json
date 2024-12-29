@@ -26,5 +26,7 @@
   "priceFeedProgramId": "8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP",
   "priceFeedConfigPda": "CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ",
   "dvnProgramId": "HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW",
-  "dvnConfigPda": "4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb"
+  "dvnConfigPda": "4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb",
+  "occManagerAddress": "0xc0ffee254729296a45a3885639AC7E10F9d54979",
+  "proxyLookupTable": "9WUgdSBdCQsAEy8URS1XyvURhwkUkfitdGP7jYXjeYKe"
 }

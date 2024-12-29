@@ -440,6 +440,12 @@ export async function getOftSendAccounts(
     ]
 }
 
+export const ENDPOINT_PROGRAM_ID = new PublicKey('76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6')
+const EVENT_SEED = '__event_authority'
+export function getEventAuthorityPda(): PublicKey {
+    return PublicKey.findProgramAddressSync([Buffer.from(EVENT_SEED, 'utf8')], new PublicKey(getConfig().unknownPda))[0]
+}
+
 function accountMeta(pubkey: string | PublicKey, isSigner: boolean, isWritable: boolean): AccountMeta {
     return { pubkey: (pubkey = typeof pubkey === 'string' ? new PublicKey(pubkey) : pubkey), isSigner, isWritable }
 }
@@ -456,6 +462,8 @@ export function getOftSendRemainingAccounts(): AccountMeta[] {
         accountMeta(config.oftEscrowAta, false, true),
         accountMeta(config.mintPda, false, true),
         accountMeta(TOKEN_PROGRAM_ID, false, false),
+        accountMeta(config.unknownPda, false, false),
+        accountMeta(config.oftProgramId, false, false),
         // ----------- Endpoint V2 send addresses -----------
         accountMeta(config.endpointV2ProgramId, false, false),
         accountMeta(config.oftStorePda, false, false),

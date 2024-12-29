@@ -60,8 +60,10 @@ impl ClaimReward<'_> {
 
         let cpi_context = Send::construct_context(ctx.accounts.proxy_config.oft_program, ctx.remaining_accounts)?;
 
-        let proxy_escrow_key = ctx.accounts.proxy_escrow.key();
-        let seeds = &[PROXY_CONFIG_SEED, proxy_escrow_key.as_ref(), &[ctx.accounts.proxy_config.bump]];
+        // let proxy_escrow_key = ctx.accounts.proxy_escrow.key();
+        // let seeds = &[PROXY_CONFIG_SEED, proxy_escrow_key.as_ref(), &[ctx.accounts.proxy_config.bump]];
+
+        let seeds = &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]];
 
         let rtn = oft::cpi::send(cpi_context.with_signer(&[seeds]), send_params)?;
 
