@@ -14,13 +14,14 @@ pub struct ClaimReward<'info> {
     pub user: Signer<'info>,
 
     #[account(mut, seeds = [PROXY_CONFIG_SEED], bump = proxy_config.bump)]
-    pub proxy_config: Account<'info, ProxyConfig>,
+    pub proxy_config: Box<Account<'info, ProxyConfig>>,
 
     #[account(
         associated_token::mint = proxy_config.mint,
-        associated_token::authority = proxy_config
+        associated_token::authority = proxy_config,
+        associated_token::token_program = token_program
     )]
-    pub proxy_token_account: Box<Account<'info, TokenAccount>>,
+    pub proxy_escrow: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -33,6 +34,7 @@ impl ClaimReward<'_> {
         claim_reward_params: &ClaimRewardParams,
         oapp_params: &OAppSendParams,
     ) -> Result<(MessagingReceipt, OFTReceipt)> {
+        // pub fn apply(ctx: &mut Context<ClaimReward>, claim_reward_params: &ClaimRewardParams, oapp_params: &OAppSendParams) -> Result<()> {
         msg!("ClaimReward instruction called");
         msg!("distribution_id: {}", claim_reward_params.distribution_id);
         msg!("cumulative_amount: {:?}", claim_reward_params.cumulative_amount);
@@ -54,13 +56,17 @@ impl ClaimReward<'_> {
             lz_token_fee: oapp_params.lz_token_fee,
         };
 
+        // ctx.remaining_accounts.borrow_mut()[0].is_signer = true;
+
         let cpi_context = Send::construct_context(ctx.accounts.proxy_config.oft_program, ctx.remaining_accounts)?;
 
-        let seeds = &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]];
+        let proxy_escrow_key = ctx.accounts.proxy_escrow.key();
+        let seeds = &[PROXY_CONFIG_SEED, proxy_escrow_key.as_ref(), &[ctx.accounts.proxy_config.bump]];
 
         let rtn = oft::cpi::send(cpi_context.with_signer(&[seeds]), send_params)?;
 
         Ok(rtn.get())
+        // Ok(())
     }
 }
 

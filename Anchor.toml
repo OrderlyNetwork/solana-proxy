@@ -13,7 +13,7 @@ solana_proxy = "8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/home/dmitry/.config/solana/id.json"
 
 [scripts]

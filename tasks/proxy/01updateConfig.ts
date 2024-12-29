@@ -1,12 +1,12 @@
 import { task } from 'hardhat/config'
 import { PublicKey, SystemProgram } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { publicKey as metaplexPublicKey } from '@metaplex-foundation/umi'
 import { fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import assert from 'assert'
 import fs from 'fs'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { setupAnchor, getConfig, getOrderlyEid, getProxyConfigPda, getOftSendAccounts, getConfigPath, updateConfig } from './utils'
+import { setupAnchor, getConfig, getOrderlyEid, getProxyConfigPda, getOftSendAccounts, updateConfig } from './utils'
 
 interface UpdateConfigTaskArgs {
     proxyProgramId?: string
@@ -106,6 +106,11 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
             'Sixth OFT send account should be OFT escrow ATA'
         )
         config.mintPda = oftSendAccounts[6].pubkey.toString()
+        // Check consistency of mint PDA and proxy escrow ATA
+        assert(
+            config.proxyEscrowAta == getAssociatedTokenAddressSync(new PublicKey(config.mintPda), proxyConfigPda, true),
+            'Proxy escrow ATA should be associated with Proxy Config PDA'
+        )
         assert(
             oftSendAccounts[7].pubkey == metaplexPublicKey(TOKEN_PROGRAM_ID),
             'Eighth OFT send account should be SPL Token program ID'
@@ -131,7 +136,7 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
             oftSendAccounts[19].pubkey == metaplexPublicKey(config.endpointV2ProgramId),
             'Twentieth OFT send account should be Endpoint V2 program ID'
         )
-        config.ulnsettingsPda = oftSendAccounts[20].pubkey.toString()
+        config.ulnSettingsPda = oftSendAccounts[20].pubkey.toString()
         config.sendConfigPda = oftSendAccounts[21].pubkey.toString()
         config.defaultSendConfigPda = oftSendAccounts[22].pubkey.toString()
         assert(
@@ -167,6 +172,6 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
 
         console.log('Execute the following command to set up local solana node:\n')
         console.log(
-            `solana-test-validator --clone-upgradeable-program ${config.oftProgramId} --clone-upgradeable-program ${config.endpointV2ProgramId} --clone-upgradeable-program ${config.sendLibProgramId} --clone-upgradeable-program ${config.executorProgramId} --clone-upgradeable-program ${config.priceFeedProgramId} --clone-upgradeable-program ${config.dvnProgramId} -c ${config.oftEscrowAta} -c ${config.oftStorePda} -c ${config.peerPda} -c ${config.mintPda} -c ${config.sendLibConfigPda} -c ${config.defaultSendLibConfigPda} -c ${config.sendLibInfoPda} -c ${config.endpointSettingsPda} -c ${config.noncePda} -c ${config.ulnsettingsPda} -c ${config.sendConfigPda} -c ${config.defaultSendConfigPda} -c ${config.executorConfigPda} -c ${config.priceFeedConfigPda} -c ${config.dvnConfigPda} --url devnet --reset`
+            `solana-test-validator --clone-upgradeable-program ${config.oftProgramId} --clone-upgradeable-program ${config.endpointV2ProgramId} --clone-upgradeable-program ${config.sendLibProgramId} --clone-upgradeable-program ${config.executorProgramId} --clone-upgradeable-program ${config.priceFeedProgramId} --clone-upgradeable-program ${config.dvnProgramId} --clone-upgradeable-program ${config.treasuryProgramId} -c ${config.oftEscrowAta} -c ${config.oftStorePda} -c ${config.peerPda} -c ${config.mintPda} -c ${config.sendLibConfigPda} -c ${config.defaultSendLibConfigPda} -c ${config.sendLibInfoPda} -c ${config.endpointSettingsPda} -c ${config.noncePda} -c ${config.ulnSettingsPda} -c ${config.sendConfigPda} -c ${config.defaultSendConfigPda} -c ${config.executorConfigPda} -c ${config.priceFeedConfigPda} -c ${config.dvnConfigPda} -c ${config.eventAuthorityPda} -c ${config.ulnEventAuthorityPda} --url devnet --reset`
         )
     })

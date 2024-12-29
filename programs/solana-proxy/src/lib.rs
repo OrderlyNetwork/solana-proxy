@@ -32,6 +32,14 @@ pub mod solana_proxy {
         ClaimReward::apply(&mut ctx, &params, &oapp_params)
     }
 
+    // pub fn claim_reward(
+    //     mut ctx: Context<ClaimReward>,
+    //     params: ClaimRewardParams,
+    //     oapp_params: OAppSendParams,
+    // ) -> Result<()> {
+    //     ClaimReward::apply(&mut ctx, &params, &oapp_params)
+    // }
+
     pub fn quote_claim_reward(ctx: Context<QuoteClaimReward>, params: ClaimRewardParams) -> Result<MessagingFee> {
         QuoteClaimReward::apply(&ctx, &params)
     }

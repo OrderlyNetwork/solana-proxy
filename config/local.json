@@ -16,7 +16,7 @@
   "endpointSettingsPda": "2uk9pQh3tB5ErV7LGQJcbWjb4KeJ2UJki5qJZ8QG56G3",
   "noncePda": "GQGf8sqsCDbUTVYuUNJZ4Y49DD7vgHxdavDqzv1Xhkpr",
   "eventAuthorityPda": "F8E8QGhKmHEx2esh5LpVizzcP4cHYhzXdXTwg9w3YYY2",
-  "ulnsettingsPda": "2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ",
+  "ulnSettingsPda": "2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ",
   "sendConfigPda": "6R7bwnNJEEKrcWKrY64LKSmGTPaQsJMTDtuV8Z5fAjCX",
   "defaultSendConfigPda": "Fwp955krKJXiyYRY1Ex2VFcrMJD2kLBp8X7mxakRffPe",
   "treasuryProgramId": "7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH",
@@ -27,5 +27,6 @@
   "priceFeedConfigPda": "CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ",
   "dvnProgramId": "HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW",
   "dvnConfigPda": "4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb",
-  "occManagerAddress": "0xc0ffee254729296a45a3885639AC7E10F9d54979"
+  "occManagerAddress": "0xc0ffee254729296a45a3885639AC7E10F9d54979",
+  "proxyLookupTable": "GTW5DhHLTbbeji7GrSf38EAuftKXSqnw1ZCPX5dgeTEr"
 }

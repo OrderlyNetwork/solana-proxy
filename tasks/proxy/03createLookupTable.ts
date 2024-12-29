@@ -7,6 +7,7 @@ import {
     getOftSendAccounts,
     createAndSendV0Tx,
     getConfigPath,
+    updateConfig,
 } from './utils'
 import { toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { AddressLookupTableProgram, PublicKey, SystemProgram } from '@solana/web3.js'
@@ -74,7 +75,5 @@ task('proxy:createLookupTable', 'Print address, needed for Proxy as remain_accou
         await createAndSendV0Tx([extendInstruction], provider, wallet)
 
         config.proxyLookupTable = lookupTableAddress.toBase58()
-        const configPath = getConfigPath()
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
-        console.log(`Config saved to ${configPath}\n`)
+        updateConfig(config)
     })

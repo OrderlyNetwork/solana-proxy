@@ -5,6 +5,7 @@ import {
     PublicKey,
     AccountMeta,
     SystemProgram,
+    Signer,
 } from '@solana/web3.js'
 import { AnchorProvider, BN, Program, setProvider, Wallet } from '@coral-xyz/anchor'
 import { ethers } from 'ethers'
@@ -32,6 +33,7 @@ import { join } from 'path'
 import { sleep } from '@layerzerolabs/io-devtools'
 import { isAddress } from 'web3-validator'
 import fs from 'fs'
+import { Sign } from 'crypto'
 
 const PROXY_CONFIG_SEED = 'ProxyConfig'
 const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
@@ -225,7 +227,8 @@ export async function getLookupTableAccount(provider: AnchorProvider, lookupTabl
 export async function createAndSendV0TxWithTable(
     txInstructions: TransactionInstruction[],
     provider: AnchorProvider,
-    wallet: Wallet
+    payerPubKey: PublicKey,
+    signers: Signer[]
 ) {
     const lookupTableAddressStr = getConfig().proxyLookupTable
     console.log('Lookup Table Address:', lookupTableAddressStr)
@@ -236,17 +239,16 @@ export async function createAndSendV0TxWithTable(
     }
     console.log('1')
     const msg = new TransactionMessage({
-        payerKey: wallet.payer.publicKey,
+        payerKey: payerPubKey,
         recentBlockhash: (await provider.connection.getLatestBlockhash()).blockhash,
         instructions: txInstructions,
     }).compileToV0Message([lookupTableAccount])
     console.log('2')
     const tx = new VersionedTransaction(msg)
     console.log('3')
-    const signedTx = await wallet.signTransaction(tx)
-    // tx.sign([wallet.payer]);
+    tx.sign(signers)
     console.log('4')
-    const sigSend = await provider.connection.sendTransaction(signedTx)
+    const sigSend = await provider.connection.sendTransaction(tx)
     console.log('5')
     console.log('Send transaction confirmed:', sigSend)
     await sleep(2)
@@ -466,10 +468,10 @@ export function getOftSendRemainingAccounts(): AccountMeta[] {
         // ----------- Unknown part -----------
         accountMeta(config.eventAuthorityPda, false, false),
         accountMeta(config.endpointV2ProgramId, false, false),
-        accountMeta(config.ulnsettingsPda, false, false),
+        accountMeta(config.ulnSettingsPda, false, false),
         accountMeta(config.sendConfigPda, false, false),
         accountMeta(config.defaultSendConfigPda, false, false),
-        accountMeta(config.proxyConfigPda, true, false),
+        accountMeta(config.proxyConfigPda, false, false),
         accountMeta(config.treasuryProgramId, false, false),
         accountMeta(SystemProgram.programId, false, false),
         accountMeta(config.ulnEventAuthorityPda, false, false),

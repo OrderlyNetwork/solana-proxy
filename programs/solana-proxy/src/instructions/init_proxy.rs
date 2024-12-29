@@ -18,7 +18,7 @@ pub struct InitProxy<'info> {
         seeds = [PROXY_CONFIG_SEED],
         bump
     )]
-    pub proxy_config: Account<'info, ProxyConfig>,
+    pub proxy_config: Box<Account<'info, ProxyConfig>>,
 
     #[account(
         init,
