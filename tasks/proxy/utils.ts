@@ -27,13 +27,15 @@ import {
 import { fromWeb3JsPublicKey, toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
 import { addressToBytes32, bytes32ToEthAddress } from '@layerzerolabs/lz-v2-utilities'
-import { hexlify } from '@layerzerolabs/lz-utilities'
+import { hexlify, arrayify } from '@layerzerolabs/lz-utilities'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { sleep } from '@layerzerolabs/io-devtools'
 import { isAddress } from 'web3-validator'
 import fs from 'fs'
 import { Sign } from 'crypto'
+import { defaultAbiCoder } from '@ethersproject/abi'
+import { hexToBytes, bytesToHex } from 'ethereum-cryptography/utils'
 
 const PROXY_CONFIG_SEED = 'ProxyConfig'
 const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
@@ -496,4 +498,44 @@ export function getOftSendRemainingAccounts(): AccountMeta[] {
     ]
 
     return remainingAccounts
+}
+
+export function encodeClaimRewardPayload(
+    distributionId: number,
+    cumulativeAmount: string,
+    merkleProof: string[]
+): Uint8Array {
+    if (!Array.isArray(merkleProof)) {
+        throw new TypeError('merkleProof must be an array')
+    }
+
+    const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount)
+    const proofArray = merkleProof.map((p) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
+    const encodedStr = defaultAbiCoder.encode(
+        ['tuple(uint32,uint256,bytes32[])'],
+        [[distributionId, cumulativeAmountArray, proofArray]]
+    )
+    console.log('Encoded claim reward payload:', encodedStr)
+    const encodedBytes = arrayify(encodedStr)
+    return encodedBytes
+}
+
+export function encodeOCCVaultMessage(
+    chainedEventId: number,
+    srcChainId: number,
+    token: number,
+    tokenAmount: string,
+    sender: PublicKey,
+    payloadType: number,
+    payload: Uint8Array
+): Uint8Array {
+    const encodedStr = defaultAbiCoder.encode(
+        ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
+        [[chainedEventId, srcChainId, token, amountStrToBytes32(tokenAmount), sender.toBytes(), payloadType, payload]]
+    )
+    console.log('Encoded OCC vault message:', encodedStr)
+    const encodedBytes = arrayify(encodedStr)
+    console.log('Encoded OCC vault message bytes:', encodedBytes)
+    console.log('Encoded OCC vault message length:', encodedBytes.length)
+    return encodedBytes
 }

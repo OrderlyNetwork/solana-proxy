@@ -1,17 +1,23 @@
+import { findAssociatedTokenPda, mplToolbox } from '@metaplex-foundation/mpl-toolbox'
+import { publicKey, transactionBuilder, createSignerFromKeypair, signerIdentity } from '@metaplex-foundation/umi'
+import { fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import bs58 from 'bs58'
 import { task } from 'hardhat/config'
-import { BN } from '@coral-xyz/anchor'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
+import { EndpointId } from '@layerzerolabs/lz-definitions'
+import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities'
+import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
+import { addComputeUnitInstructions, getExplorerTxLink, getLayerZeroScanLink } from '../solana/index'
 import {
-    createAndSendV0TxWithTable,
+    encodeClaimRewardPayload,
+    encodeOCCVaultMessage,
     getConfig,
-    getOftSendRemainingAccounts,
-    getProxyConfigPda,
+    getOrderlyEid,
+    getSolanaEid,
     setupAnchor,
-    amountStrToBytes32,
-    getDeployedProxyProgram,
 } from './utils'
-import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
-import { createNoopSigner } from '@metaplex-foundation/umi'
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
 
 interface ClaimRewardTaskArgs {
     distributionId: number
@@ -20,59 +26,106 @@ interface ClaimRewardTaskArgs {
 }
 
 /// Calling this task will claim reward on OmnichainLedger contract on Orderly network from the Solana network.
-
 task('proxy:claim-reward', 'Claim reward from the Solana network')
     .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
     .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', '0', devtoolsTypes.string)
     .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
     .setAction(async ({ distributionId, cumulativeAmount, merkleProof }: ClaimRewardTaskArgs) => {
         const config = getConfig()
-        const [provider, wallet] = setupAnchor()
-        const proxyProgram = getDeployedProxyProgram(provider)
-        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-        const proxyEscrowAta = new PublicKey(config.proxyEscrowAta)
+        const [provider, wallet, rpc] = setupAnchor()
+        const umi = createUmi(rpc).use(mplToolbox())
+        const umiWalletKeyPair = umi.eddsa.createKeypairFromSecretKey(wallet.payer.secretKey)
+        const umiWalletSigner = createSignerFromKeypair(umi, umiWalletKeyPair)
+        umi.use(signerIdentity(umiWalletSigner))
 
-        console.log('Claiming reward from the Solana network...')
-        console.log('Distribution ID:', distributionId)
-        console.log('cumulative amount:', cumulativeAmount)
-        console.log('Merkle proof:', merkleProof)
-        console.log('Proxy program ID:', proxyProgram.programId.toBase58())
+        const oftProgramId = publicKey(config.oftProgramId)
+        const mint = publicKey(config.mintPda)
+        const umiEscrowPublicKey = publicKey(config.oftEscrowAta)
+        const tokenProgramId = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
 
-        const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount)
-        const proofArray = merkleProof.map((p) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
+        const tokenAccount = findAssociatedTokenPda(umi, {
+            mint: publicKey(config.mintPda),
+            owner: fromWeb3JsPublicKey(wallet.publicKey),
+            tokenProgramId,
+        })
 
-        const claimRewardParams = {
-            distributionId: distributionId,
-            cumulativeAmount: cumulativeAmountArray,
-            merkleProof: proofArray,
+        if (!tokenAccount) {
+            throw new Error(
+                `No token account found for mint ${config.mintPda} and owner ${wallet.publicKey} in program ${tokenProgramId}`
+            )
         }
 
-        const claimRewardAccounts = {
-            proxyConfig: proxyConfigPda,
-            proxyEscrow: proxyEscrowAta,
-        }
+        const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
+        const toEid = getOrderlyEid()
+        const fromEid = getSolanaEid()
+        const amount = 0
+        const computeUnitPriceScaleFactor = 4
 
-        // TODO: Call quote to get the fee
-        const nativeFee = 123456
+        const payload = encodeClaimRewardPayload(distributionId, cumulativeAmount, merkleProof)
+        const composeMsg = encodeOCCVaultMessage(123, getSolanaEid(), 3, '0', wallet.publicKey, 0, payload)
 
-        const sendParam = {
-            nativeFee: new BN(nativeFee),
-            lzTokenFee: new BN(0),
-        }
+        const { nativeFee } = await oft.quote(
+            umi.rpc,
+            {
+                payer: fromWeb3JsPublicKey(wallet.publicKey),
+                tokenMint: mint,
+                tokenEscrow: umiEscrowPublicKey,
+            },
+            {
+                payInLzToken: false,
+                to: Buffer.from(recipientAddressBytes32),
+                dstEid: toEid,
+                amountLd: BigInt(amount),
+                minAmountLd: BigInt(amount),
+                options: Buffer.from(''),
+                composeMsg,
+            },
+            {
+                oft: oftProgramId,
+            }
+        )
 
-        // const metaplexOftSendRemainingAccounts = await getOftSendAccounts(provider, config.oftProgramId, config.oftEscrowAta, wallet.publicKey, getOrderlyEid());
-        // console.log('Send remaining accounts:', metaplexOftSendRemainingAccounts);
-        // const web3OftSendRemainingAccounts = metaplexToWeb3AccountMetaArray(metaplexOftSendRemainingAccounts);
-        const oftSendRemainingAccounts = getOftSendRemainingAccounts()
+        console.log('nativeFee:', nativeFee)
 
-        const ixClaimReward = await proxyProgram.methods
-            .claimReward(claimRewardParams, sendParam)
-            .accounts(claimRewardAccounts)
-            .remainingAccounts(oftSendRemainingAccounts)
-            .instruction()
-        const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+        const ix = await oft.send(
+            umi.rpc,
+            {
+                payer: umiWalletSigner,
+                tokenMint: mint,
+                tokenEscrow: umiEscrowPublicKey,
+                tokenSource: tokenAccount[0],
+            },
+            {
+                to: Buffer.from(recipientAddressBytes32),
+                dstEid: toEid,
+                amountLd: BigInt(amount),
+                minAmountLd: (BigInt(amount) * BigInt(9)) / BigInt(10),
+                options: Buffer.from(''),
+                composeMsg,
+                nativeFee,
+            },
+            {
+                oft: oftProgramId,
+                token: tokenProgramId,
+            }
+        )
 
-        await createAndSendV0TxWithTable([ixClaimReward, ixAddComputeBudget], provider, wallet.payer.publicKey, [
-            wallet.payer,
-        ])
+        let txBuilder = transactionBuilder().add([ix])
+        txBuilder = await addComputeUnitInstructions(
+            provider.connection,
+            umi,
+            fromEid,
+            txBuilder,
+            umiWalletSigner,
+            computeUnitPriceScaleFactor
+        )
+        const { signature } = await txBuilder.sendAndConfirm(umi)
+        const transactionSignatureBase58 = bs58.encode(signature)
+
+        console.log(`✅ Sent ${amount} token(s) to destination EID: ${toEid}!`)
+        const isTestnet = fromEid == EndpointId.SOLANA_V2_TESTNET
+        console.log(
+            `View Solana transaction here: ${getExplorerTxLink(transactionSignatureBase58.toString(), isTestnet)}`
+        )
+        console.log(`Track cross-chain transfer here: ${getLayerZeroScanLink(transactionSignatureBase58, isTestnet)}`)
     })
