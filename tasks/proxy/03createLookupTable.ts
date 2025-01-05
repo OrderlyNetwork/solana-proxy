@@ -4,7 +4,7 @@ import {
     getConfig,
     getOrderlyEid,
     getProxyConfigPda,
-    getOftSendAccounts,
+    getAllOftSendAccounts,
     createAndSendV0Tx,
     getConfigPath,
     updateConfig,
@@ -12,6 +12,7 @@ import {
 import { toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { AddressLookupTableProgram, PublicKey, SystemProgram } from '@solana/web3.js'
 import fs from 'fs'
+import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 
 interface CreateLookupTableTaskArgs {
     force: boolean
@@ -36,7 +37,7 @@ task('proxy:createLookupTable', 'Print address, needed for Proxy as remain_accou
 
         const proxyConfigPda = getProxyConfigPda(new PublicKey(config.proxyProgramId))
 
-        const oftSendAccounts = await getOftSendAccounts(
+        const oftSendAccounts = await getAllOftSendAccounts(
             provider,
             config.oftProgramId,
             config.oftEscrowAta,
@@ -45,6 +46,9 @@ task('proxy:createLookupTable', 'Print address, needed for Proxy as remain_accou
         )
         const keys = oftSendAccounts.map((account) => toWeb3JsPublicKey(account.pubkey))
         keys.push(SystemProgram.programId)
+        keys.push(wallet.publicKey)
+        const signerAta = getAssociatedTokenAddressSync(new PublicKey(config.mintPda), wallet.publicKey)
+        keys.push(signerAta)
 
         // Remove duplicate keys
         const uniqueKeys = Array.from(new Set(keys.map((key) => key.toBase58()))).map((key) => new PublicKey(key))

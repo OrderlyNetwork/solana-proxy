@@ -10,6 +10,7 @@ import {
 import { AnchorProvider, BN, Program, setProvider, Wallet } from '@coral-xyz/anchor'
 import { ethers } from 'ethers'
 import { IDL, SolanaProxy } from '../../target/types/solana_proxy'
+import { IDL as oftIDL, Oft } from '../../target/types/oft'
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 import {
     getAccount,
@@ -125,6 +126,11 @@ export function updateConfig(config: any) {
 export function getDeployedProxyProgram(provider: AnchorProvider): Program<SolanaProxy> {
     const proxyProgramIdStr = getConfig().proxyProgramId
     return new Program<SolanaProxy>(IDL, proxyProgramIdStr, provider)
+}
+
+export function getDeployedOftProgram(provider: AnchorProvider): Program<Oft> {
+    const oftProgramIdStr = getConfig().oftProgramId
+    return new Program<Oft>(oftIDL, oftProgramIdStr, provider)
 }
 
 export function amountStrToBytes32(str: string): number[] {
@@ -319,7 +325,7 @@ function fakeSendInstructionData(dstEid: number) {
     }
 }
 
-export async function getOftQuoteSendAccounts(
+export async function getAllOftQuoteSendAccounts(
     provider: AnchorProvider,
     oftProgramIdStr: string,
     oftEscrowAtaStr: string,
@@ -376,6 +382,83 @@ export async function getOftQuoteSendAccounts(
 }
 
 export async function getOftSendAccounts(
+    provider: AnchorProvider,
+    oftProgramIdStr: string,
+    oftEscrowAtaStr: string,
+    signerPubKey: PublicKey,
+    dstEid: number
+): Promise<MetaplexAccountMeta[]> {
+    const { oftProgramId, tokenEscrow, tokenMint, oftStore, peer } = await getCommonOftAccounts(
+        provider,
+        oftProgramIdStr,
+        oftEscrowAtaStr,
+        dstEid
+    )
+
+    const signerAta = await getAssociatedTokenAddress(toWeb3JsPublicKey(tokenMint), signerPubKey, true)
+    const [eventAuthorityPDA] = new EventPDADeriver(new PublicKey(oftProgramIdStr)).eventAuthority()
+    const tokenProgram = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
+
+    const txBuilder = instructions.send(
+        { programs: oft.createOFTProgramRepo(oftProgramId) },
+        {
+            signer: createNoopSigner(fromWeb3JsPublicKey(signerPubKey)),
+            peer: peer,
+            oftStore: oftStore,
+            tokenSource: fromWeb3JsPublicKey(signerAta),
+            tokenEscrow: tokenEscrow,
+            tokenMint: tokenMint,
+            tokenProgram: tokenProgram,
+            eventAuthority: fromWeb3JsPublicKey(eventAuthorityPDA),
+            program: oftProgramId,
+
+            // The following parameters can be any value and will not affect obtaining the accounts.
+            ...fakeSendInstructionData(dstEid),
+            nativeFee: 0n,
+            lzTokenFee: 0n,
+        }
+    )
+
+    const ix = txBuilder.items[0]
+
+    return [...ix.instruction.keys]
+}
+
+export async function getRemainingOftSendAccounts(
+    provider: AnchorProvider,
+    oftProgramIdStr: string,
+    oftEscrowAtaStr: string,
+    signerPubKey: PublicKey,
+    dstEid: number
+): Promise<MetaplexAccountMeta[]> {
+    const { oftStore, peerInfo, sendHelper } = await getCommonOftAccounts(
+        provider,
+        oftProgramIdStr,
+        oftEscrowAtaStr,
+        dstEid
+    )
+
+    // Get remaining accounts from msgLib(simple_msgLib or uln)
+    const remainAccounts = (
+        await sendHelper.getSendAccounts(
+            provider.connection,
+            signerPubKey,
+            toWeb3JsPublicKey(oftStore),
+            dstEid,
+            hexlify(peerInfo.peerAddress)
+        )
+    ).map((acc) => {
+        return {
+            pubkey: fromWeb3JsPublicKey(acc.pubkey),
+            isSigner: acc.isSigner,
+            isWritable: acc.isWritable,
+        }
+    })
+
+    return remainAccounts
+}
+
+export async function getAllOftSendAccounts(
     provider: AnchorProvider,
     oftProgramIdStr: string,
     oftEscrowAtaStr: string,
@@ -452,7 +535,44 @@ function accountMeta(pubkey: string | PublicKey, isSigner: boolean, isWritable: 
     return { pubkey: (pubkey = typeof pubkey === 'string' ? new PublicKey(pubkey) : pubkey), isSigner, isWritable }
 }
 
-export function getOftSendRemainingAccounts(): AccountMeta[] {
+export function getOftSendRemainingAccounts(signer: PublicKey): AccountMeta[] {
+    const config = getConfig()
+    const remainingAccounts = [
+        // ----------- Endpoint V2 send addresses -----------
+        accountMeta(config.endpointV2ProgramId, false, false),
+        accountMeta(config.oftStorePda, false, false),
+        accountMeta(config.sendLibProgramId, false, false),
+        accountMeta(config.sendLibConfigPda, false, false),
+        accountMeta(config.defaultSendLibConfigPda, false, false),
+        accountMeta(config.sendLibInfoPda, false, false),
+        accountMeta(config.endpointSettingsPda, false, false),
+        accountMeta(config.noncePda, false, true),
+        // ----------- Unknown part -----------
+        accountMeta(config.eventAuthorityPda, false, false),
+        accountMeta(config.endpointV2ProgramId, false, false),
+        accountMeta(config.ulnSettingsPda, false, false),
+        accountMeta(config.sendConfigPda, false, false),
+        accountMeta(config.defaultSendConfigPda, false, false),
+        accountMeta(signer, true, false),
+        accountMeta(config.treasuryProgramId, false, false),
+        accountMeta(SystemProgram.programId, false, false),
+        accountMeta(config.ulnEventAuthorityPda, false, false),
+        // ----------- Send (Message) Library send addresses -----------
+        accountMeta(config.sendLibProgramId, false, false),
+        accountMeta(config.executorProgramId, false, false),
+        accountMeta(config.executorConfigPda, false, true),
+        accountMeta(config.priceFeedProgramId, false, false),
+        accountMeta(config.priceFeedConfigPda, false, false),
+        accountMeta(config.dvnProgramId, false, false),
+        accountMeta(config.dvnConfigPda, false, true),
+        accountMeta(config.priceFeedProgramId, false, false),
+        accountMeta(config.priceFeedConfigPda, false, false),
+    ]
+
+    return remainingAccounts
+}
+
+export function getClaimRewardRemainingAccounts(): AccountMeta[] {
     const config = getConfig()
     const remainingAccounts = [
         // ----------- Oft send addresses -----------

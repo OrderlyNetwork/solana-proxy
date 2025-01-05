@@ -4,7 +4,7 @@ import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
 import {
     createAndSendV0Tx,
     getConfig,
-    getOftQuoteSendAccounts,
+    getAllOftQuoteSendAccounts,
     getOrderlyEid,
     getProxyConfigPda,
     metaplexToWeb3AccountMetaArray,
@@ -58,7 +58,7 @@ task('proxy:quote-claim-reward', 'Quote claim reward cross-chain fee')
             proxyConfig: proxyConfigPda,
         }
 
-        const metaplexQuoteRemainingAccounts = await getOftQuoteSendAccounts(
+        const metaplexQuoteRemainingAccounts = await getAllOftQuoteSendAccounts(
             provider,
             config.oftProgramId,
             config.oftEscrowAta,

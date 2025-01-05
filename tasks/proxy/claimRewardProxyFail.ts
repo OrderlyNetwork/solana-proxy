@@ -4,7 +4,7 @@ import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
 import {
     createAndSendV0TxWithTable,
     getConfig,
-    getOftSendRemainingAccounts,
+    getClaimRewardRemainingAccounts,
     getProxyConfigPda,
     setupAnchor,
     amountStrToBytes32,
@@ -60,15 +60,15 @@ task('proxy:claim-reward-fail', 'Claim reward from the Solana network')
             lzTokenFee: new BN(0),
         }
 
-        // const metaplexOftSendRemainingAccounts = await getOftSendAccounts(provider, config.oftProgramId, config.oftEscrowAta, wallet.publicKey, getOrderlyEid());
+        // const metaplexOftSendRemainingAccounts = await getAllOftSendAccounts(provider, config.oftProgramId, config.oftEscrowAta, wallet.publicKey, getOrderlyEid());
         // console.log('Send remaining accounts:', metaplexOftSendRemainingAccounts);
         // const web3OftSendRemainingAccounts = metaplexToWeb3AccountMetaArray(metaplexOftSendRemainingAccounts);
-        const oftSendRemainingAccounts = getOftSendRemainingAccounts()
+        const claimRewardRemainingAccounts = getClaimRewardRemainingAccounts()
 
         const ixClaimReward = await proxyProgram.methods
             .claimReward(claimRewardParams, sendParam)
             .accounts(claimRewardAccounts)
-            .remainingAccounts(oftSendRemainingAccounts)
+            .remainingAccounts(claimRewardRemainingAccounts)
             .instruction()
         const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 
