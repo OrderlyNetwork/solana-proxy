@@ -23,7 +23,7 @@ impl QuoteClaimReward<'_> {
         let params_encoded = claim_reward_params.encode();
         msg!("Encoded params: {:?}", params_encoded);
 
-        let send_params = oft::instructions::QuoteSendParams {
+        let _send_params = oft::instructions::QuoteSendParams {
             dst_eid: ctx.accounts.proxy_authority.dst_eid,
             to: ctx.accounts.proxy_authority.occ_manager_address,
             amount_ld: 0,
@@ -33,7 +33,7 @@ impl QuoteClaimReward<'_> {
             pay_in_lz_token: false,
         };
 
-        let cpi_context = QuoteSend::construct_context(ctx.accounts.proxy_authority.oft_program, ctx.remaining_accounts)?;
+        let _cpi_context = QuoteSend::construct_context(ctx.accounts.proxy_authority.oft_program, ctx.remaining_accounts)?;
 
         // let rtn = oft::cpi::quote_send(cpi_context, send_params)?;
 

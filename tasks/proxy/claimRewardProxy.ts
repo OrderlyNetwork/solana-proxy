@@ -21,7 +21,7 @@ interface ClaimRewardTaskArgs {
 
 /// Calling this task will claim reward on OmnichainLedger contract on Orderly network from the Solana network.
 
-task('proxy:claim-reward-fail', 'Claim reward from the Solana network')
+task('proxy:claim-reward-proxy', 'Claim reward from the Solana network')
     .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
     .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', '0', devtoolsTypes.string)
     .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)

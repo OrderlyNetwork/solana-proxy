@@ -4,8 +4,11 @@ use anchor_spl::{
     token::{Token, TokenAccount},
 };
 
-use crate::{state::ProxyConfig, MessagingReceipt, PROXY_CONFIG_SEED};
-use oft::{cpi::accounts::Send, instructions::OFTReceipt, ConstructCPIContext};
+use crate::{state::ProxyConfig, PROXY_CONFIG_SEED};
+// use crate::{state::ProxyConfig, MessagingReceipt, PROXY_CONFIG_SEED};
+// use oft::{cpi::accounts::Send, instructions::OFTReceipt, ConstructCPIContext};
+use solana_program::keccak::hash;
+use solana_program::keccak::Hash;
 
 #[derive(Accounts)]
 #[instruction(params: ClaimRewardParams)]
@@ -29,12 +32,12 @@ pub struct ClaimReward<'info> {
 }
 
 impl ClaimReward<'_> {
-    pub fn apply(
-        ctx: &mut Context<ClaimReward>,
-        claim_reward_params: &ClaimRewardParams,
-        oapp_params: &OAppSendParams,
-    ) -> Result<(MessagingReceipt, OFTReceipt)> {
-        // pub fn apply(ctx: &mut Context<ClaimReward>, claim_reward_params: &ClaimRewardParams, oapp_params: &OAppSendParams) -> Result<()> {
+    // pub fn apply(
+    //     ctx: &mut Context<ClaimReward>,
+    //     claim_reward_params: &ClaimRewardParams,
+    //     oapp_params: &OAppSendParams,
+    // ) -> Result<(MessagingReceipt, OFTReceipt)> {
+    pub fn apply(ctx: &mut Context<ClaimReward>, claim_reward_params: &ClaimRewardParams, oapp_params: &OAppSendParams) -> Result<()> {
         msg!("ClaimReward instruction called");
         msg!("distribution_id: {}", claim_reward_params.distribution_id);
         msg!("cumulative_amount: {:?}", claim_reward_params.cumulative_amount);
@@ -45,31 +48,77 @@ impl ClaimReward<'_> {
         let params_encoded = claim_reward_params.encode();
         msg!("Encoded params: {:?}", params_encoded);
 
-        let send_params = oft::instructions::SendParams {
-            dst_eid: ctx.accounts.proxy_config.dst_eid,
-            to: ctx.accounts.proxy_config.occ_manager_address,
-            amount_ld: 0,
-            min_amount_ld: 0,
-            options: vec![],
-            compose_msg: None,
-            native_fee: oapp_params.native_fee,
-            lz_token_fee: oapp_params.lz_token_fee,
-        };
+        let evm_address = solana_to_evm_address(&ctx.accounts.user.key());
+        msg!("EVM address: {:?}", evm_address);
+
+        let leaf = calculate_leaf(evm_address, &claim_reward_params.cumulative_amount);
+        msg!("Leaf: {:?}", leaf);
+
+        let root = process_proof(&claim_reward_params.merkle_proof, leaf);
+        msg!("Root: {:?}", root);
+
+        // let send_params = oft::instructions::SendParams {
+        //     dst_eid: ctx.accounts.proxy_config.dst_eid,
+        //     to: ctx.accounts.proxy_config.occ_manager_address,
+        //     amount_ld: 0,
+        //     min_amount_ld: 0,
+        //     options: vec![],
+        //     compose_msg: None,
+        //     native_fee: oapp_params.native_fee,
+        //     lz_token_fee: oapp_params.lz_token_fee,
+        // };
 
         // ctx.remaining_accounts.borrow_mut()[0].is_signer = true;
 
-        let cpi_context = Send::construct_context(ctx.accounts.proxy_config.oft_program, ctx.remaining_accounts)?;
+        // let cpi_context = Send::construct_context(ctx.accounts.proxy_config.oft_program, ctx.remaining_accounts)?;
 
         // let proxy_escrow_key = ctx.accounts.proxy_escrow.key();
         // let seeds = &[PROXY_CONFIG_SEED, proxy_escrow_key.as_ref(), &[ctx.accounts.proxy_config.bump]];
 
-        let seeds = &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]];
+        // let seeds = &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]];
 
-        let rtn = oft::cpi::send(cpi_context.with_signer(&[seeds]), send_params)?;
+        // let rtn = oft::cpi::send(cpi_context.with_signer(&[seeds]), send_params)?;
 
-        Ok(rtn.get())
-        // Ok(())
+        // Ok(rtn.get())
+        Ok(())
     }
+}
+
+fn calculate_leaf(evm_address: [u8; 20], cumulative_amount: &[u8; 32]) -> Hash {
+    let mut data = Vec::with_capacity(52); // 20 bytes for evm_address + 32 bytes for cumulative_amount
+    data.extend_from_slice(&evm_address);
+    data.extend_from_slice(cumulative_amount);
+    let hashed_address_and_amount = solana_program::keccak::hash(&data);
+    let double_hashed_address_and_amount = solana_program::keccak::hash(&hashed_address_and_amount.to_bytes());
+    double_hashed_address_and_amount
+}
+
+fn solana_to_evm_address(solana_address: &Pubkey) -> [u8; 20] {
+    let hashed_solana_address = solana_program::keccak::hash(&solana_address.to_bytes());
+    let mut evm_address = [0u8; 20];
+    evm_address.copy_from_slice(&hashed_solana_address.to_bytes()[12..32]);
+    evm_address
+}
+
+fn process_proof(proof: &[[u8; 32]], leaf: Hash) -> Hash {
+    proof
+        .iter()
+        .fold(leaf, |computed_hash, &proof_element| hash_pair(computed_hash.to_bytes(), proof_element))
+}
+
+fn hash_pair(a: [u8; 32], b: [u8; 32]) -> Hash {
+    if a < b {
+        efficient_hash(a, b)
+    } else {
+        efficient_hash(b, a)
+    }
+}
+
+fn efficient_hash(a: [u8; 32], b: [u8; 32]) -> Hash {
+    let mut data = Vec::with_capacity(64);
+    data.extend_from_slice(&a);
+    data.extend_from_slice(&b);
+    hash(&data)
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
