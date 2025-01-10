@@ -40,3 +40,9 @@ Encoded OCC vault message bytes: Uint8Array(928)
 npx hardhat proxy:claim-reward-proxy --distribution-id 1 --cumulative-amount 1000000000000000000 --merkle-proof "0xc31be4d97b804bd92ab51196234411a611f4c93bc4241f015a65df2b6c6c5d3d","0x6041c6e1eb93071905e8ab4a97815d3c52885e688bb24b5bef87272b8a3d106f","0x3d39da21ef0d0b97eeb8f99b295f57128b7ce1ac32db200d33d18408c1b31e6b","0x5f4aaa347887cecf8b19fd1f6f8780186fac9030ef557fe2376d80e8b9fcd90e","0xe55cc58f9dee21cc4062aaf5abb544828a833f7a727d0b4cd524bceaeb141370","0x15f90870ea69386d912d160bca67365cc6e682c79a4e3f8ffd1c8f8557fcfbdd","0x1a89e4125eb12a36b0ee4a51ad9da1516c33d294c5a359c4c7913b61ee54e446","0xdc0cdd4f2461fe487857d35cf48be3b77837ce76c4b145cd543a70e0e7b191d1","0x7ae57b73800cab2728e33223b0c8450486e9f259280688f668fdd7d180ecc0bc","0xce0d7c80aaf5ac745a7bd0c3d3c7fcd97b1961fb4242d1e18a84e9caedde6450","0x2db9799291adf960533bf3a259667a1526a299f346c836b98728adc01893ba89","0xfce15927daed6e47340d9f433f1f27fa9d0a9e2b656fb7c0f3cfaf77b7a9e43c","0x4ad6e46db0c9cc495a9a0214404941569d0eddcabb98a4df9829c8a1398c882e","0xfa4a04e2fd07295b0a614951ca8b4c2b63a0a7e89807b294f783734eee46f2b9","0xe9faaf671a00775b8bf1870b89ee24c783d1067b3fbb031d1a2fe878d5c032e1"
 
 https://explorer.solana.com/tx/37eGhEjCzES8MXdmV2fBZfAobcbJ5PH3uDWcHyJTCQhTXRkVNdAajHdfTHznzWmGwR7BLR1MhPjcqBEfHBBpfLHX?cluster=devnet
+
+=============== Stake ORDER ===============
+npx hardhat proxy:send-user-request --amount 10000000000 --payload-type stake
+
+=============== Send User Request ===============
+npx hardhat proxy:send-user-request --amount 0 --payload-type CreateOrderUnstakeRequest

@@ -116,10 +116,39 @@ To claim rewards, you need to know next parameters:
 npx hardhat proxy:claim-reward --distribution-id 1 --cumulative-amount 1000000000000000000 --merkle-proof "0xae04af11dc3968a94f29f8d0b4f11c1890c2483a239c5a333545fc73d953bb1d","0x93544216020fd51b6fcaaa9a88420f01d90f6298a4c39c1d20b02653b578eb60","0xcf7d0d4c8b5c18c3788e473dc0cdc256c5f2b01c8eca797ea19ceded9a184c49"
 ```
 
-## Stake Order
+## Send User Request
 
-To stake order, call next command:
+There are several types of user requests, supported:
+| Number | Request type name | Amount Means |
+|--------|------------------------------|------------------------|
+| 1 | Stake | Staking amount |
+| 2 | CreateOrderUnstakeRequest | Unstaking amount |
+| 3 | CancelOrderUnstakeRequest | Ignored, should be 0 |
+| 4 | WithdrawOrder | Ignored, should be 0 |
+| 5 | EsOrderUnstakeAndVest | Unstaking amount |
+| 6 | CancelVestingRequest | Request id |
+| 8 | ClaimVestingRequest | Request id |
+| 9 | RedeemValor | Amount to redeem |
+| 10 | ClaimUsdcRevenue | Ignored, should be 0 |
+| 15 | UnstakeOrderNow | Unstaking amount |
+
+To send user request, you need to call `proxy:send-user-request`, provide amount, according to the table above, and payload type. Payload type can be number or string, according to the request name from the table above, case ignored (e.g. `stake` or `Stake` or `1`).
+
+Examples:
+
+### Stake Order
 
 ```bash
-npx hardhat proxy:stake-order --amount 1000000000000000000
+npx hardhat proxy:send-user-request --amount 10000000000 --payload-type stake
+```
+### Create Order Unstake Request
+
+```bash
+npx hardhat proxy:send-user-request --amount 10000000000 --payload-type CreateOrderUnstakeRequest
+```
+
+### Cancel Order Unstake Request
+
+```bash
+npx hardhat proxy:send-user-request --amount 0 --payload-type CancelOrderUnstakeRequest
 ```

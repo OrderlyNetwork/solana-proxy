@@ -17,7 +17,7 @@ import {
     getDeployedOftProgram,
     getRemainingOftSendAccounts,
     getOftSendRemainingAccounts,
-} from './utils'
+} from '../utils'
 import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
 import { createNoopSigner } from '@metaplex-foundation/umi'
 import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities'
@@ -31,7 +31,7 @@ interface ClaimRewardTaskArgs {
 
 /// Calling this task will claim reward on OmnichainLedger contract on Orderly network from the Solana network.
 
-task('proxy:claim-reward-lt', 'Claim reward from the Solana network using LookupTable')
+task('proxy:claim-reward-oft-lt', 'Claim reward from the Solana network  OFT and LookupTable')
     .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
     .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', '0', devtoolsTypes.string)
     .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)

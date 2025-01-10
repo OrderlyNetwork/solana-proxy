@@ -1,17 +1,18 @@
+import { readFileSync } from 'fs'
+import fs from 'fs'
+import { join } from 'path'
+
 import {
-    TransactionInstruction,
-    VersionedTransaction,
-    TransactionMessage,
-    PublicKey,
     AccountMeta,
-    SystemProgram,
+    Connection,
+    PublicKey,
     Signer,
+    SystemProgram,
+    TransactionInstruction,
+    TransactionMessage,
+    VersionedTransaction,
 } from '@solana/web3.js'
 import { AnchorProvider, BN, Program, setProvider, Wallet } from '@coral-xyz/anchor'
-import { ethers } from 'ethers'
-import { IDL, SolanaProxy } from '../../target/types/solana_proxy'
-import { IDL as oftIDL, Oft } from '../../target/types/oft'
-import { EndpointId } from '@layerzerolabs/lz-definitions'
 import {
     getAccount,
     getAssociatedTokenAddress,
@@ -21,28 +22,64 @@ import {
 import { OftPDA, accounts, oft, instructions } from '@layerzerolabs/oft-v2-solana-sdk'
 import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2'
 import {
-    publicKey as metaplexPublicKey,
-    createNoopSigner,
     AccountMeta as MetaplexAccountMeta,
+    createNoopSigner,
+    createSignerFromKeypair,
+    publicKey as metaplexPublicKey,
+    signerIdentity,
+    transactionBuilder,
 } from '@metaplex-foundation/umi'
 import { fromWeb3JsPublicKey, toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
+import { findAssociatedTokenPda, mplToolbox } from '@metaplex-foundation/mpl-toolbox'
 import { addressToBytes32, bytes32ToEthAddress } from '@layerzerolabs/lz-v2-utilities'
-import { hexlify, arrayify } from '@layerzerolabs/lz-utilities'
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import { arrayify, hexlify } from '@layerzerolabs/lz-utilities'
 import { sleep } from '@layerzerolabs/io-devtools'
-import { isAddress } from 'web3-validator'
-import fs from 'fs'
-import { Sign } from 'crypto'
+import { ethers } from 'ethers'
 import { defaultAbiCoder } from '@ethersproject/abi'
-import { hexToBytes, bytesToHex } from 'ethereum-cryptography/utils'
+import { isAddress } from 'web3-validator'
+import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import { EndpointId } from '@layerzerolabs/lz-definitions'
+
+import { IDL, SolanaProxy } from '../../target/types/solana_proxy'
+import { IDL as oftIDL, Oft } from '../../target/types/oft'
+import { addComputeUnitInstructions, getExplorerTxLink, getLayerZeroScanLink } from '../solana'
 
 const PROXY_CONFIG_SEED = 'ProxyConfig'
 const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
 const LOCALHOST_RPC_URL = 'http://localhost:8899'
 const SOLANA_DEVNET_RPC_URL = 'https://api.devnet.solana.com'
 const SOLANA_MAINNET_RPC_URL = 'https://api.mainnet-beta.solana.com'
+
+export enum LedgerToken {
+    ORDER = 0,
+    ESORDER = 1,
+    USDC = 2,
+    PLACEHOLDER = 3,
+}
+
+export enum PayloadDataType {
+    /* ====== Payloads From vault side ====== */
+    ClaimReward = 0,
+    Stake = 1,
+    CreateOrderUnstakeRequest = 2,
+    CancelOrderUnstakeRequest = 3,
+    WithdrawOrder = 4,
+    EsOrderUnstakeAndVest = 5,
+    CancelVestingRequest = 6,
+    CancelAllVestingRequests = 7, // Not supported anymore. Do not remove for backward compatibility
+    ClaimVestingRequest = 8,
+    RedeemValor = 9,
+    ClaimUsdcRevenue = 10,
+    /* ====== Backward Payloads from ledger side ====== */
+    ClaimRewardBackward = 11,
+    WithdrawOrderBackward = 12,
+    ClaimVestingRequestBackward = 13,
+    ClaimUsdcRevenueBackward = 14,
+    /* ====== New Payloads ====== */
+    UnstakeOrderNow = 15,
+    ClaimRewardSolana = 16,
+}
 
 export function getEnv(): String {
     let ENV = process.env.ENV
@@ -640,6 +677,14 @@ export function encodeClaimRewardPayload(
     return encodedBytes
 }
 
+export function encodeUserRequestPayload(amount: string): Uint8Array {
+    const amountArray = amountStrToBytes32(amount)
+    const encodedStr = defaultAbiCoder.encode(['tuple(uint256)'], [[amountArray]])
+    console.log('Encoded user request payload:', encodedStr)
+    const encodedBytes = arrayify(encodedStr)
+    return encodedBytes
+}
+
 export function encodeOCCVaultMessage(
     chainedEventId: number,
     srcChainId: number,
@@ -655,7 +700,101 @@ export function encodeOCCVaultMessage(
     )
     console.log('Encoded OCC vault message:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
-    console.log('Encoded OCC vault message bytes:', encodedBytes)
+    // console.log('Encoded OCC vault message bytes:', encodedBytes)
     console.log('Encoded OCC vault message length:', encodedBytes.length)
     return encodedBytes
+}
+
+export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: string, composeMsg: Uint8Array) {
+    const wallet = provider.wallet as Wallet
+    const umi = createUmi(provider.connection.rpcEndpoint).use(mplToolbox())
+    const umiWalletKeyPair = umi.eddsa.createKeypairFromSecretKey(wallet.payer.secretKey)
+    const umiWalletSigner = createSignerFromKeypair(umi, umiWalletKeyPair)
+    umi.use(signerIdentity(umiWalletSigner))
+
+    const config = getConfig()
+    const oftProgramId = metaplexPublicKey(config.oftProgramId)
+    const mint = metaplexPublicKey(config.mintPda)
+    const umiEscrowPublicKey = metaplexPublicKey(config.oftEscrowAta)
+    const tokenProgramId = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
+
+    const tokenAccount = findAssociatedTokenPda(umi, {
+        mint: metaplexPublicKey(config.mintPda),
+        owner: fromWeb3JsPublicKey(wallet.publicKey),
+        tokenProgramId,
+    })
+
+    if (!tokenAccount) {
+        throw new Error(
+            `No token account found for mint ${config.mintPda} and owner ${wallet.publicKey} in program ${tokenProgramId}`
+        )
+    }
+
+    const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
+    const toEid = getOrderlyEid()
+    const fromEid = getSolanaEid()
+    const computeUnitPriceScaleFactor = 4
+
+    const { nativeFee } = await oft.quote(
+        umi.rpc,
+        {
+            payer: fromWeb3JsPublicKey(wallet.publicKey),
+            tokenMint: mint,
+            tokenEscrow: umiEscrowPublicKey,
+        },
+        {
+            payInLzToken: false,
+            to: Buffer.from(recipientAddressBytes32),
+            dstEid: toEid,
+            amountLd: BigInt(amount),
+            minAmountLd: BigInt(amount),
+            options: Buffer.from(''),
+            composeMsg,
+        },
+        {
+            oft: oftProgramId,
+        }
+    )
+
+    console.log('nativeFee:', nativeFee)
+
+    const ix = await oft.send(
+        umi.rpc,
+        {
+            payer: umiWalletSigner,
+            tokenMint: mint,
+            tokenEscrow: umiEscrowPublicKey,
+            tokenSource: tokenAccount[0],
+        },
+        {
+            to: Buffer.from(recipientAddressBytes32),
+            dstEid: toEid,
+            amountLd: BigInt(amount),
+            minAmountLd: (BigInt(amount) * BigInt(9)) / BigInt(10),
+            options: Buffer.from(''),
+            composeMsg,
+            nativeFee,
+        },
+        {
+            oft: oftProgramId,
+            token: tokenProgramId,
+        }
+    )
+
+    let txBuilder = transactionBuilder().add([ix])
+    txBuilder = await addComputeUnitInstructions(
+        provider.connection,
+        umi,
+        fromEid,
+        txBuilder,
+        umiWalletSigner,
+        computeUnitPriceScaleFactor
+    )
+    // const { signature } = await txBuilder.sendAndConfirm(umi)
+    // const transactionSignatureBase58 = bs58.encode(signature)
+
+    // console.log(`✅ Sent ${amount} token(s) to destination EID: ${toEid}!`)
+    // const isTestnet = fromEid == EndpointId.SOLANA_V2_TESTNET
+    // console.log(`View Solana transaction here: ${getExplorerTxLink(transactionSignatureBase58.toString(), isTestnet)}`)
+    // console.log(`Track cross-chain transfer here: ${getLayerZeroScanLink(transactionSignatureBase58, isTestnet)}`)
 }

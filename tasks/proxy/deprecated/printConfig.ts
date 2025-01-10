@@ -13,7 +13,7 @@ import {
     getDeployedProxyProgram,
     getOrderlyEid,
     bytes32ToEvmAddress,
-} from './utils'
+} from '../utils'
 
 task('proxy:printConfig', 'Print Proxy and related PDA').setAction(async () => {
     const [provider, wallet] = setupAnchor()

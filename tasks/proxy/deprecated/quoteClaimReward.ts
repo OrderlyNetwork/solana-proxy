@@ -10,8 +10,8 @@ import {
     metaplexToWeb3AccountMetaArray,
     setupAnchor,
     amountStrToBytes32,
-} from './utils'
-import { SolanaProxy } from '../../target/types/solana_proxy'
+} from '../utils'
+import { SolanaProxy } from '../../../target/types/solana_proxy'
 import { AccountMeta, ComputeBudgetProgram } from '@solana/web3.js'
 
 interface ClaimRewardTaskArgs {
@@ -55,7 +55,7 @@ task('proxy:quote-claim-reward', 'Quote claim reward cross-chain fee')
         }
 
         const quoteClaimRewardAccounts = {
-            proxyConfig: proxyConfigPda,
+            proxyAuthority: proxyConfigPda,
         }
 
         const metaplexQuoteRemainingAccounts = await getAllOftQuoteSendAccounts(
