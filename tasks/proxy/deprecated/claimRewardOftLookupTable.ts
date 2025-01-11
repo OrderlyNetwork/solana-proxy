@@ -4,22 +4,15 @@ import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
 import {
     createAndSendV0TxWithTable,
     getConfig,
-    getClaimRewardRemainingAccounts,
-    getProxyConfigPda,
     setupAnchor,
-    amountStrToBytes32,
-    getDeployedProxyProgram,
     encodeClaimRewardPayload,
     encodeOCCVaultMessage,
     getSolanaEid,
-    getOftSendAccounts,
     getOrderlyEid,
     getDeployedOftProgram,
-    getRemainingOftSendAccounts,
-    getOftSendRemainingAccounts,
+    getAccountsForEndpointV2Send,
 } from '../utils'
 import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
-import { createNoopSigner } from '@metaplex-foundation/umi'
 import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities'
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 
@@ -82,13 +75,10 @@ task('proxy:claim-reward-oft-lt', 'Claim reward from the Solana network  OFT and
         }
         console.log('Send params:', oftSendParams)
 
-        const oftSendRemainingAccounts = getOftSendRemainingAccounts(wallet.publicKey)
-        console.log('Send remaining accounts:', oftSendRemainingAccounts)
-
         const ixSend = await oftProgram.methods
             .send(oftSendParams)
             .accounts(oftSendAccounts)
-            .remainingAccounts(oftSendRemainingAccounts)
+            .remainingAccounts(getAccountsForEndpointV2Send(wallet.publicKey, true))
             .instruction()
         const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 

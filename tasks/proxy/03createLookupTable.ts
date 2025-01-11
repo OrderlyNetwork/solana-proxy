@@ -25,7 +25,7 @@ task('proxy:createLookupTable', 'Print address, needed for Proxy as remain_accou
         const config = getConfig()
 
         if (config.proxyLookupTable && !force) {
-            console.log('Lookup table address:', config.proxyLookupTable)
+            console.log('Lookup table address in config:', config.proxyLookupTable)
             const lookupTableAccount = (
                 await provider.connection.getAddressLookupTable(new PublicKey(config.proxyLookupTable))
             ).value

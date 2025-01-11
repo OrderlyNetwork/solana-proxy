@@ -18,6 +18,7 @@ import {
     getSolanaEid,
     LedgerToken,
     oftSendWithComposeMsg,
+    oftSendWithComposeMsgAndLt,
     PayloadDataType,
     setupAnchor,
 } from './utils'
@@ -76,7 +77,7 @@ interface SendUserRequestTaskArgs {
 }
 
 /// Send user request with particular payload type, that defines the action to be taken on OmnichainLedger contract on Orderly network from the Solana network.
-task('proxy:send-user-request', 'Send user request to the OmnichainLedger contract on Orderly network')
+task('proxy:send-user-request2', 'Send user request to the OmnichainLedger contract on Orderly network')
     .addParam('amount', 'amount or request id depending on request type ', '0', devtoolsTypes.string)
     .addParam('payloadType', 'payload type', undefined, devtoolsTypes.string)
     .setAction(async ({ amount, payloadType }: SendUserRequestTaskArgs) => {
@@ -107,5 +108,5 @@ task('proxy:send-user-request', 'Send user request to the OmnichainLedger contra
             payloadDataType,
             payload
         )
-        await oftSendWithComposeMsg(provider, amount, composeMsg)
+        await oftSendWithComposeMsgAndLt(provider, amount, composeMsg)
     })

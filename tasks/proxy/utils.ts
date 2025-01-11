@@ -4,13 +4,14 @@ import { join } from 'path'
 
 import {
     AccountMeta,
-    Connection,
+    ComputeBudgetProgram,
     PublicKey,
     Signer,
     SystemProgram,
     TransactionInstruction,
     TransactionMessage,
     VersionedTransaction,
+    VersionedTransactionResponse,
 } from '@solana/web3.js'
 import { AnchorProvider, BN, Program, setProvider, Wallet } from '@coral-xyz/anchor'
 import {
@@ -32,9 +33,8 @@ import {
 import { fromWeb3JsPublicKey, toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
 import { findAssociatedTokenPda, mplToolbox } from '@metaplex-foundation/mpl-toolbox'
-import { addressToBytes32, bytes32ToEthAddress } from '@layerzerolabs/lz-v2-utilities'
+import { addressToBytes32, bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
 import { arrayify, hexlify } from '@layerzerolabs/lz-utilities'
-import { sleep } from '@layerzerolabs/io-devtools'
 import { ethers } from 'ethers'
 import { defaultAbiCoder } from '@ethersproject/abi'
 import { isAddress } from 'web3-validator'
@@ -44,6 +44,8 @@ import { EndpointId } from '@layerzerolabs/lz-definitions'
 import { IDL, SolanaProxy } from '../../target/types/solana_proxy'
 import { IDL as oftIDL, Oft } from '../../target/types/oft'
 import { addComputeUnitInstructions, getExplorerTxLink, getLayerZeroScanLink } from '../solana'
+import assert from 'assert'
+import * as borsh from 'borsh'
 
 const PROXY_CONFIG_SEED = 'ProxyConfig'
 const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
@@ -127,6 +129,10 @@ export function getSolanaEid(): number {
     return EndpointId.SOLANA_V2_TESTNET
 }
 
+export function isTestnet(): boolean {
+    return getEnv() !== 'PROD'
+}
+
 export function getOrderlyEid(): number {
     if (getEnv() === 'PROD') {
         return EndpointId.ORDERLY_V2_MAINNET
@@ -139,7 +145,13 @@ export function getConfigPath() {
     return join(__dirname, `../../config/${ENV.toLowerCase()}.json`)
 }
 
+let configSingleton: any = null
+
 export function getConfig(): any {
+    if (configSingleton) {
+        return configSingleton
+    }
+
     const configPath = getConfigPath()
     try {
         const config = JSON.parse(readFileSync(configPath, 'utf-8'))
@@ -158,6 +170,7 @@ export function updateConfig(config: any) {
     const configPath = getConfigPath()
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
     console.log(`Config saved to ${configPath}\n`)
+    configSingleton = null
 }
 
 export function getDeployedProxyProgram(provider: AnchorProvider): Program<SolanaProxy> {
@@ -178,6 +191,11 @@ export function amountStrToBytes32(str: string): number[] {
 
 export function getProxyConfigPda(proxyProgramId: PublicKey): PublicKey {
     return PublicKey.findProgramAddressSync([Buffer.from(PROXY_CONFIG_SEED, 'utf8')], proxyProgramId)[0]
+}
+
+export function printTxLinks(txid: string) {
+    console.log(`Solana transaction:    ${getExplorerTxLink(txid, isTestnet())}`)
+    console.log(`LzyerZero transaction: ${getLayerZeroScanLink(txid, isTestnet())}`)
 }
 
 export function printProxyConfig(title: string, proxyConfig: any) {
@@ -276,27 +294,22 @@ export async function createAndSendV0TxWithTable(
     signers: Signer[]
 ) {
     const lookupTableAddressStr = getConfig().proxyLookupTable
-    console.log('Lookup Table Address:', lookupTableAddressStr)
+    // console.log('Lookup Table Address:', lookupTableAddressStr)
     const lookupTableAccount = (await provider.connection.getAddressLookupTable(new PublicKey(lookupTableAddressStr)))
         .value
     if (!lookupTableAccount) {
         throw new Error('Lookup table account does not exist. Please create it first.')
     }
-    console.log('1')
     const msg = new TransactionMessage({
         payerKey: payerPubKey,
         recentBlockhash: (await provider.connection.getLatestBlockhash()).blockhash,
         instructions: txInstructions,
     }).compileToV0Message([lookupTableAccount])
-    console.log('2')
     const tx = new VersionedTransaction(msg)
-    console.log('3')
     tx.sign(signers)
-    console.log('4')
     const sigSend = await provider.connection.sendTransaction(tx)
-    console.log('5')
-    console.log('Send transaction confirmed:', sigSend)
-    await sleep(2)
+    printTxLinks(sigSend)
+    return sigSend
 }
 
 export function bytes32ToEvmAddress(bytes32Address: Uint8Array): string {
@@ -572,9 +585,66 @@ function accountMeta(pubkey: string | PublicKey, isSigner: boolean, isWritable: 
     return { pubkey: (pubkey = typeof pubkey === 'string' ? new PublicKey(pubkey) : pubkey), isSigner, isWritable }
 }
 
-export function getOftSendRemainingAccounts(signer: PublicKey): AccountMeta[] {
+export async function printQuoteSendRemainAccounts(provider: AnchorProvider) {
+    const wallet = provider.wallet as Wallet
     const config = getConfig()
-    const remainingAccounts = [
+    const dstEid = getOrderlyEid()
+    const { oftProgramId, tokenMint, oftStore, peer, peerInfo, sendHelper } = await getCommonOftAccounts(
+        provider,
+        config.oftProgramId,
+        config.oftEscrowAta,
+        dstEid
+    )
+
+    const quoteSendRemainAccounts = (
+        await sendHelper.getQuoteAccounts(
+            provider.connection,
+            wallet.publicKey,
+            toWeb3JsPublicKey(oftStore),
+            dstEid,
+            hexlify(peerInfo.peerAddress)
+        )
+    ).map((acc) => {
+        return {
+            pubkey: fromWeb3JsPublicKey(acc.pubkey),
+            isSigner: acc.isSigner,
+            isWritable: acc.isWritable,
+        }
+    })
+
+    console.log('Quote send remaining accounts:', quoteSendRemainAccounts)
+}
+
+export function getAccountsForEndpointV2QuoteSend(): AccountMeta[] {
+    const config = getConfig()
+    return [
+        // ----------- Endpoint V2 quote send addresses -----------
+        accountMeta(config.endpointV2ProgramId, false, false),
+        accountMeta(config.sendLibProgramId, false, false),
+        accountMeta(config.sendLibConfigPda, false, false),
+        accountMeta(config.defaultSendLibConfigPda, false, false),
+        accountMeta(config.sendLibInfoPda, false, false),
+        accountMeta(config.endpointSettingsPda, false, false),
+        accountMeta(config.noncePda, false, false),
+        // ----------- Unknown part -----------
+        accountMeta(config.ulnSettingsPda, false, false),
+        accountMeta(config.sendConfigPda, false, false),
+        accountMeta(config.defaultSendConfigPda, false, false),
+        // ----------- Send (Message) Library send addresses -----------
+        accountMeta(config.executorProgramId, false, false),
+        accountMeta(config.executorConfigPda, false, false),
+        accountMeta(config.priceFeedProgramId, false, false),
+        accountMeta(config.priceFeedConfigPda, false, false),
+        accountMeta(config.dvnProgramId, false, false),
+        accountMeta(config.dvnConfigPda, false, false),
+        accountMeta(config.priceFeedProgramId, false, false),
+        accountMeta(config.priceFeedConfigPda, false, false),
+    ]
+}
+
+export function getAccountsForEndpointV2Send(signer: string | PublicKey, signerSigns: boolean): AccountMeta[] {
+    const config = getConfig()
+    return [
         // ----------- Endpoint V2 send addresses -----------
         accountMeta(config.endpointV2ProgramId, false, false),
         accountMeta(config.oftStorePda, false, false),
@@ -590,7 +660,7 @@ export function getOftSendRemainingAccounts(signer: PublicKey): AccountMeta[] {
         accountMeta(config.ulnSettingsPda, false, false),
         accountMeta(config.sendConfigPda, false, false),
         accountMeta(config.defaultSendConfigPda, false, false),
-        accountMeta(signer, true, false),
+        accountMeta(signer, signerSigns, false),
         accountMeta(config.treasuryProgramId, false, false),
         accountMeta(SystemProgram.programId, false, false),
         accountMeta(config.ulnEventAuthorityPda, false, false),
@@ -605,16 +675,14 @@ export function getOftSendRemainingAccounts(signer: PublicKey): AccountMeta[] {
         accountMeta(config.priceFeedProgramId, false, false),
         accountMeta(config.priceFeedConfigPda, false, false),
     ]
-
-    return remainingAccounts
 }
 
-export function getClaimRewardRemainingAccounts(): AccountMeta[] {
+export function getAccountsForOftSend(signer: string | PublicKey, signerSigns: boolean): AccountMeta[] {
     const config = getConfig()
-    const remainingAccounts = [
+    return [
         // ----------- Oft send addresses -----------
         accountMeta(config.oftProgramId, false, false),
-        accountMeta(config.proxyConfigPda, false, false),
+        accountMeta(signer, signerSigns, false),
         accountMeta(config.peerPda, false, true),
         accountMeta(config.oftStorePda, false, true),
         accountMeta(config.proxyEscrowAta, false, true),
@@ -622,39 +690,7 @@ export function getClaimRewardRemainingAccounts(): AccountMeta[] {
         accountMeta(config.mintPda, false, true),
         accountMeta(TOKEN_PROGRAM_ID, false, false),
         accountMeta(config.unknownPda, false, false),
-        accountMeta(config.oftProgramId, false, false),
-        // ----------- Endpoint V2 send addresses -----------
-        accountMeta(config.endpointV2ProgramId, false, false),
-        accountMeta(config.oftStorePda, false, false),
-        accountMeta(config.sendLibProgramId, false, false),
-        accountMeta(config.sendLibConfigPda, false, false),
-        accountMeta(config.defaultSendLibConfigPda, false, false),
-        accountMeta(config.sendLibInfoPda, false, false),
-        accountMeta(config.endpointSettingsPda, false, false),
-        accountMeta(config.noncePda, false, true),
-        // ----------- Unknown part -----------
-        accountMeta(config.eventAuthorityPda, false, false),
-        accountMeta(config.endpointV2ProgramId, false, false),
-        accountMeta(config.ulnSettingsPda, false, false),
-        accountMeta(config.sendConfigPda, false, false),
-        accountMeta(config.defaultSendConfigPda, false, false),
-        accountMeta(config.proxyConfigPda, false, false),
-        accountMeta(config.treasuryProgramId, false, false),
-        accountMeta(SystemProgram.programId, false, false),
-        accountMeta(config.ulnEventAuthorityPda, false, false),
-        // ----------- Send (Message) Library send addresses -----------
-        accountMeta(config.sendLibProgramId, false, false),
-        accountMeta(config.executorProgramId, false, false),
-        accountMeta(config.executorConfigPda, false, true),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
-        accountMeta(config.dvnProgramId, false, false),
-        accountMeta(config.dvnConfigPda, false, true),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
     ]
-
-    return remainingAccounts
 }
 
 export function encodeClaimRewardPayload(
@@ -672,7 +708,7 @@ export function encodeClaimRewardPayload(
         ['tuple(uint32,uint256,bytes32[])'],
         [[distributionId, cumulativeAmountArray, proofArray]]
     )
-    console.log('Encoded claim reward payload:', encodedStr)
+    // console.log('Encoded claim reward payload:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
     return encodedBytes
 }
@@ -680,7 +716,7 @@ export function encodeClaimRewardPayload(
 export function encodeUserRequestPayload(amount: string): Uint8Array {
     const amountArray = amountStrToBytes32(amount)
     const encodedStr = defaultAbiCoder.encode(['tuple(uint256)'], [[amountArray]])
-    console.log('Encoded user request payload:', encodedStr)
+    // console.log('Encoded user request payload:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
     return encodedBytes
 }
@@ -698,13 +734,14 @@ export function encodeOCCVaultMessage(
         ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
         [[chainedEventId, srcChainId, token, amountStrToBytes32(tokenAmount), sender.toBytes(), payloadType, payload]]
     )
-    console.log('Encoded OCC vault message:', encodedStr)
+    // console.log('Encoded OCC vault message:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
     // console.log('Encoded OCC vault message bytes:', encodedBytes)
-    console.log('Encoded OCC vault message length:', encodedBytes.length)
+    // console.log('Encoded OCC vault message length:', encodedBytes.length)
     return encodedBytes
 }
 
+// this function has limit on composeMsg size: 288 bytes can be sent while 320 returns error VersionedTransaction too large
 export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: string, composeMsg: Uint8Array) {
     const wallet = provider.wallet as Wallet
     const umi = createUmi(provider.connection.rpcEndpoint).use(mplToolbox())
@@ -718,22 +755,24 @@ export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: st
     const umiEscrowPublicKey = metaplexPublicKey(config.oftEscrowAta)
     const tokenProgramId = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
 
-    const tokenAccount = findAssociatedTokenPda(umi, {
+    const userTokenPda = findAssociatedTokenPda(umi, {
         mint: metaplexPublicKey(config.mintPda),
         owner: fromWeb3JsPublicKey(wallet.publicKey),
         tokenProgramId,
     })
 
-    if (!tokenAccount) {
+    if (!userTokenPda) {
         throw new Error(
             `No token account found for mint ${config.mintPda} and owner ${wallet.publicKey} in program ${tokenProgramId}`
         )
     }
 
-    const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
+    const occManagerAddressBytes32 = addressToBytes32(config.occManagerAddress)
     const toEid = getOrderlyEid()
     const fromEid = getSolanaEid()
     const computeUnitPriceScaleFactor = 4
+    // Defining extra message execution options for the send operation
+    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
 
     const { nativeFee } = await oft.quote(
         umi.rpc,
@@ -743,12 +782,12 @@ export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: st
             tokenEscrow: umiEscrowPublicKey,
         },
         {
-            payInLzToken: false,
-            to: Buffer.from(recipientAddressBytes32),
             dstEid: toEid,
+            to: occManagerAddressBytes32,
             amountLd: BigInt(amount),
-            minAmountLd: BigInt(amount),
-            options: Buffer.from(''),
+            minAmountLd: 1n,
+            options: options,
+            payInLzToken: false,
             composeMsg,
         },
         {
@@ -764,14 +803,14 @@ export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: st
             payer: umiWalletSigner,
             tokenMint: mint,
             tokenEscrow: umiEscrowPublicKey,
-            tokenSource: tokenAccount[0],
+            tokenSource: userTokenPda[0],
         },
         {
-            to: Buffer.from(recipientAddressBytes32),
             dstEid: toEid,
+            to: occManagerAddressBytes32,
             amountLd: BigInt(amount),
-            minAmountLd: (BigInt(amount) * BigInt(9)) / BigInt(10),
-            options: Buffer.from(''),
+            minAmountLd: 1n,
+            options: options,
             composeMsg,
             nativeFee,
         },
@@ -781,7 +820,7 @@ export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: st
         }
     )
 
-    let txBuilder = transactionBuilder().add([ix])
+    let txBuilder = transactionBuilder([ix])
     txBuilder = await addComputeUnitInstructions(
         provider.connection,
         umi,
@@ -790,11 +829,121 @@ export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: st
         umiWalletSigner,
         computeUnitPriceScaleFactor
     )
-    // const { signature } = await txBuilder.sendAndConfirm(umi)
-    // const transactionSignatureBase58 = bs58.encode(signature)
+    const { signature } = await txBuilder.sendAndConfirm(umi)
+    const transactionSignatureBase58 = bs58.encode(signature)
 
-    // console.log(`✅ Sent ${amount} token(s) to destination EID: ${toEid}!`)
-    // const isTestnet = fromEid == EndpointId.SOLANA_V2_TESTNET
-    // console.log(`View Solana transaction here: ${getExplorerTxLink(transactionSignatureBase58.toString(), isTestnet)}`)
-    // console.log(`Track cross-chain transfer here: ${getLayerZeroScanLink(transactionSignatureBase58, isTestnet)}`)
+    console.log(`✅ Sent ${amount} token(s) to destination EID: ${toEid}!`)
+    printTxLinks(transactionSignatureBase58)
+}
+
+const getReturnLog = (confirmedTransaction: VersionedTransactionResponse) => {
+    const prefix = 'Program return: '
+    let log = confirmedTransaction.meta?.logMessages?.find((log) => log.startsWith(prefix))
+    if (!log) {
+        throw new Error('Log is undefined')
+    }
+    log = log.slice(prefix.length)
+    const [key, data] = log.split(' ', 2)
+    const buffer = Buffer.from(data, 'base64')
+    return [key, data, buffer]
+}
+
+export async function oftSendWithComposeMsgAndLt(provider: AnchorProvider, amount: string, composeMsg: Uint8Array) {
+    const wallet = provider.wallet as Wallet
+    const config = getConfig()
+    const oftProgram = getDeployedOftProgram(provider)
+    const signerAta = getAssociatedTokenAddressSync(new PublicKey(config.mintPda), wallet.publicKey)
+    const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
+    const toEid = getOrderlyEid()
+    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
+    const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+
+    // TODO: Call quote to get the fee
+    const nativeFee = 123456
+
+    // const oftQuoteSendParams = {
+    //     dstEid: toEid,
+    //     to: Array.from(recipientAddressBytes32),
+    //     amountLd: new BN(amount),
+    //     minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
+    //     options: Buffer.from(options),
+    //     composeMsg: Buffer.from(composeMsg),
+    //     payInLzToken: false,
+    // }
+
+    // const oftQuoteSendAccounts = {
+    //     oftStore: new PublicKey(config.oftStorePda),
+    //     peer: new PublicKey(config.peerPda),
+    //     tokenMint: new PublicKey(config.mintPda),
+    // }
+
+    // const oftQuoteSendRemainingAccounts = getAccountsForEndpointV2QuoteSend()
+
+    // const ixQuoteSend = await oftProgram.methods
+    //     .quoteSend(oftQuoteSendParams)
+    //     .accounts(oftQuoteSendAccounts)
+    //     .remainingAccounts(oftQuoteSendRemainingAccounts)
+    //     .instruction()
+
+    // const quoteSendSignature = await createAndSendV0TxWithTable(
+    //     [ixQuoteSend, ixAddComputeBudget],
+    //     provider,
+    //     wallet.payer.publicKey,
+    //     [wallet.payer]
+    // )
+
+    // console.log('Quote send signature:', quoteSendSignature)
+    // let tx = await provider.connection.getTransaction(quoteSendSignature, {
+    //     commitment: 'confirmed',
+    //     maxSupportedTransactionVersion: 1,
+    // })
+    // console.log('Transaction:', tx)
+
+    // if (!tx) {
+    //     throw new Error('Transaction not found')
+    // }
+    // const [key, data, buffer] = getReturnLog(tx)
+    // console.log('Program return key:', key)
+    // console.log('Program return data:', data)
+    // console.log('Program return buffer:', buffer)
+    // assert.equal(key, oftProgram.programId)
+
+    // // Check for matching log on receive side
+    // let receiveLog = tx.meta?.logMessages?.find((log) => log == `Program data: ${data}`)
+    // assert(receiveLog !== undefined)
+    // console.log('Receive log:', receiveLog)
+
+    // const reader = new borsh.deserialize(buffer)
+    // assert.equal(reader.readU64().toNumber(), 10)
+
+    const oftSendParams = {
+        dstEid: toEid,
+        to: Array.from(recipientAddressBytes32),
+        amountLd: new BN(amount),
+        minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
+        options: Buffer.from(options),
+        composeMsg: Buffer.from(composeMsg),
+        nativeFee: new BN(nativeFee),
+        lzTokenFee: new BN(0),
+    }
+
+    const oftSendAccounts = {
+        signer: wallet.publicKey,
+        peer: new PublicKey(config.peerPda),
+        oftStore: new PublicKey(config.oftStorePda),
+        tokenSource: signerAta,
+        tokenEscrow: new PublicKey(config.oftEscrowAta),
+        tokenMint: new PublicKey(config.mintPda),
+        tokenProgram: TOKEN_PROGRAM_ID,
+        eventAuthority: new PublicKey(config.unknownPda),
+        program: new PublicKey(config.oftProgramId),
+    }
+
+    const ixSend = await oftProgram.methods
+        .send(oftSendParams)
+        .accounts(oftSendAccounts)
+        .remainingAccounts(getAccountsForEndpointV2Send(wallet.publicKey, true))
+        .instruction()
+
+    await createAndSendV0TxWithTable([ixSend, ixAddComputeBudget], provider, wallet.payer.publicKey, [wallet.payer])
 }

@@ -1,0 +1,110 @@
+Quote send remaining accounts: [
+  {
+    endpointV2 program id ENDPOINT_PROGRAM_ID
+    pubkey: '76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    SEND_LIB_PROGRAM_ID
+    pubkey: '7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    send_library_config
+    pubkey: 'DFQfCeNpWYZCxaUA1qcwnACHuM8LjNnVMQH7yeopw9Jh',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    default_send_library_config
+    pubkey: '3hfYq9afjFbedp4GZk6n9ZefuCbhvgf4z4Jiyw2QEEPY',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    SendLibInfoPda
+    pubkey: '526PeNZfw8kSnDU4nmzJFVJzJWNhwmZykEyJr5XWz5Fv',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    EndpointSettingPda
+    pubkey: '2uk9pQh3tB5ErV7LGQJcbWjb4KeJ2UJki5qJZ8QG56G3',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    NoncePda
+    pubkey: 'GQGf8sqsCDbUTVYuUNJZ4Y49DD7vgHxdavDqzv1Xhkpr',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    UlnSettingPda
+    pubkey: '2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    SendConfigPda(oappConfigPda, DST_EID)
+    pubkey: '6R7bwnNJEEKrcWKrY64LKSmGTPaQsJMTDtuV8Z5fAjCX',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    DefaultSendConfigPda(DST_EID)
+    pubkey: 'Fwp955krKJXiyYRY1Ex2VFcrMJD2kLBp8X7mxakRffPe',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    EXECUTOR_PROGRAM_ID
+    pubkey: '6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    ExecutorConfigPda
+    pubkey: 'AwrbHeCyniXaQhiJZkLhgWdUCteeWSGaSN1sTfLiY7xK',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    PRICE_FEED_PROGRAM_ID
+    pubkey: '8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    PriceFeedPda
+    pubkey: 'CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    DVN_PROGRAM_ID
+    pubkey: 'HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    DvnConfigPda
+    pubkey: '4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    PRICE_FEED_PROGRAM_ID
+    pubkey: '8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP',
+    isSigner: false,
+    isWritable: false
+  },
+  {
+    PriceFeedPda
+    pubkey: 'CSFsUupvJEQQd1F4SsXGACJaxQX4eropQMkGV2696eeQ',
+    isSigner: false,
+    isWritable: false
+  }
+]

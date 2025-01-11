@@ -4,14 +4,14 @@ import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
 import {
     createAndSendV0TxWithTable,
     getConfig,
-    getClaimRewardRemainingAccounts,
     getProxyConfigPda,
     setupAnchor,
     amountStrToBytes32,
     getDeployedProxyProgram,
+    getAccountsForOftSend,
+    getAccountsForEndpointV2Send,
 } from './utils'
 import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
-import { createNoopSigner } from '@metaplex-foundation/umi'
 
 interface ClaimRewardTaskArgs {
     distributionId: number
@@ -63,12 +63,15 @@ task('proxy:claim-reward', 'Claim reward from the Solana network')
         // const metaplexOftSendRemainingAccounts = await getAllOftSendAccounts(provider, config.oftProgramId, config.oftEscrowAta, wallet.publicKey, getOrderlyEid());
         // console.log('Send remaining accounts:', metaplexOftSendRemainingAccounts);
         // const web3OftSendRemainingAccounts = metaplexToWeb3AccountMetaArray(metaplexOftSendRemainingAccounts);
-        const claimRewardRemainingAccounts = getClaimRewardRemainingAccounts()
 
         const ixClaimReward = await proxyProgram.methods
             .claimReward(claimRewardParams, sendParam)
             .accounts(claimRewardAccounts)
-            .remainingAccounts(claimRewardRemainingAccounts)
+            .remainingAccounts(
+                getAccountsForOftSend(config.proxyConfigPda, false).concat(
+                    getAccountsForEndpointV2Send(config.proxyConfigPda, false)
+                )
+            )
             .instruction()
         const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 

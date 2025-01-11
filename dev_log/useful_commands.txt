@@ -45,4 +45,4 @@ https://explorer.solana.com/tx/37eGhEjCzES8MXdmV2fBZfAobcbJ5PH3uDWcHyJTCQhTXRkVN
 npx hardhat proxy:send-user-request --amount 10000000000 --payload-type stake
 
 =============== Send User Request ===============
-npx hardhat proxy:send-user-request --amount 0 --payload-type CreateOrderUnstakeRequest
+npx hardhat proxy:send-user-request --amount 1000000000 --payload-type CreateOrderUnstakeRequest
