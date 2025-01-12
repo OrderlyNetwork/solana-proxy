@@ -21,7 +21,7 @@ import {
     TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import { OftPDA, accounts, oft, instructions } from '@layerzerolabs/oft-v2-solana-sdk'
-import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2'
+import { EndpointProgram, EventPDADeriver, SendHelper, simulateTransaction } from '@layerzerolabs/lz-solana-sdk-v2'
 import {
     AccountMeta as MetaplexAccountMeta,
     createNoopSigner,
@@ -44,8 +44,6 @@ import { EndpointId } from '@layerzerolabs/lz-definitions'
 import { IDL, SolanaProxy } from '../../target/types/solana_proxy'
 import { IDL as oftIDL, Oft } from '../../target/types/oft'
 import { addComputeUnitInstructions, getExplorerTxLink, getLayerZeroScanLink } from '../solana'
-import assert from 'assert'
-import * as borsh from 'borsh'
 
 const PROXY_CONFIG_SEED = 'ProxyConfig'
 const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
@@ -836,16 +834,42 @@ export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: st
     printTxLinks(transactionSignatureBase58)
 }
 
-const getReturnLog = (confirmedTransaction: VersionedTransactionResponse) => {
+async function getTransactionWithRetries(
+    txSignature: string,
+    provider: AnchorProvider,
+    maxRetries: number = 5,
+    delay: number = 1000
+): Promise<any> {
+    let attempts = 0
+    let tx = null
+
+    while (attempts < maxRetries) {
+        tx = await provider.connection.getTransaction(txSignature, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 1,
+        })
+
+        if (tx) {
+            return tx
+        }
+
+        attempts++
+        await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+
+    throw new Error('Transaction could not be retrieved after maximum retries')
+}
+
+function getReturnLog(confirmedTransaction: VersionedTransactionResponse) {
     const prefix = 'Program return: '
-    let log = confirmedTransaction.meta?.logMessages?.find((log) => log.startsWith(prefix))
+    let log = confirmedTransaction.meta?.logMessages?.reverse().find((log) => log.startsWith(prefix))
     if (!log) {
         throw new Error('Log is undefined')
     }
     log = log.slice(prefix.length)
     const [key, data] = log.split(' ', 2)
     const buffer = Buffer.from(data, 'base64')
-    return [key, data, buffer]
+    return { key, data, buffer }
 }
 
 export async function oftSendWithComposeMsgAndLt(provider: AnchorProvider, amount: string, composeMsg: Uint8Array) {
@@ -858,63 +882,45 @@ export async function oftSendWithComposeMsgAndLt(provider: AnchorProvider, amoun
     const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
     const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 
-    // TODO: Call quote to get the fee
-    const nativeFee = 123456
+    const oftQuoteSendParams = {
+        dstEid: toEid,
+        to: Array.from(recipientAddressBytes32),
+        amountLd: new BN(amount),
+        minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
+        options: Buffer.from(options),
+        composeMsg: Buffer.from(composeMsg),
+        payInLzToken: false,
+    }
 
-    // const oftQuoteSendParams = {
-    //     dstEid: toEid,
-    //     to: Array.from(recipientAddressBytes32),
-    //     amountLd: new BN(amount),
-    //     minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
-    //     options: Buffer.from(options),
-    //     composeMsg: Buffer.from(composeMsg),
-    //     payInLzToken: false,
-    // }
+    const oftQuoteSendAccounts = {
+        oftStore: new PublicKey(config.oftStorePda),
+        peer: new PublicKey(config.peerPda),
+        tokenMint: new PublicKey(config.mintPda),
+    }
 
-    // const oftQuoteSendAccounts = {
-    //     oftStore: new PublicKey(config.oftStorePda),
-    //     peer: new PublicKey(config.peerPda),
-    //     tokenMint: new PublicKey(config.mintPda),
-    // }
+    const oftQuoteSendRemainingAccounts = getAccountsForEndpointV2QuoteSend()
 
-    // const oftQuoteSendRemainingAccounts = getAccountsForEndpointV2QuoteSend()
+    const ixQuoteSend = await oftProgram.methods
+        .quoteSend(oftQuoteSendParams)
+        .accounts(oftQuoteSendAccounts)
+        .remainingAccounts(oftQuoteSendRemainingAccounts)
+        .instruction()
 
-    // const ixQuoteSend = await oftProgram.methods
-    //     .quoteSend(oftQuoteSendParams)
-    //     .accounts(oftQuoteSendAccounts)
-    //     .remainingAccounts(oftQuoteSendRemainingAccounts)
-    //     .instruction()
+    const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+        units: 1000000,
+    })
 
-    // const quoteSendSignature = await createAndSendV0TxWithTable(
-    //     [ixQuoteSend, ixAddComputeBudget],
-    //     provider,
-    //     wallet.payer.publicKey,
-    //     [wallet.payer]
-    // )
+    const buffer = await simulateTransaction(
+        provider.connection,
+        [modifyComputeUnits, ixQuoteSend],
+        ixQuoteSend.programId,
+        wallet.publicKey,
+        'confirmed',
+        undefined,
+        new PublicKey(config.proxyLookupTable)
+    )
 
-    // console.log('Quote send signature:', quoteSendSignature)
-    // let tx = await provider.connection.getTransaction(quoteSendSignature, {
-    //     commitment: 'confirmed',
-    //     maxSupportedTransactionVersion: 1,
-    // })
-    // console.log('Transaction:', tx)
-
-    // if (!tx) {
-    //     throw new Error('Transaction not found')
-    // }
-    // const [key, data, buffer] = getReturnLog(tx)
-    // console.log('Program return key:', key)
-    // console.log('Program return data:', data)
-    // console.log('Program return buffer:', buffer)
-    // assert.equal(key, oftProgram.programId)
-
-    // // Check for matching log on receive side
-    // let receiveLog = tx.meta?.logMessages?.find((log) => log == `Program data: ${data}`)
-    // assert(receiveLog !== undefined)
-    // console.log('Receive log:', receiveLog)
-
-    // const reader = new borsh.deserialize(buffer)
-    // assert.equal(reader.readU64().toNumber(), 10)
+    const fee = EndpointProgram.types.messagingFeeBeet.read(buffer, 0)
 
     const oftSendParams = {
         dstEid: toEid,
@@ -923,7 +929,7 @@ export async function oftSendWithComposeMsgAndLt(provider: AnchorProvider, amoun
         minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
         options: Buffer.from(options),
         composeMsg: Buffer.from(composeMsg),
-        nativeFee: new BN(nativeFee),
+        nativeFee: new BN(fee.nativeFee),
         lzTokenFee: new BN(0),
     }
 
@@ -945,5 +951,5 @@ export async function oftSendWithComposeMsgAndLt(provider: AnchorProvider, amoun
         .remainingAccounts(getAccountsForEndpointV2Send(wallet.publicKey, true))
         .instruction()
 
-    await createAndSendV0TxWithTable([ixSend, ixAddComputeBudget], provider, wallet.payer.publicKey, [wallet.payer])
+    await createAndSendV0TxWithTable([ixSend, ixAddComputeBudget], provider, wallet.publicKey, [wallet.payer])
 }
