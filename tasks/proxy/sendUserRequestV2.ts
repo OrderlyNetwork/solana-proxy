@@ -24,6 +24,7 @@ import {
     getPayloadDataType,
     createComposeMsgForUserRequest,
     PayloadDataType,
+    getRequestOpts,
 } from './utils'
 import { AnchorProvider, Wallet, web3 } from '@coral-xyz/anchor'
 
@@ -43,10 +44,9 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
         const config = getConfig()
         const [provider, wallet, rpc] = setupAnchor()
 
-        // TODO: Get chainedEventId from Proxy contract
-        const chainedEventId = 123
+        const requestOpts = await getRequestOpts(provider, payloadDataType, wallet)
 
-        const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, chainedEventId, wallet.publicKey)
+        const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, requestOpts.nonce, wallet.publicKey)
 
         const { umi, umiWalletSigner } = setupUmi(rpc, wallet)
         const { oftProgramId, mint, umiEscrowPublicKey, tokenProgramId, userTokenAccount } = getOftProgramDetails(

@@ -1,23 +1,24 @@
 import { task } from 'hardhat/config'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import {
-    getPayloadDataType,
-    setupAnchor,
-    createComposeMsgForUserRequest,
-    getConfig,
-    getDeployedOftProgram,
-    getOrderlyEid,
-    getAccountsForEndpointV2QuoteSend,
-    getAccountsForEndpointV2Send,
-    createAndSendV0TxWithTable,
-    printTxLinks,
-    PayloadDataType,
-} from './utils'
 import { AnchorProvider, BN, Wallet } from '@coral-xyz/anchor'
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
 import { addressToBytes32, Options } from '@layerzerolabs/lz-v2-utilities'
 import { EndpointProgram, simulateTransaction } from '@layerzerolabs/lz-solana-sdk-v2'
+import {
+    createAndSendV0TxWithTable,
+    createComposeMsgForUserRequest,
+    getAccountsForEndpointV2QuoteSend,
+    getAccountsForEndpointV2Send,
+    getConfig,
+    getDeployedOftProgram,
+    getOrderlyEid,
+    getPayloadDataType,
+    getRequestOpts,
+    printTxLinks,
+    setupAnchor,
+    PayloadDataType,
+} from './utils'
 
 interface SendUserRequestTaskArgs {
     amount: string
@@ -34,10 +35,9 @@ task('proxy:send-user-request', 'Send user request to the OmnichainLedger contra
 
         const [provider, wallet] = setupAnchor()
 
-        // TODO: Get chainedEventId from Proxy contract
-        const chainedEventId = 123
+        const requestOpts = await getRequestOpts(provider, payloadDataType, wallet)
 
-        const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, chainedEventId, wallet.publicKey)
+        const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, requestOpts.nonce, wallet.publicKey)
 
         const nativeFee = await getNativeFee(provider, amount, composeMsg, wallet)
         const txSig = await sendTransaction(provider, amount, composeMsg, wallet, nativeFee)

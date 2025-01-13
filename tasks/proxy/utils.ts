@@ -43,6 +43,8 @@ import { EndpointId } from '@layerzerolabs/lz-definitions'
 import { IDL, SolanaProxy } from '../../target/types/solana_proxy'
 import { IDL as oftIDL, Oft } from '../../target/types/oft'
 import { addComputeUnitInstructions, getExplorerTxLink, getLayerZeroScanLink } from '../solana'
+import { assert } from '@layerzerolabs/lz-utilities'
+import * as borsh from 'borsh'
 
 const PROXY_CONFIG_SEED = 'ProxyConfig'
 const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
@@ -275,7 +277,8 @@ export async function createAndSendV0Tx(
     const txid = await provider.connection.sendTransaction(transaction, { maxRetries: 5 })
     console.log('   ✅ - Transaction sent to network', txid)
 
-    await new Promise((r) => setTimeout(r, 2000))
+    // await new Promise((r) => setTimeout(r, 2000))
+    return txid
 }
 
 export async function getLookupTableAccount(provider: AnchorProvider, lookupTableAddress: string) {
@@ -714,7 +717,7 @@ export function encodeUserRequestPayload(amount: string): Uint8Array {
 }
 
 export function encodeOCCVaultMessage(
-    chainedEventId: number,
+    chainedEventId: BN,
     srcChainId: number,
     token: number,
     tokenAmount: string,
@@ -724,7 +727,7 @@ export function encodeOCCVaultMessage(
 ): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(
         ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
-        [[chainedEventId, srcChainId, token, amountStrToBytes32(tokenAmount), sender.toBytes(), payloadType, payload]]
+        [[chainedEventId.toNumber(), srcChainId, token, amountStrToBytes32(tokenAmount), sender.toBytes(), payloadType, payload]]
     )
     // console.log('Encoded OCC vault message:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
@@ -736,7 +739,7 @@ export function encodeOCCVaultMessage(
 export function createComposeMsgForUserRequest(
     payloadDataType: PayloadDataType,
     amount: string,
-    chainedEventId: number,
+    chainedEventId: BN,
     sender: PublicKey
 ): Uint8Array {
     let payload: Uint8Array
@@ -846,12 +849,12 @@ export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: st
     printTxLinks(transactionSignatureBase58)
 }
 
-async function getTransactionWithRetries(
+export async function getTransactionWithRetries(
     txSignature: string,
     provider: AnchorProvider,
-    maxRetries: number = 5,
+    maxRetries: number = 10,
     delay: number = 1000
-): Promise<any> {
+): Promise<VersionedTransactionResponse> {
     let attempts = 0
     let tx = null
 
@@ -872,7 +875,7 @@ async function getTransactionWithRetries(
     throw new Error('Transaction could not be retrieved after maximum retries')
 }
 
-function getReturnLog(confirmedTransaction: VersionedTransactionResponse) {
+export function getReturnLog(confirmedTransaction: VersionedTransactionResponse) {
     const prefix = 'Program return: '
     let log = confirmedTransaction.meta?.logMessages?.reverse().find((log) => log.startsWith(prefix))
     if (!log) {
@@ -927,4 +930,46 @@ export function getPayloadDataType(payloadType: number | string): PayloadDataTyp
         default:
             throw new Error(`Unsupported payload type: ${payloadType}`)
     }
+}
+
+export async function getRequestOpts(provider: AnchorProvider, payloadDataType: PayloadDataType, wallet: Wallet) {
+    const proxyProgram = getDeployedProxyProgram(provider)
+    const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+
+    const ixGetRequestOpts = await proxyProgram.methods
+        .getRequestOpts({
+            requestType: payloadDataType,
+        })
+        .accounts({
+            user: wallet.publicKey,
+            proxyConfig: proxyConfigPda,
+        })
+        .instruction()
+    const txSig = await createAndSendV0Tx([ixGetRequestOpts], provider, wallet)
+    const tx = await getTransactionWithRetries(txSig, provider)
+    const { key, buffer } = getReturnLog(tx)
+    assert(key === proxyProgram.programId.toString(), 'Invalid program ID')
+
+    class Assignable {
+        [key: string]: any
+        constructor(properties: { [x: string]: any }) {
+            Object.keys(properties).map((key) => {
+                this[key] = properties[key]
+            })
+        }
+    }
+
+    class RequestOpts extends Assignable {
+        nonce!: BN
+
+        static schema: borsh.Schema = new Map([[RequestOpts, { kind: 'struct', fields: [['nonce', 'u64']] }]])
+
+        print() {
+            console.log(`Nonce: ${this.nonce}`)
+        }
+    }
+
+    const requestOpts = borsh.deserialize(RequestOpts.schema, RequestOpts, buffer)
+    requestOpts.print()
+    return requestOpts
 }

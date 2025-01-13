@@ -39,6 +39,10 @@ pub mod solana_proxy {
     pub fn quote_claim_reward(ctx: Context<QuoteClaimReward>, params: ClaimRewardParams) -> Result<MessagingFee> {
         QuoteClaimReward::apply(&ctx, &params)
     }
+
+    pub fn get_request_opts(mut ctx: Context<GetRequestOpts>, params: GetRequestOptsParams) -> Result<RequestOpts> {
+        GetRequestOpts::apply(&mut ctx, &params)
+    }
 }
 
 #[derive(Accounts)]
