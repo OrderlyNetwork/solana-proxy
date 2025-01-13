@@ -51,6 +51,7 @@ const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
 const LOCALHOST_RPC_URL = 'http://localhost:8899'
 const SOLANA_DEVNET_RPC_URL = 'https://api.devnet.solana.com'
 const SOLANA_MAINNET_RPC_URL = 'https://api.mainnet-beta.solana.com'
+const SOLANA_AMOUNT_SCALE_FACTOR = ethers.BigNumber.from('100000000')
 
 export enum LedgerToken {
     ORDER = 0,
@@ -182,8 +183,8 @@ export function getDeployedOftProgram(provider: AnchorProvider): Program<Oft> {
     return new Program<Oft>(oftIDL, oftProgramIdStr, provider)
 }
 
-export function amountStrToBytes32(str: string): number[] {
-    const bigNumber = ethers.BigNumber.from(str)
+export function amountStrToBytes32(str: string, scaleFactor: ethers.BigNumber = ethers.BigNumber.from('1')): number[] {
+    const bigNumber = ethers.BigNumber.from(str).mul(scaleFactor)
     const bytes32 = ethers.utils.zeroPad(bigNumber.toHexString(), 32)
     return Array.from(bytes32)
 }
@@ -275,7 +276,7 @@ export async function createAndSendV0Tx(
 
     // Step 4 - Send our v0 transaction to the cluster
     const txid = await provider.connection.sendTransaction(transaction, { maxRetries: 5 })
-    console.log('   ✅ - Transaction sent to network', txid)
+    // console.log('   ✅ - Transaction sent to network', txid)
 
     // await new Promise((r) => setTimeout(r, 2000))
     return txid
@@ -688,6 +689,19 @@ export function getAccountsForOftSend(signer: string | PublicKey, signerSigns: b
     ]
 }
 
+export function getAmountForComposeMsg(amount: string, payloadDataType: PayloadDataType): number[] {
+    if (
+        payloadDataType === PayloadDataType.Stake ||
+        payloadDataType === PayloadDataType.CreateOrderUnstakeRequest ||
+        payloadDataType === PayloadDataType.EsOrderUnstakeAndVest ||
+        payloadDataType === PayloadDataType.RedeemValor ||
+        payloadDataType === PayloadDataType.UnstakeOrderNow
+    ) {
+        return amountStrToBytes32(amount, SOLANA_AMOUNT_SCALE_FACTOR)
+    }
+    return amountStrToBytes32(amount)
+}
+
 export function encodeClaimRewardPayload(
     distributionId: number,
     cumulativeAmount: string,
@@ -708,8 +722,7 @@ export function encodeClaimRewardPayload(
     return encodedBytes
 }
 
-export function encodeUserRequestPayload(amount: string): Uint8Array {
-    const amountArray = amountStrToBytes32(amount)
+export function encodeUserRequestPayload(amountArray: number[]): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(['tuple(uint256)'], [[amountArray]])
     // console.log('Encoded user request payload:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
@@ -720,14 +733,14 @@ export function encodeOCCVaultMessage(
     chainedEventId: BN,
     srcChainId: number,
     token: number,
-    tokenAmount: string,
+    amountArray: number[],
     sender: PublicKey,
     payloadType: number,
     payload: Uint8Array
 ): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(
         ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
-        [[chainedEventId.toNumber(), srcChainId, token, amountStrToBytes32(tokenAmount), sender.toBytes(), payloadType, payload]]
+        [[chainedEventId.toNumber(), srcChainId, token, amountArray, sender.toBytes(), payloadType, payload]]
     )
     // console.log('Encoded OCC vault message:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
@@ -744,14 +757,15 @@ export function createComposeMsgForUserRequest(
 ): Uint8Array {
     let payload: Uint8Array
     let token = LedgerToken.PLACEHOLDER
+    let amountArray = getAmountForComposeMsg(amount, payloadDataType)
     if (payloadDataType === PayloadDataType.Stake) {
         payload = Buffer.from('')
         token = LedgerToken.ORDER
     } else {
-        payload = encodeUserRequestPayload(amount)
-        amount = '0'
+        payload = encodeUserRequestPayload(amountArray)
+        amountArray = amountStrToBytes32('0')
     }
-    return encodeOCCVaultMessage(chainedEventId, getSolanaEid(), token, amount, sender, payloadDataType, payload)
+    return encodeOCCVaultMessage(chainedEventId, getSolanaEid(), token, amountArray, sender, payloadDataType, payload)
 }
 
 // this function has limit on composeMsg size: 288 bytes can be sent while 320 returns error VersionedTransaction too large

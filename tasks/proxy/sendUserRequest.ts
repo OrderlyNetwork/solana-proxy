@@ -39,11 +39,12 @@ task('proxy:send-user-request', 'Send user request to the OmnichainLedger contra
 
         const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, requestOpts.nonce, wallet.publicKey)
 
-        const nativeFee = await getNativeFee(provider, amount, composeMsg, wallet)
-        const txSig = await sendTransaction(provider, amount, composeMsg, wallet, nativeFee)
+        const amountToSend = payloadDataType === PayloadDataType.Stake ? amount : '0'
+        const nativeFee = await getNativeFee(provider, amountToSend, composeMsg, wallet)
+        const txSig = await sendTransaction(provider, amountToSend, composeMsg, wallet, nativeFee)
 
         if (payloadDataType === PayloadDataType.Stake) {
-            console.log(`✅ Sent ${amount} token(s) to Orderly chain!`)
+            console.log(`✅ Sent ${amountToSend} token(s) to Orderly chain!`)
         }
 
         printTxLinks(txSig)

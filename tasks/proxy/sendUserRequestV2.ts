@@ -58,7 +58,8 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
         const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
         const dstEid = getOrderlyEid()
         const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
-        const minAmountLd = (BigInt(amount) * BigInt(9)) / BigInt(10)
+        const amountToSend = (payloadDataType === PayloadDataType.Stake) ? amount : '0'
+        const minAmountLd = (BigInt(amountToSend) * BigInt(9)) / BigInt(10)
 
         const nativeFee = await getNativeFee(
             umi,
@@ -67,7 +68,7 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
             umiEscrowPublicKey,
             dstEid,
             recipientAddressBytes32,
-            amount,
+            amountToSend,
             minAmountLd,
             options,
             composeMsg,
@@ -85,7 +86,7 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
             userTokenAccount,
             dstEid,
             recipientAddressBytes32,
-            amount,
+            amountToSend,
             minAmountLd,
             options,
             composeMsg,
@@ -96,7 +97,7 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
         )
 
         if (payloadDataType === PayloadDataType.Stake) {
-            console.log(`✅ Sent ${amount} token(s) to Orderly chain!`)
+            console.log(`✅ Sent ${amountToSend} token(s) to Orderly chain!`)
         }
 
         printTxLinks(bs58.encode(txSig.signature))
