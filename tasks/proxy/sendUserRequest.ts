@@ -1,74 +1,23 @@
-import { findAssociatedTokenPda, mplToolbox } from '@metaplex-foundation/mpl-toolbox'
-import { publicKey, transactionBuilder, createSignerFromKeypair, signerIdentity } from '@metaplex-foundation/umi'
-import { fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
-import bs58 from 'bs58'
 import { task } from 'hardhat/config'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { EndpointId } from '@layerzerolabs/lz-definitions'
-import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities'
-import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
-import { addComputeUnitInstructions, getExplorerTxLink, getLayerZeroScanLink } from '../solana/index'
 import {
-    encodeClaimRewardPayload,
-    encodeOCCVaultMessage,
-    encodeUserRequestPayload,
-    getConfig,
-    getOrderlyEid,
-    getSolanaEid,
-    LedgerToken,
-    oftSendWithComposeMsg,
-    PayloadDataType,
+    getPayloadDataType,
     setupAnchor,
+    createComposeMsgForUserRequest,
+    getConfig,
+    getDeployedOftProgram,
+    getOrderlyEid,
+    getAccountsForEndpointV2QuoteSend,
+    getAccountsForEndpointV2Send,
+    createAndSendV0TxWithTable,
+    printTxLinks,
+    PayloadDataType,
 } from './utils'
-import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
-
-type RequestPayloadType = number | string
-
-function getPayloadDataType(payloadType: RequestPayloadType): PayloadDataType {
-    if (!isNaN(Number(payloadType))) {
-        payloadType = Number(payloadType)
-    }
-
-    if (typeof payloadType === 'string') {
-        payloadType = payloadType.toLowerCase()
-    }
-
-    switch (payloadType) {
-        case 1:
-        case 'stake':
-            return PayloadDataType.Stake
-        case 2:
-        case 'createorderunstakerequest':
-            return PayloadDataType.CreateOrderUnstakeRequest
-        case 3:
-        case 'cancelorderunstakerequest':
-            return PayloadDataType.CancelOrderUnstakeRequest
-        case 4:
-        case 'withdraworder':
-            return PayloadDataType.WithdrawOrder
-        case 5:
-        case 'esorderunstakeandvest':
-            return PayloadDataType.EsOrderUnstakeAndVest
-        case 6:
-        case 'cancelvestingrequest':
-            return PayloadDataType.CancelVestingRequest
-        case 8:
-        case 'claimvestingrequest':
-            return PayloadDataType.ClaimVestingRequest
-        case 9:
-        case 'redeemvalor':
-            return PayloadDataType.RedeemValor
-        case 10:
-        case 'claimusdcrevenue':
-            return PayloadDataType.ClaimUsdcRevenue
-        case 15:
-        case 'unstakeordernow':
-            return PayloadDataType.UnstakeOrderNow
-        default:
-            throw new Error(`Unsupported payload type: ${payloadType}`)
-    }
-}
+import { AnchorProvider, BN, Wallet } from '@coral-xyz/anchor'
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
+import { addressToBytes32, Options } from '@layerzerolabs/lz-v2-utilities'
+import { EndpointProgram, simulateTransaction } from '@layerzerolabs/lz-solana-sdk-v2'
 
 interface SendUserRequestTaskArgs {
     amount: string
@@ -88,24 +37,110 @@ task('proxy:send-user-request', 'Send user request to the OmnichainLedger contra
         // TODO: Get chainedEventId from Proxy contract
         const chainedEventId = 123
 
-        let payload: Uint8Array
-        let token = LedgerToken.PLACEHOLDER
+        const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, chainedEventId, wallet.publicKey)
+
+        const nativeFee = await getNativeFee(provider, amount, composeMsg, wallet)
+        const txSig = await sendTransaction(provider, amount, composeMsg, wallet, nativeFee)
+
         if (payloadDataType === PayloadDataType.Stake) {
-            payload = Buffer.from('')
-            token = LedgerToken.ORDER
-        } else {
-            payload = encodeUserRequestPayload(amount)
-            amount = '0'
+            console.log(`✅ Sent ${amount} token(s) to Orderly chain!`)
         }
 
-        const composeMsg = encodeOCCVaultMessage(
-            chainedEventId,
-            getSolanaEid(),
-            token,
-            amount,
-            wallet.publicKey,
-            payloadDataType,
-            payload
-        )
-        await oftSendWithComposeMsg(provider, amount, composeMsg)
+        printTxLinks(txSig)
     })
+
+async function getNativeFee(provider: AnchorProvider, amount: string, composeMsg: Uint8Array, wallet: Wallet) {
+    const config = getConfig()
+    const oftProgram = getDeployedOftProgram(provider)
+    const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
+    const toEid = getOrderlyEid()
+    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
+
+    const oftQuoteSendParams = {
+        dstEid: toEid,
+        to: Array.from(recipientAddressBytes32),
+        amountLd: new BN(amount),
+        minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
+        options: Buffer.from(options),
+        composeMsg: Buffer.from(composeMsg),
+        payInLzToken: false,
+    }
+
+    const oftQuoteSendAccounts = {
+        oftStore: new PublicKey(config.oftStorePda),
+        peer: new PublicKey(config.peerPda),
+        tokenMint: new PublicKey(config.mintPda),
+    }
+
+    const oftQuoteSendRemainingAccounts = getAccountsForEndpointV2QuoteSend()
+
+    const ixQuoteSend = await oftProgram.methods
+        .quoteSend(oftQuoteSendParams)
+        .accounts(oftQuoteSendAccounts)
+        .remainingAccounts(oftQuoteSendRemainingAccounts)
+        .instruction()
+
+    const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+        units: 1000000,
+    })
+
+    const buffer = await simulateTransaction(
+        provider.connection,
+        [modifyComputeUnits, ixQuoteSend],
+        ixQuoteSend.programId,
+        wallet.publicKey,
+        'confirmed',
+        undefined,
+        new PublicKey(config.proxyLookupTable)
+    )
+
+    const fee = EndpointProgram.types.messagingFeeBeet.read(buffer, 0)
+    return new BN(fee.nativeFee)
+}
+
+async function sendTransaction(
+    provider: AnchorProvider,
+    amount: string,
+    composeMsg: Uint8Array,
+    wallet: Wallet,
+    nativeFee: BN
+) {
+    const config = getConfig()
+    const oftProgram = getDeployedOftProgram(provider)
+    const signerAta = getAssociatedTokenAddressSync(new PublicKey(config.mintPda), wallet.publicKey)
+    const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
+    const toEid = getOrderlyEid()
+    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
+    const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+
+    const oftSendParams = {
+        dstEid: toEid,
+        to: Array.from(recipientAddressBytes32),
+        amountLd: new BN(amount),
+        minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
+        options: Buffer.from(options),
+        composeMsg: Buffer.from(composeMsg),
+        nativeFee,
+        lzTokenFee: new BN(0),
+    }
+
+    const oftSendAccounts = {
+        signer: wallet.publicKey,
+        peer: new PublicKey(config.peerPda),
+        oftStore: new PublicKey(config.oftStorePda),
+        tokenSource: signerAta,
+        tokenEscrow: new PublicKey(config.oftEscrowAta),
+        tokenMint: new PublicKey(config.mintPda),
+        tokenProgram: TOKEN_PROGRAM_ID,
+        eventAuthority: new PublicKey(config.unknownPda),
+        program: new PublicKey(config.oftProgramId),
+    }
+
+    const ixSend = await oftProgram.methods
+        .send(oftSendParams)
+        .accounts(oftSendAccounts)
+        .remainingAccounts(getAccountsForEndpointV2Send(wallet.publicKey, true))
+        .instruction()
+
+    return await createAndSendV0TxWithTable([ixSend, ixAddComputeBudget], provider, wallet.publicKey, [wallet.payer])
+}

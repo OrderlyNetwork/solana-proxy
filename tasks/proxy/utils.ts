@@ -4,7 +4,6 @@ import { join } from 'path'
 
 import {
     AccountMeta,
-    ComputeBudgetProgram,
     PublicKey,
     Signer,
     SystemProgram,
@@ -21,7 +20,7 @@ import {
     TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import { OftPDA, accounts, oft, instructions } from '@layerzerolabs/oft-v2-solana-sdk'
-import { EndpointProgram, EventPDADeriver, SendHelper, simulateTransaction } from '@layerzerolabs/lz-solana-sdk-v2'
+import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2'
 import {
     AccountMeta as MetaplexAccountMeta,
     createNoopSigner,
@@ -279,9 +278,12 @@ export async function createAndSendV0Tx(
     await new Promise((r) => setTimeout(r, 2000))
 }
 
-export async function getLookupTableAccount(provider: AnchorProvider, lookupTableAddress: PublicKey) {
-    const lookupTableAccount = (await provider.connection.getAddressLookupTable(lookupTableAddress)).value
-
+export async function getLookupTableAccount(provider: AnchorProvider, lookupTableAddress: string) {
+    const lookupTableAccount = (await provider.connection.getAddressLookupTable(new PublicKey(lookupTableAddress)))
+        .value
+    if (!lookupTableAccount) {
+        throw new Error(`Lookup table account ${lookupTableAddress} does not exist. Please create it first.`)
+    }
     return lookupTableAccount
 }
 
@@ -291,13 +293,7 @@ export async function createAndSendV0TxWithTable(
     payerPubKey: PublicKey,
     signers: Signer[]
 ) {
-    const lookupTableAddressStr = getConfig().proxyLookupTable
-    // console.log('Lookup Table Address:', lookupTableAddressStr)
-    const lookupTableAccount = (await provider.connection.getAddressLookupTable(new PublicKey(lookupTableAddressStr)))
-        .value
-    if (!lookupTableAccount) {
-        throw new Error('Lookup table account does not exist. Please create it first.')
-    }
+    const lookupTableAccount = await getLookupTableAccount(provider, getConfig().proxyLookupTable)
     const msg = new TransactionMessage({
         payerKey: payerPubKey,
         recentBlockhash: (await provider.connection.getLatestBlockhash()).blockhash,
@@ -305,9 +301,7 @@ export async function createAndSendV0TxWithTable(
     }).compileToV0Message([lookupTableAccount])
     const tx = new VersionedTransaction(msg)
     tx.sign(signers)
-    const sigSend = await provider.connection.sendTransaction(tx)
-    printTxLinks(sigSend)
-    return sigSend
+    return await provider.connection.sendTransaction(tx)
 }
 
 export function bytes32ToEvmAddress(bytes32Address: Uint8Array): string {
@@ -739,6 +733,24 @@ export function encodeOCCVaultMessage(
     return encodedBytes
 }
 
+export function createComposeMsgForUserRequest(
+    payloadDataType: PayloadDataType,
+    amount: string,
+    chainedEventId: number,
+    sender: PublicKey
+): Uint8Array {
+    let payload: Uint8Array
+    let token = LedgerToken.PLACEHOLDER
+    if (payloadDataType === PayloadDataType.Stake) {
+        payload = Buffer.from('')
+        token = LedgerToken.ORDER
+    } else {
+        payload = encodeUserRequestPayload(amount)
+        amount = '0'
+    }
+    return encodeOCCVaultMessage(chainedEventId, getSolanaEid(), token, amount, sender, payloadDataType, payload)
+}
+
 // this function has limit on composeMsg size: 288 bytes can be sent while 320 returns error VersionedTransaction too large
 export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: string, composeMsg: Uint8Array) {
     const wallet = provider.wallet as Wallet
@@ -872,84 +884,47 @@ function getReturnLog(confirmedTransaction: VersionedTransactionResponse) {
     return { key, data, buffer }
 }
 
-export async function oftSendWithComposeMsgAndLt(provider: AnchorProvider, amount: string, composeMsg: Uint8Array) {
-    const wallet = provider.wallet as Wallet
-    const config = getConfig()
-    const oftProgram = getDeployedOftProgram(provider)
-    const signerAta = getAssociatedTokenAddressSync(new PublicKey(config.mintPda), wallet.publicKey)
-    const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
-    const toEid = getOrderlyEid()
-    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
-    const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
-
-    const oftQuoteSendParams = {
-        dstEid: toEid,
-        to: Array.from(recipientAddressBytes32),
-        amountLd: new BN(amount),
-        minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
-        options: Buffer.from(options),
-        composeMsg: Buffer.from(composeMsg),
-        payInLzToken: false,
+export function getPayloadDataType(payloadType: number | string): PayloadDataType {
+    if (!isNaN(Number(payloadType))) {
+        payloadType = Number(payloadType)
     }
 
-    const oftQuoteSendAccounts = {
-        oftStore: new PublicKey(config.oftStorePda),
-        peer: new PublicKey(config.peerPda),
-        tokenMint: new PublicKey(config.mintPda),
+    if (typeof payloadType === 'string') {
+        payloadType = payloadType.toLowerCase()
     }
 
-    const oftQuoteSendRemainingAccounts = getAccountsForEndpointV2QuoteSend()
-
-    const ixQuoteSend = await oftProgram.methods
-        .quoteSend(oftQuoteSendParams)
-        .accounts(oftQuoteSendAccounts)
-        .remainingAccounts(oftQuoteSendRemainingAccounts)
-        .instruction()
-
-    const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
-        units: 1000000,
-    })
-
-    const buffer = await simulateTransaction(
-        provider.connection,
-        [modifyComputeUnits, ixQuoteSend],
-        ixQuoteSend.programId,
-        wallet.publicKey,
-        'confirmed',
-        undefined,
-        new PublicKey(config.proxyLookupTable)
-    )
-
-    const fee = EndpointProgram.types.messagingFeeBeet.read(buffer, 0)
-
-    const oftSendParams = {
-        dstEid: toEid,
-        to: Array.from(recipientAddressBytes32),
-        amountLd: new BN(amount),
-        minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
-        options: Buffer.from(options),
-        composeMsg: Buffer.from(composeMsg),
-        nativeFee: new BN(fee.nativeFee),
-        lzTokenFee: new BN(0),
+    switch (payloadType) {
+        case 1:
+        case 'stake':
+            return PayloadDataType.Stake
+        case 2:
+        case 'createorderunstakerequest':
+            return PayloadDataType.CreateOrderUnstakeRequest
+        case 3:
+        case 'cancelorderunstakerequest':
+            return PayloadDataType.CancelOrderUnstakeRequest
+        case 4:
+        case 'withdraworder':
+            return PayloadDataType.WithdrawOrder
+        case 5:
+        case 'esorderunstakeandvest':
+            return PayloadDataType.EsOrderUnstakeAndVest
+        case 6:
+        case 'cancelvestingrequest':
+            return PayloadDataType.CancelVestingRequest
+        case 8:
+        case 'claimvestingrequest':
+            return PayloadDataType.ClaimVestingRequest
+        case 9:
+        case 'redeemvalor':
+            return PayloadDataType.RedeemValor
+        case 10:
+        case 'claimusdcrevenue':
+            return PayloadDataType.ClaimUsdcRevenue
+        case 15:
+        case 'unstakeordernow':
+            return PayloadDataType.UnstakeOrderNow
+        default:
+            throw new Error(`Unsupported payload type: ${payloadType}`)
     }
-
-    const oftSendAccounts = {
-        signer: wallet.publicKey,
-        peer: new PublicKey(config.peerPda),
-        oftStore: new PublicKey(config.oftStorePda),
-        tokenSource: signerAta,
-        tokenEscrow: new PublicKey(config.oftEscrowAta),
-        tokenMint: new PublicKey(config.mintPda),
-        tokenProgram: TOKEN_PROGRAM_ID,
-        eventAuthority: new PublicKey(config.unknownPda),
-        program: new PublicKey(config.oftProgramId),
-    }
-
-    const ixSend = await oftProgram.methods
-        .send(oftSendParams)
-        .accounts(oftSendAccounts)
-        .remainingAccounts(getAccountsForEndpointV2Send(wallet.publicKey, true))
-        .instruction()
-
-    await createAndSendV0TxWithTable([ixSend, ixAddComputeBudget], provider, wallet.publicKey, [wallet.payer])
 }

@@ -11,6 +11,7 @@ import {
     getOrderlyEid,
     getDeployedOftProgram,
     getAccountsForEndpointV2Send,
+    printTxLinks,
 } from '../utils'
 import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
 import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities'
@@ -82,5 +83,8 @@ task('proxy:claim-reward-oft-lt', 'Claim reward from the Solana network  OFT and
             .instruction()
         const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 
-        await createAndSendV0TxWithTable([ixSend, ixAddComputeBudget], provider, wallet.payer.publicKey, [wallet.payer])
+        const txSig = await createAndSendV0TxWithTable([ixSend, ixAddComputeBudget], provider, wallet.payer.publicKey, [
+            wallet.payer,
+        ])
+        printTxLinks(txSig)
     })

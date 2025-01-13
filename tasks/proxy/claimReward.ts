@@ -10,6 +10,7 @@ import {
     getDeployedProxyProgram,
     getAccountsForOftSend,
     getAccountsForEndpointV2Send,
+    printTxLinks,
 } from './utils'
 import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
 
@@ -75,7 +76,11 @@ task('proxy:claim-reward', 'Claim reward from the Solana network')
             .instruction()
         const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 
-        await createAndSendV0TxWithTable([ixClaimReward, ixAddComputeBudget], provider, wallet.payer.publicKey, [
-            wallet.payer,
-        ])
+        const txSig = await createAndSendV0TxWithTable(
+            [ixClaimReward, ixAddComputeBudget],
+            provider,
+            wallet.payer.publicKey,
+            [wallet.payer]
+        )
+        printTxLinks(txSig)
     })
