@@ -24,13 +24,13 @@ pub mod solana_proxy {
         TransferOwnership::apply(ctx, &params)
     }
 
-    // pub fn claim_reward(
-    //     mut ctx: Context<ClaimReward>,
-    //     params: ClaimRewardParams,
-    //     oapp_params: OAppSendParams,
-    // ) -> Result<(MessagingReceipt, OFTReceipt)> {
-    //     ClaimReward::apply(&mut ctx, &params, &oapp_params)
-    // }
+    pub fn transfer_admin(ctx: Context<TransferAdmin>, params: TransferAdminParams) -> Result<()> {
+        TransferAdmin::apply(ctx, &params)
+    }
+
+    pub fn quote_request(ctx: Context<QuoteRequest>, params: QuoteRequestParams) -> Result<MessagingFee> {
+        QuoteRequest::apply(&ctx, &params)
+    }
 
     pub fn claim_reward(mut ctx: Context<ClaimReward>, params: ClaimRewardParams, oapp_params: OAppSendParams) -> Result<()> {
         ClaimReward::apply(&mut ctx, &params, &oapp_params)

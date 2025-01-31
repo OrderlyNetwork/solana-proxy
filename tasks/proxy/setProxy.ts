@@ -21,6 +21,8 @@ import {
     getEncodedOptions,
     intoIx,
     getLzConfig,
+    getQuoteRemainingAccounts,
+    publicKeyIntoHex,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -49,7 +51,7 @@ import {
     transactionBuilder,
     Transaction,
 } from '@metaplex-foundation/umi'
-import { Options } from '@layerzerolabs/lz-v2-utilities'
+import { bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
 import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
 import { PEER_ADDRESS } from './constants'
 import { config } from 'process'
@@ -431,4 +433,46 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
             // console.log("Using default endpoint config")
             console.log(`🛎️ Config for orderly network not set yet, please set it`)
         }
+    })
+
+task('sol:proxy:quote', 'Get quote for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addParam('payloadType', 'The payload type to quote', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const rpc = getUmi(taskArgs.env).rpc
+        const connection = new Connection(rpc.getEndpoint(), 'confirmed')
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const orderlyEid = getOrderlyEid(taskArgs.env)
+        const peerConfigPda = getPeerPda(proxyProgram.programId, proxyConfigPda, orderlyEid)
+        const receiver = bytes32ToEthAddress(getPeerAddress(taskArgs.env)!)
+        const sender = publicKeyIntoHex(proxyConfigPda)
+        const path = {
+            sender: sender,
+            dstEid: orderlyEid,
+            receiver: receiver,
+        }
+        const remainingAccounts = await getQuoteRemainingAccounts(connection, wallet, path)
+
+        console.log('remaining accounts:', remainingAccounts.length)
+
+        const quoteAccounts = {
+            proxyConfig: proxyConfigPda,
+            peerConfig: peerConfigPda,
+        }
+
+        const quoteParams = {
+            payloadType: 1,
+            amount: new BN(100),
+            userAccount: wallet.publicKey,
+        }
+
+        const { lzTokenFee, nativeFee } = await proxyProgram.methods
+            .quoteRequest(quoteParams)
+            .accounts(quoteAccounts)
+            .remainingAccounts(remainingAccounts)
+            .view()
+
+        console.log('native fee:', nativeFee)
     })
