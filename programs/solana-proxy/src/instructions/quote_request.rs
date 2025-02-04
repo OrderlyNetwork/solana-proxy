@@ -1,15 +1,20 @@
 use anchor_lang::prelude::*;
 
-use crate::instructions::msg_codec::{VaultOCCMessage, TOKEN_TYPE};
-use crate::state::{PeerConfig, ProxyConfig, PEER_SEED};
+use crate::instructions::msg_codec::{SolanaVaultOCCMessage, TokenType};
+use crate::instructions::RequestParams;
+use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
 use crate::ProxyError;
 use oapp::endpoint::instructions::QuoteParams;
 
 #[derive(Accounts)]
-#[instruction(params: QuoteRequestParams)]
+#[instruction(params: RequestParams)]
 pub struct QuoteRequest<'info> {
-    #[account()]
+    #[account(
+        seeds = [PROXY_CONFIG_SEED],
+        bump = proxy_config.bump
+    )]
     pub proxy_config: Account<'info, ProxyConfig>,
+
     #[account(
         seeds = [
             PEER_SEED,
@@ -22,19 +27,17 @@ pub struct QuoteRequest<'info> {
 }
 
 impl QuoteRequest<'_> {
-    pub fn apply(ctx: Context<QuoteRequest>, params: &QuoteRequestParams) -> Result<MessagingFee> {
+    pub fn apply(ctx: Context<QuoteRequest>, params: &RequestParams) -> Result<MessagingFee> {
         require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
 
         // Ok(MessagingFee { native_fee: 0, lz_token_fee: 0 })
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
 
-        let vault_occ_message = VaultOCCMessage {
-            chain_event_id: [0; 32],
-            src_chain_id: [0; 32],
-            token: TOKEN_TYPE::PLACEHOLDER as u8,
-            token_amount: [0; 32],
-            sender: ctx.accounts.proxy_config.key(),
+        let vault_occ_message = SolanaVaultOCCMessage {
+            token: TokenType::PLACEHOLDER as u8,
+            sender: params.user_account,
             payload_type: params.payload_type,
+            payload: params.payload.clone(),
         };
         let endpoint_quote_params = QuoteParams {
             sender: ctx.accounts.proxy_config.key(),
@@ -51,12 +54,19 @@ impl QuoteRequest<'_> {
     }
 }
 
-#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
-pub struct QuoteRequestParams {
-    pub payload_type: u8,
-    pub amount: u64,
-    pub user_account: Pubkey,
-}
+// #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+// pub struct QuoteRequestParams {
+//     pub user_account: Pubkey,
+//     pub payload_type: u8,
+//     pub payload: Vec<u8>,
+// }
+
+// impl QuoteRequestParams {
+//     pub fn get_lz_fee(endpoint_program: Pubkey, remaining_accounts: &[AccountInfo], endpint_quote_params: QuoteParams) -> Result<MessagingFee> {
+//         let messaging_fee = oapp::endpoint_cpi::quote(endpoint_program, remaining_accounts, endpint_quote_params)?;
+//         Ok(MessagingFee { native_fee: messaging_fee.native_fee, lz_token_fee: messaging_fee.lz_token_fee })
+//     }
+// }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub enum PayloadType {
