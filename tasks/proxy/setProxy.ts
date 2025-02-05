@@ -7,7 +7,7 @@ import {
     setupAnchor,
     printProxyConfig,
     printPeerPda,
-    getDeployedProxyProgram,
+    getProxyProgram,
     updateConfig,
     getEndpoint,
     getTokenATA,
@@ -26,7 +26,7 @@ import {
     getSendRemainingAccounts,
     printTxLinks,
     createAndSendV0TxWithTable,
-    getDeployedOftProgram,
+    getOftProgram,
     checkPayloadType,
     getPayloadType,
     createComposeMsgForStaking,
@@ -39,6 +39,10 @@ import {
     getAccountsForEndpointV2Send,
     createALT,
     extendALT,
+    createStakingMsg,
+    getOrderAmountInBytes32,
+    quoteStakingFee,
+    sendStakingRequest,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -75,18 +79,18 @@ import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM } from './constants'
 import { config } from 'process'
 import { setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { bigint } from 'hardhat/internal/core/params/argumentTypes'
 
 task('sol:proxy:init', 'Create and init Proxy Config PDA')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         console.log('Proxy Config PDA:', proxyConfigPda.toBase58())
         const lzReceiveTypesPda = getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
         const endpoint = getEndpoint()
         const usdcMint = getUsdcMint(taskArgs.env)
-        console.log(usdcMint)
         const orderlyEid = getOrderlyEid(taskArgs.env)
         const solChainId = getSolanaChainId(taskArgs.env)
         const proxyTokenAccount = getTokenATA(usdcMint, proxyConfigPda)
@@ -115,11 +119,11 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
                 proxyTokenAccount: proxyTokenAccount,
                 tokenMint: usdcMint,
             }
-            const registerRemainingAccounts = getInitOAppRemainingAccounts(wallet, proxyConfigPda)
+            const initRemainingAccounts = getInitOAppRemainingAccounts(wallet, proxyConfigPda)
             const initProxyIx = await proxyProgram.methods
                 .initProxy(initProxyParams)
                 .accounts(initProxyAccounts)
-                .remainingAccounts(registerRemainingAccounts)
+                .remainingAccounts(initRemainingAccounts)
                 .instruction()
             const tx = await createAndSendV0Tx([initProxyIx], provider, wallet)
             console.log('Tx to init Proxy as OAPP:', tx)
@@ -184,7 +188,7 @@ task('sol:proxy:setpeer', 'Set Peer Config for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const usdcMint = getUsdcMint(taskArgs.env)
         const orderlyEid = getOrderlyEid(taskArgs.env)
@@ -243,7 +247,7 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
         const orderlyEid = getOrderlyEid(taskArgs.env)
@@ -341,7 +345,7 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider] = setupAnchor(taskArgs.env)
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
         const programId = fromWeb3JsPublicKey(proxyProgram.programId)
@@ -453,7 +457,7 @@ task('sol:proxy:quote', 'Get quote for Solana Proxy')
     .addOptionalParam('payload', 'The payload to quote', '0', devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const rpc = getUmi(taskArgs.env).rpc
         const connection = new Connection(rpc.getEndpoint(), 'confirmed')
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
@@ -501,7 +505,7 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
         const [provider, wallet, rpcString] = setupAnchor(taskArgs.env)
         const payloadType = checkPayloadType(taskArgs.payloadType)
 
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
 
         const rpc = getUmi(taskArgs.env).rpc
         const connection = new Connection(rpc.getEndpoint(), 'confirmed')
@@ -560,7 +564,7 @@ task('sol:proxy:claim', 'Send request for Solana Proxy')
     .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const rpc = getUmi(taskArgs.env).rpc
         const connection = new Connection(rpc.getEndpoint(), 'confirmed')
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
@@ -615,7 +619,7 @@ task('sol:proxy:pda', 'Get PDA for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet, rpc] = setupAnchor(taskArgs.env)
-        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
         console.log('Proxy program ID:', proxyProgram.programId)
     })
 
@@ -624,161 +628,9 @@ task('sol:proxy:stake', 'Stake from Solana through Solana OFT')
     .addParam('amount', 'The amount to stake', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
-        const oftProgram = getDeployedOftProgram(taskArgs.env, provider)
-
-        console.log('Stake')
-        const payload = getPayload(1, taskArgs.amount)
-        const amount = getAmountFromStr(taskArgs.amount)
-        const orderlyEid = getOrderlyEid(taskArgs.env)
-        const stakingOptions = Options.newOptions()
-            // .addExecutorLzReceiveOption(0, 500000)
-            .addExecutorComposeOption(0, 500000, 0)
-            .toBytes() // Buffer.from('')  Options.newOptions().addExecutorLzReceiveOption(0, 500000).addExecutorComposeOption(0, 500000, 0).toBytes()
-
-        const composeMsg = createComposeMsgForStaking(
-            getSolanaChainId(taskArgs.env),
-            1,
-            payload!,
-            getChainEventId(taskArgs.env),
-            wallet.publicKey
-        )
-        const rpc = getUmi(taskArgs.env).rpc
-        const oftAccounts = getOftAccounts(taskArgs.env)
-        console.log(wallet)
-        console.log('1')
-
-        // const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
-        //     units: 1000000,
-        // })
-
-        // const buffer = await simulateTransaction(
-        //     provider.connection,
-        //     [modifyComputeUnits, ixQuoteSend],
-        //     ixQuoteSend.programId,
-        //     wallet.publicKey,
-        //     'confirmed',
-        //     undefined,
-        //     new PublicKey(config.proxyLookupTable)
-        // )
-
-        // const fee = EndpointProgram.types.messagingFeeBeet.read(buffer, 0)
-        const { lzTokenFee, nativeFee } = await oft.quote(
-            rpc,
-            {
-                payer: fromWeb3JsPublicKey(wallet.publicKey),
-                tokenMint: oftAccounts.mint,
-                tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
-            },
-            {
-                dstEid: orderlyEid,
-                to: oftAccounts.ledgerOccManger,
-                amountLd: amount,
-                minAmountLd: 0n,
-                options: stakingOptions,
-                composeMsg: composeMsg,
-                payInLzToken: false,
-            },
-            {
-                oft: oftAccounts.programId,
-            }
-        )
-
+        const { lzTokenFee, nativeFee } = await quoteStakingFee(wallet, taskArgs.amount, taskArgs.env)
         console.log('lzTokenFee:', lzTokenFee.toString())
         console.log('nativeFee:', nativeFee.toString())
-
-        const [eventAuthorityPDA] = new EventPDADeriver(oftAccounts.programId).eventAuthority()
-        console.log('2')
-        const oftSendParams = {
-            dstEid: orderlyEid,
-            to: oftAccounts.ledgerOccManger,
-            amountLd: new BN(10000000000),
-            minAmountLd: new BN(((BigInt(10000000000) * BigInt(9)) / BigInt(10)).toString()),
-            options: Buffer.from(stakingOptions),
-            composeMsg: Buffer.from(composeMsg),
-            nativeFee: new BN(nativeFee.toString()), // convert from bigint into BN
-            lzTokenFee: new BN(0),
-        }
-        console.log('3')
-        const oftPeerPda = getPeerPda(oftAccounts.programId, oftAccounts.oftStore, orderlyEid)
-        const senderATA = getTokenATA(oftAccounts.mint, wallet.publicKey)
-        const oftSendAccounts = {
-            signer: wallet.publicKey,
-            peer: oftPeerPda,
-            oftStore: oftAccounts.oftStore,
-            tokenSource: senderATA,
-            tokenEscrow: oftAccounts.escrow,
-            tokenMint: oftAccounts.mint,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            eventAuthority: eventAuthorityPDA,
-            program: oftAccounts.programId,
-        }
-        console.log('4')
-        const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-        const msgReceiver = bytes32ToEthAddress(oftAccounts.evmOftAddress)
-        const msgSender = publicKeyIntoHex(oftAccounts.oftStore)
-        const path = {
-            sender: msgSender,
-            dstEid: orderlyEid,
-            receiver: msgReceiver,
-        }
-        console.log('5')
-        const remainingAccounts = await getSendRemainingAccounts(connection, wallet, path)
-        console.log('6')
-        const ixSend = await oftProgram.methods
-            .send(oftSendParams)
-            .accounts(oftSendAccounts)
-            .remainingAccounts(remainingAccounts)
-            .instruction()
-        const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
-        console.log('7')
-        // const alt = await createALT(provider, wallet)
-        const alt = oftAccounts.alt
-        console.log('8')
-        console.log(ixSend.keys)
-        const accountList = ixSend.keys.slice(10).map((account) => account.pubkey)
-        console.log(accountList)
-        await extendALT(provider, wallet, oftAccounts.alt, accountList)
-        console.log('9')
-        await createAndSendV0TxWithTable(
-            [ixSend, ixAddComputeBudget],
-            provider,
-            wallet.publicKey,
-            [wallet.payer],
-            oftAccounts.alt
-        )
-
-        // const umi = getUmi(taskArgs.env)
-        // console.log('hi')
-        // const payer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(wallet.payer.secretKey))
-        // umi.use(signerIdentity(payer))
-        // console.log(payer)
-        // const ix = await oft.send(
-        //     rpc,
-        //     {
-        //         payer: payer,
-        //         tokenMint: oftAccounts.mint,
-        //         tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
-        //         tokenSource: fromWeb3JsPublicKey(oftAccounts.escrow),
-        //     },
-        //     {
-        //         to: oftAccounts.ledgerOccManger,
-        //         dstEid: orderlyEid,
-        //         amountLd: amount,
-        //         minAmountLd: amount,
-        //         options: stakingOptions,
-        //         composeMsg: composeMsg,
-        //         nativeFee,
-        //     },
-        //     {
-        //         oft: oftAccounts.programId,
-        //     }
-        // )
-        // console.log('hi2')
-        // const { signature } = await new TransactionBuilder([ix])
-        //     .add(setComputeUnitLimit(umi, { units: 500_000 }))
-        //     .sendAndConfirm(umi)
-
-        // console.log('hi')
-        // const transactionSignatureBase58 = bs58.encode(signature)
-        // printTxLinks(taskArgs.env, transactionSignatureBase58)
+        const tx = await sendStakingRequest(provider, wallet, taskArgs.amount, nativeFee.toString(), taskArgs.env)
+        printTxLinks(taskArgs.env, tx)
     })
