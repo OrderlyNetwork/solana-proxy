@@ -1,9 +1,12 @@
-import { readFileSync } from 'fs'
+import { PathOrFileDescriptor, readFileSync } from 'fs'
+
 import fs from 'fs'
 import { join } from 'path'
-
+import { toWeb3JsInstruction } from '@metaplex-foundation/umi-web3js-adapters'
+import { WrappedInstruction } from '@metaplex-foundation/umi'
 import {
     AccountMeta,
+    Connection,
     PublicKey,
     Signer,
     SystemProgram,
@@ -11,16 +14,11 @@ import {
     TransactionMessage,
     VersionedTransaction,
     VersionedTransactionResponse,
+    AddressLookupTableProgram,
 } from '@solana/web3.js'
 import { AnchorProvider, BN, Program, setProvider, Wallet } from '@coral-xyz/anchor'
-import {
-    getAccount,
-    getAssociatedTokenAddress,
-    getAssociatedTokenAddressSync,
-    TOKEN_PROGRAM_ID,
-} from '@solana/spl-token'
+import { getAccount, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { OftPDA, accounts, oft, instructions } from '@layerzerolabs/oft-v2-solana-sdk'
-import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2'
 import {
     AccountMeta as MetaplexAccountMeta,
     createNoopSigner,
@@ -33,6 +31,18 @@ import { fromWeb3JsPublicKey, toWeb3JsPublicKey } from '@metaplex-foundation/umi
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
 import { findAssociatedTokenPda, mplToolbox } from '@metaplex-foundation/mpl-toolbox'
 import { addressToBytes32, bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
+import {
+    EndpointPDADeriver,
+    EndpointProgram,
+    EventPDADeriver,
+    MessageLibInterface,
+    SetConfigType,
+    SimpleMessageLibProgram,
+    UlnPDADeriver,
+    UlnProgram,
+    simulateTransaction,
+    SendHelper,
+} from '@layerzerolabs/lz-solana-sdk-v2'
 import { arrayify, hexlify } from '@layerzerolabs/lz-utilities'
 import { ethers } from 'ethers'
 import { defaultAbiCoder } from '@ethersproject/abi'
@@ -40,79 +50,35 @@ import { isAddress } from 'web3-validator'
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 
-import { IDL, SolanaProxy } from '../../target/types/solana_proxy'
-import { IDL as oftIDL, Oft } from '../../target/types/oft'
+import { IDL as proxyIDL, SolanaProxy } from '../../target/types/solana_proxy'
+import { IDL as oftIDL, Oft } from '../../types/oft'
 import { addComputeUnitInstructions, getExplorerTxLink, getLayerZeroScanLink } from '../solana'
 import { assert } from '@layerzerolabs/lz-utilities'
 import * as borsh from 'borsh'
 
-const PROXY_CONFIG_SEED = 'ProxyConfig'
-const VALID_ENVS = ['LOCAL', 'DEV', 'QA', 'STAGING', 'PROD']
-const LOCALHOST_RPC_URL = 'http://localhost:8899'
-const SOLANA_DEVNET_RPC_URL = 'https://api.devnet.solana.com'
-const SOLANA_MAINNET_RPC_URL = 'https://api.mainnet-beta.solana.com'
-const SOLANA_AMOUNT_SCALE_FACTOR = ethers.BigNumber.from('100000000')
+import * as constants from './constants'
+import { PayloadType } from './constants'
 
-export enum LedgerToken {
-    ORDER = 0,
-    ESORDER = 1,
-    USDC = 2,
-    PLACEHOLDER = 3,
+// const LOCALHOST_RPC_URL = 'http://localhost:8899'
+// const SOLANA_DEVNET_RPC_URL = 'https://api.devnet.solana.com'
+// const SOLANA_MAINNET_RPC_URL = 'https://api.mainnet-beta.solana.com'
+// const SOLANA_AMOUNT_SCALE_FACTOR = ethers.BigNumber.from('100000000')
+
+export function setUpEnv(ENV: string) {
+    const [provider, wallet, rpc] = setupAnchor(ENV)
+    const proxyProgram = getDeployedProxyProgram(ENV, provider)
+    const oftProgram = getDeployedOftProgram(ENV, provider)
+    // const endpoint = getEndpoint()
+    // const usdcTokenAccount = getUsdcTokenAccount(ENV)
+    const orderlyEid = getOrderlyEid(ENV)
+    const solChainId = getSolanaChainId(ENV)
+    return [provider, wallet, rpc, proxyProgram, orderlyEid, solChainId]
 }
 
-export enum PayloadDataType {
-    /* ====== Payloads From vault side ====== */
-    ClaimReward = 0,
-    Stake = 1,
-    CreateOrderUnstakeRequest = 2,
-    CancelOrderUnstakeRequest = 3,
-    WithdrawOrder = 4,
-    EsOrderUnstakeAndVest = 5,
-    CancelVestingRequest = 6,
-    CancelAllVestingRequests = 7, // Not supported anymore. Do not remove for backward compatibility
-    ClaimVestingRequest = 8,
-    RedeemValor = 9,
-    ClaimUsdcRevenue = 10,
-    /* ====== Backward Payloads from ledger side ====== */
-    ClaimRewardBackward = 11,
-    WithdrawOrderBackward = 12,
-    ClaimVestingRequestBackward = 13,
-    ClaimUsdcRevenueBackward = 14,
-    /* ====== New Payloads ====== */
-    UnstakeOrderNow = 15,
-    ClaimRewardSolana = 16,
-}
-
-export function getEnv(): String {
-    let ENV = process.env.ENV
-    if (!ENV) {
-        throw new Error('Please set ENV variable in the .env file (can be LOCAL, DEV, QA, STAGING, PROD)')
-    }
-
-    ENV = ENV.trim().toUpperCase()
-
-    if (!VALID_ENVS.includes(ENV)) {
-        throw new Error('Invalid ENV variable. It can be LOCAL, DEV, QA, STAGING, PROD')
-    }
-
-    return ENV
-}
-
-export function setupAnchor(): [AnchorProvider, Wallet, string] {
-    const ENV = getEnv()
-
+export function setupAnchor(ENV: string): [AnchorProvider, Wallet, string] {
     let ANCHOR_PROVIDER_URL = process.env.ANCHOR_PROVIDER_URL
     if (!ANCHOR_PROVIDER_URL) {
-        if (ENV === 'LOCAL') {
-            process.env.RPC_URL_SOLANA_TESTNET = LOCALHOST_RPC_URL
-            process.env.ANCHOR_PROVIDER_URL = process.env.RPC_URL_SOLANA_TESTNET
-        } else if (ENV === 'PROD') {
-            process.env.RPC_URL_SOLANA = SOLANA_MAINNET_RPC_URL
-            process.env.ANCHOR_PROVIDER_URL = process.env.RPC_URL_SOLANA
-        } else {
-            process.env.RPC_URL_SOLANA_TESTNET = SOLANA_DEVNET_RPC_URL
-            process.env.ANCHOR_PROVIDER_URL = process.env.RPC_URL_SOLANA_TESTNET
-        }
+        process.env.ANCHOR_PROVIDER_URL = constants.SOLANA_RPC_URLS[ENV]
     }
     const provider = AnchorProvider.env()
     setProvider(provider)
@@ -122,48 +88,49 @@ export function setupAnchor(): [AnchorProvider, Wallet, string] {
     return [provider, wallet, rpc]
 }
 
-export function getSolanaEid(): number {
-    if (getEnv() === 'PROD') {
+export function getUmi(ENV: string) {
+    return createUmi(constants.SOLANA_RPC_URLS[ENV])
+}
+
+export function getOftAccounts(ENV: string) {
+    return constants.OFT_ACCOUNTS[ENV]
+}
+
+export function getSolanaEid(ENV: string): number {
+    if (ENV === constants.ENV[4]) {
         return EndpointId.SOLANA_V2_MAINNET
     }
     return EndpointId.SOLANA_V2_TESTNET
 }
 
-export function isTestnet(): boolean {
-    return getEnv() !== 'PROD'
+export function isDevnet(ENV: string): boolean {
+    return ENV !== constants.ENV[4]
 }
 
-export function getOrderlyEid(): number {
-    if (getEnv() === 'PROD') {
-        return EndpointId.ORDERLY_V2_MAINNET
-    }
-    return EndpointId.ORDERLY_V2_TESTNET
-}
-
-export function getConfigPath() {
-    const ENV = getEnv()
-    return join(__dirname, `../../config/${ENV.toLowerCase()}.json`)
-}
+// export function getConfigPath() {
+//     const ENV = getEnv()
+//     return join(__dirname, `../../config/${ENV.toLowerCase()}.json`)
+// }
 
 let configSingleton: any = null
 
-export function getConfig(): any {
-    if (configSingleton) {
-        return configSingleton
-    }
+// export function getConfig(): any {
+//     if (configSingleton) {
+//         return configSingleton
+//     }
 
-    const configPath = getConfigPath()
-    try {
-        const config = JSON.parse(readFileSync(configPath, 'utf-8'))
-        return config
-    } catch (error) {
-        if (error instanceof Error) {
-            throw new Error(`Failed to load config file at ${configPath}: ${error.message}`)
-        } else {
-            throw new Error(`Failed to load config file at ${configPath}: Unknown error`)
-        }
-    }
-}
+//     const configPath = getConfigPath()
+//     try {
+//         const config = JSON.parse(readFileSync(configPath, 'utf-8'))
+//         return config
+//     } catch (error) {
+//         if (error instanceof Error) {
+//             throw new Error(`Failed to load config file at ${configPath}: ${error.message}`)
+//         } else {
+//             throw new Error(`Failed to load config file at ${configPath}: Unknown error`)
+//         }
+//     }
+// }
 
 export function updateConfig(config: any) {
     console.log('Updated config:', config)
@@ -173,86 +140,52 @@ export function updateConfig(config: any) {
     configSingleton = null
 }
 
-export function getDeployedProxyProgram(provider: AnchorProvider): Program<SolanaProxy> {
-    const proxyProgramIdStr = getConfig().proxyProgramId
-    return new Program<SolanaProxy>(IDL, proxyProgramIdStr, provider)
+export function getDeployedProxyProgram(ENV: string, provider: AnchorProvider): Program<SolanaProxy> {
+    console.log('Proxy program ID:', constants.PROXY_ACCOUNTS[ENV].programId.toString())
+    return new Program<SolanaProxy>(proxyIDL, constants.PROXY_ACCOUNTS[ENV].programId.toString(), provider)
 }
 
-export function getDeployedOftProgram(provider: AnchorProvider): Program<Oft> {
-    const oftProgramIdStr = getConfig().oftProgramId
-    return new Program<Oft>(oftIDL, oftProgramIdStr, provider)
+export function getDeployedOftProgram(ENV: string, provider: AnchorProvider): Program<Oft> {
+    return new Program<Oft>(oftIDL, constants.OFT_ACCOUNTS[ENV].programId.toString(), provider)
 }
-
-export function amountStrToBytes32(str: string, scaleFactor: ethers.BigNumber = ethers.BigNumber.from('1')): number[] {
-    const bigNumber = ethers.BigNumber.from(str).mul(scaleFactor)
+export function amountStrToBytes32(
+    amountStr: string,
+    scaleFactor: ethers.BigNumber = ethers.BigNumber.from('1')
+): number[] {
+    const bigNumber = ethers.BigNumber.from(amountStr).mul(scaleFactor)
     const bytes32 = ethers.utils.zeroPad(bigNumber.toHexString(), 32)
     return Array.from(bytes32)
 }
 
-export function getProxyConfigPda(proxyProgramId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from(PROXY_CONFIG_SEED, 'utf8')], proxyProgramId)[0]
+export function getAmountFromStr(amountStr: string) {
+    const bigNumber = ethers.BigNumber.from(amountStr)
+    return bigNumber.toBigInt()
 }
 
-export function printTxLinks(txid: string) {
-    console.log(`Solana transaction:    ${getExplorerTxLink(txid, isTestnet())}`)
-    console.log(`LzyerZero transaction: ${getLayerZeroScanLink(txid, isTestnet())}`)
+// export function getProxyConfigPda(proxyProgramId: PublicKey): PublicKey {
+//     return PublicKey.findProgramAddressSync([Buffer.from(PROXY_CONFIG_SEED, 'utf8')], proxyProgramId)[0]
+// }
+
+export function printTxLinks(ENV: string, txid: string) {
+    console.log(`Solana transaction:    ${getExplorerTxLink(txid, isDevnet(ENV))}`)
+    console.log(`LzyerZero transaction: ${getLayerZeroScanLink(txid, isDevnet(ENV))}`)
 }
 
-export function printProxyConfig(title: string, proxyConfig: any) {
-    console.log(`${title}: {`)
-    console.log('  bump:             ', proxyConfig.bump.toString())
-    console.log('  owner:            ', proxyConfig.owner.toBase58())
-    console.log('  nonce:            ', proxyConfig.nonce.toString())
-    console.log('  dstEid:           ', proxyConfig.dstEid.toString())
+export function printProxyConfig(proxyConfig: any) {
+    console.log(`Print Proxy Config:`)
+    // console.log('  bump:             ', proxyConfig.bump.toString())
+    console.log('  endpointProgram:  ', proxyConfig.endpointProgram.toBase58())
+    console.log('  usdcTokenAccount: ', proxyConfig.usdcTokenAccount.toBase58())
+
+    console.log('  admin:            ', proxyConfig.admin.toBase58())
+    console.log('  orderlyEid:       ', proxyConfig.orderlyEid.toString())
     console.log('  solChainId:       ', proxyConfig.solChainId.toString())
-    console.log('  oftProgram:       ', proxyConfig.oftProgram.toBase58())
-    console.log('  occManagerAddress:', bytes32ToEthAddress(new Uint8Array(proxyConfig.occManagerAddress)))
-    console.log('}')
+    console.log('  paused:           ', proxyConfig.paused.toString())
 }
 
-export async function initProxy(
-    provider: AnchorProvider,
-    proxyProgram: Program<SolanaProxy>,
-    oftProgramId: PublicKey,
-    mintPda: PublicKey,
-    occManagerAddress: string,
-    nonce: number = 0
-) {
-    if (!isAddress(occManagerAddress)) {
-        throw new Error('Invalid OCC manager address')
-    }
-
-    const wallet = provider.wallet as Wallet
-    const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-    const proxyEscrowAta = getAssociatedTokenAddressSync(mintPda, proxyConfigPda, true)
-
-    console.log('Init Proxy Config PDA...')
-    console.log('Proxy program ID:', proxyProgram.programId.toBase58())
-    console.log('OFT Program ID:', oftProgramId.toBase58())
-    console.log('Mint PDA:', mintPda.toBase58())
-    console.log('OCC Manager Address:', occManagerAddress)
-    console.log('Proxy Config PDA:', proxyConfigPda.toBase58())
-    console.log('Proxy Escrow ATA:', proxyEscrowAta.toBase58())
-
-    const initProxyParams = {
-        owner: wallet.publicKey,
-        nonce: new BN(nonce),
-        dstEid: getOrderlyEid(),
-        solChainId: new BN(getSolanaEid()),
-        oftProgram: oftProgramId,
-        occManagerAddress: Array.from(addressToBytes32(occManagerAddress)),
-    }
-
-    const initProxyAccounts = {
-        admin: wallet.publicKey,
-        proxyConfig: proxyConfigPda,
-        proxyEscrow: proxyEscrowAta,
-        tokenMint: mintPda,
-    }
-
-    const ixInitProxy = await proxyProgram.methods.initProxy(initProxyParams).accounts(initProxyAccounts).instruction()
-
-    await createAndSendV0Tx([ixInitProxy], provider, wallet)
+export function printPeerPda(peer: any) {
+    console.log(`Print Peer Pda:`)
+    console.log('  peer address: ', bytes32ToEthAddress(Buffer.from(peer.peerAddress as Uint8Array)))
 }
 
 export async function createAndSendV0Tx(
@@ -282,11 +215,10 @@ export async function createAndSendV0Tx(
     return txid
 }
 
-export async function getLookupTableAccount(provider: AnchorProvider, lookupTableAddress: string) {
-    const lookupTableAccount = (await provider.connection.getAddressLookupTable(new PublicKey(lookupTableAddress)))
-        .value
+export async function getLookupTableAccount(provider: AnchorProvider, alt: PublicKey) {
+    const lookupTableAccount = (await provider.connection.getAddressLookupTable(alt)).value
     if (!lookupTableAccount) {
-        throw new Error(`Lookup table account ${lookupTableAddress} does not exist. Please create it first.`)
+        throw new Error(`Lookup table account ${alt.toString()} does not exist. Please create it first.`)
     }
     return lookupTableAccount
 }
@@ -295,9 +227,10 @@ export async function createAndSendV0TxWithTable(
     txInstructions: TransactionInstruction[],
     provider: AnchorProvider,
     payerPubKey: PublicKey,
-    signers: Signer[]
+    signers: Signer[],
+    alt: PublicKey
 ) {
-    const lookupTableAccount = await getLookupTableAccount(provider, getConfig().proxyLookupTable)
+    const lookupTableAccount = await getLookupTableAccount(provider, alt)
     const msg = new TransactionMessage({
         payerKey: payerPubKey,
         recentBlockhash: (await provider.connection.getLatestBlockhash()).blockhash,
@@ -306,6 +239,16 @@ export async function createAndSendV0TxWithTable(
     const tx = new VersionedTransaction(msg)
     tx.sign(signers)
     return await provider.connection.sendTransaction(tx)
+}
+
+export async function createALT(provider: AnchorProvider, wallet: Wallet) {
+    const alt = await AddressLookupTableProgram.createLookupTable({
+        authority: wallet.publicKey,
+        payer: wallet.publicKey,
+        recentSlot: await provider.connection.getSlot(),
+    })
+    console.log('ALT created:', alt)
+    return alt
 }
 
 export function bytes32ToEvmAddress(bytes32Address: Uint8Array): string {
@@ -571,20 +514,14 @@ export async function getAllOftSendAccounts(
     ]
 }
 
-export const ENDPOINT_PROGRAM_ID = new PublicKey('76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6')
-const EVENT_SEED = '__event_authority'
-export function getEventAuthorityPda(): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from(EVENT_SEED, 'utf8')], new PublicKey(getConfig().unknownPda))[0]
-}
-
 function accountMeta(pubkey: string | PublicKey, isSigner: boolean, isWritable: boolean): AccountMeta {
     return { pubkey: (pubkey = typeof pubkey === 'string' ? new PublicKey(pubkey) : pubkey), isSigner, isWritable }
 }
 
-export async function printQuoteSendRemainAccounts(provider: AnchorProvider) {
+export async function printQuoteSendRemainAccounts(ENV: string, provider: AnchorProvider) {
     const wallet = provider.wallet as Wallet
     const config = getConfig()
-    const dstEid = getOrderlyEid()
+    const dstEid = getOrderlyEid(ENV)
     const { oftProgramId, tokenMint, oftStore, peer, peerInfo, sendHelper } = await getCommonOftAccounts(
         provider,
         config.oftProgramId,
@@ -689,13 +626,13 @@ export function getAccountsForOftSend(signer: string | PublicKey, signerSigns: b
     ]
 }
 
-export function getAmountForComposeMsg(amount: string, payloadDataType: PayloadDataType): number[] {
+export function getAmountForComposeMsg(amount: string, payloadDataType: constants.PayloadType): number[] {
     if (
-        payloadDataType === PayloadDataType.Stake ||
-        payloadDataType === PayloadDataType.CreateOrderUnstakeRequest ||
-        payloadDataType === PayloadDataType.EsOrderUnstakeAndVest ||
-        payloadDataType === PayloadDataType.RedeemValor ||
-        payloadDataType === PayloadDataType.UnstakeOrderNow
+        payloadDataType === constants.PayloadType.Stake ||
+        payloadDataType === constants.PayloadType.CreateOrderUnstakeRequest ||
+        payloadDataType === constants.PayloadType.EsOrderUnstakeAndVest ||
+        payloadDataType === constants.PayloadType.RedeemValor ||
+        payloadDataType === constants.PayloadType.UnstakeOrderNow
     ) {
         return amountStrToBytes32(amount, SOLANA_AMOUNT_SCALE_FACTOR)
     }
@@ -730,7 +667,7 @@ export function encodeUserRequestPayload(amountArray: number[]): Uint8Array {
 }
 
 export function encodeOCCVaultMessage(
-    chainedEventId: BN,
+    chainEventId: BN,
     srcChainId: number,
     token: number,
     amountArray: number[],
@@ -740,7 +677,7 @@ export function encodeOCCVaultMessage(
 ): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(
         ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
-        [[chainedEventId.toNumber(), srcChainId, token, amountArray, sender.toBytes(), payloadType, payload]]
+        [[chainEventId.toNumber(), srcChainId, token, amountArray, sender.toBytes(), payloadType, payload]]
     )
     // console.log('Encoded OCC vault message:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
@@ -749,23 +686,18 @@ export function encodeOCCVaultMessage(
     return encodedBytes
 }
 
-export function createComposeMsgForUserRequest(
-    payloadDataType: PayloadDataType,
-    amount: string,
-    chainedEventId: BN,
+export function createComposeMsgForStaking(
+    srcChainId: number,
+    payloadDataType: PayloadType,
+    amount: number[],
+    chainEventId: BN,
     sender: PublicKey
 ): Uint8Array {
     let payload: Uint8Array
-    let token = LedgerToken.PLACEHOLDER
-    let amountArray = getAmountForComposeMsg(amount, payloadDataType)
-    if (payloadDataType === PayloadDataType.Stake) {
-        payload = Buffer.from('')
-        token = LedgerToken.ORDER
-    } else {
-        payload = encodeUserRequestPayload(amountArray)
-        amountArray = amountStrToBytes32('0')
-    }
-    return encodeOCCVaultMessage(chainedEventId, getSolanaEid(), token, amountArray, sender, payloadDataType, payload)
+    let token = constants.LedgerToken.ORDER
+    // let amountArray = getAmountForComposeMsg(amount, payloadDataType)
+    payload = Buffer.from('') // empty payload for staking
+    return encodeOCCVaultMessage(chainEventId, srcChainId, token, amount, sender, payloadDataType, payload)
 }
 
 // this function has limit on composeMsg size: 288 bytes can be sent while 320 returns error VersionedTransaction too large
@@ -901,7 +833,148 @@ export function getReturnLog(confirmedTransaction: VersionedTransactionResponse)
     return { key, data, buffer }
 }
 
-export function getPayloadDataType(payloadType: number | string): PayloadDataType {
+export function getEndpoint() {
+    return new EndpointProgram.Endpoint(constants.ENDPOINT_PROGRAM_ID)
+}
+
+export function getInitOAppRemainingAccounts(wallet: Wallet, oapp: PublicKey) {
+    const endpoint = getEndpoint()
+    const accounts = endpoint.getRegisterOappIxAccountMetaForCPI(wallet.publicKey, oapp)
+    console.log('accounts:', accounts)
+    console.log('account len')
+    return accounts
+}
+
+// export function getInitOAppRemainingAccounts(wallet: Wallet, oapp: PublicKey) {
+//     const endpoint = getEndpoint()
+//     return endpoint.getRegisterOappIxAccountMetaForCPI(wallet.publicKey, oapp).map((acc) => {
+//         return {
+//             pubkey: acc.pubkey,
+//             isSigner: acc.isSigner,
+//             isWritable: acc.isWritable,
+//         }
+//     })
+// }
+
+export function getMsgLib() {
+    return new UlnProgram.Uln(constants.SEND_LIB_PROGRAM_ID)
+}
+
+type Path = {
+    sender: string
+    dstEid: number
+    receiver: string
+}
+export async function getQuoteRemainingAccounts(connection: Connection, wallet: Wallet, path: Path) {
+    // console.log('path:', path)
+    const endpoint = getEndpoint()
+    const msgLib = getMsgLib()
+
+    const remainingAccounts = await endpoint.getQuoteIXAccountMetaForCPI(connection, wallet.publicKey, path, msgLib)
+    // console.log('remaining accounts:', remainingAccounts)
+    // console.log('remaining accounts length:', remainingAccounts.length)
+
+    return remainingAccounts
+}
+
+export async function getSendRemainingAccounts(connection: Connection, wallet: Wallet, path: Path) {
+    const endpoint = getEndpoint()
+    const msgLib = getMsgLib()
+
+    const remainingAccounts = await endpoint.getSendIXAccountMetaForCPI(connection, wallet.publicKey, path, msgLib)
+    return remainingAccounts
+}
+
+// export function getProxyProgramId(ENV: string) {
+//     if (ENV === 'local') {
+//         return constants.LOCAL_PROXY_PROGRAM_ID
+//     } else if (ENV === 'dev') {
+//         return constants.DEV_PROXY_PROGRAM_ID
+//     } else if (ENV === 'qa') {
+//         return constants.QA_PROXY_PROGRAM_ID
+//     } else if (ENV === 'staging') {
+//         return constants.STAGING_PROXY_PROGRAM_ID
+//     } else if (ENV === 'mainnet') {
+//         return constants.MAIN_PROXY_PROGRAM_ID
+//     }
+// }
+
+export function getUsdcMint(ENV: string) {
+    return constants.PROXY_ACCOUNTS[ENV].usdcMint
+}
+
+export function getTokenATA(tokenAccount: PublicKey, owner: PublicKey) {
+    const tokenATA = getAssociatedTokenAddressSync(tokenAccount, owner, true)
+    return tokenATA
+}
+
+export function getOrderlyEid(ENV: string) {
+    if (ENV === 'mainnet') {
+        return EndpointId.ORDERLY_V2_MAINNET
+    } else {
+        return EndpointId.ORDERLY_V2_TESTNET
+    }
+}
+
+export function getSolanaChainId(ENV: string): number {
+    if (ENV === 'mainnet') {
+        return constants.MAIN_SOL_CHAIN_ID
+    }
+    return constants.DEV_SOL_CHAIN_ID
+}
+
+export function getChainEventId(ENV: string): BN {
+    return constants.CHAIN_EVENT_ID
+}
+
+export function getPeerAddress(ENV: string) {
+    return constants.PEER_ADDRESS[ENV]
+}
+
+export function getOptions(ENV: string) {
+    checkENV(ENV)
+    return constants.OPTIONS[ENV]
+}
+
+export function getLzConfig(orderlyEid: number) {
+    if (constants.LZ_CONFIG[orderlyEid]) {
+        return constants.LZ_CONFIG[orderlyEid]
+    }
+    throw new Error('Invalid orderly eid')
+}
+
+export function getEncodedOptions(options: any) {
+    const optionSend = Options.newOptions()
+        .addExecutorLzReceiveOption(options.LZ_RECEIVE_GAS, options.LZ_RECEIVE_VALUE)
+        .toBytes()
+    const optionSendAndCall = Options.newOptions()
+        .addExecutorLzReceiveOption(options.LZ_RECEIVE_GAS, options.LZ_RECEIVE_VALUE)
+        .addExecutorComposeOption(0, options.LZ_COMPOSE_GAS, options.LZ_COMPOSE_VALUE)
+        .toBytes()
+    return [optionSend, optionSendAndCall]
+}
+
+export function intoIx(wrappedIx: WrappedInstruction[]) {
+    return wrappedIx.map((wrapped) => toWeb3JsInstruction(wrapped.instruction))
+}
+
+export async function delay(ENV: string) {
+    if (ENV === 'mainnet') {
+        // sleep for 2 seconds
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+}
+
+export function publicKeyIntoHex(publicKey: PublicKey): string {
+    return Buffer.from(publicKey.toBytes()).toString('hex')
+}
+
+export function getPayloadType() {
+    return constants.PayloadType
+}
+
+export function checkPayloadType(payloadType: number | string): constants.PayloadType {
     if (!isNaN(Number(payloadType))) {
         payloadType = Number(payloadType)
     }
@@ -913,77 +986,50 @@ export function getPayloadDataType(payloadType: number | string): PayloadDataTyp
     switch (payloadType) {
         case 1:
         case 'stake':
-            return PayloadDataType.Stake
+            return constants.PayloadType.Stake
         case 2:
         case 'createorderunstakerequest':
-            return PayloadDataType.CreateOrderUnstakeRequest
+            return constants.PayloadType.CreateOrderUnstakeRequest
         case 3:
         case 'cancelorderunstakerequest':
-            return PayloadDataType.CancelOrderUnstakeRequest
+            return constants.PayloadType.CancelOrderUnstakeRequest
         case 4:
         case 'withdraworder':
-            return PayloadDataType.WithdrawOrder
+            return constants.PayloadType.WithdrawOrder
         case 5:
         case 'esorderunstakeandvest':
-            return PayloadDataType.EsOrderUnstakeAndVest
+            return constants.PayloadType.EsOrderUnstakeAndVest
         case 6:
         case 'cancelvestingrequest':
-            return PayloadDataType.CancelVestingRequest
+            return constants.PayloadType.CancelVestingRequest
         case 8:
         case 'claimvestingrequest':
-            return PayloadDataType.ClaimVestingRequest
+            return constants.PayloadType.ClaimVestingRequest
         case 9:
         case 'redeemvalor':
-            return PayloadDataType.RedeemValor
+            return constants.PayloadType.RedeemValor
         case 10:
         case 'claimusdcrevenue':
-            return PayloadDataType.ClaimUsdcRevenue
+            return constants.PayloadType.ClaimUsdcRevenue
         case 15:
         case 'unstakeordernow':
-            return PayloadDataType.UnstakeOrderNow
+            return constants.PayloadType.UnstakeOrderNow
         default:
             throw new Error(`Unsupported payload type: ${payloadType}`)
     }
 }
 
-export async function getRequestOpts(provider: AnchorProvider, payloadDataType: PayloadDataType, wallet: Wallet) {
-    const proxyProgram = getDeployedProxyProgram(provider)
-    const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-
-    const ixGetRequestOpts = await proxyProgram.methods
-        .getRequestOpts({
-            requestType: payloadDataType,
-        })
-        .accounts({
-            user: wallet.publicKey,
-            proxyConfig: proxyConfigPda,
-        })
-        .instruction()
-    const txSig = await createAndSendV0Tx([ixGetRequestOpts], provider, wallet)
-    const tx = await getTransactionWithRetries(txSig, provider)
-    const { key, buffer } = getReturnLog(tx)
-    assert(key === proxyProgram.programId.toString(), 'Invalid program ID')
-
-    class Assignable {
-        [key: string]: any
-        constructor(properties: { [x: string]: any }) {
-            Object.keys(properties).map((key) => {
-                this[key] = properties[key]
-            })
+export function getPayload(payloadType: constants.PayloadType, payload: string) {
+    if (payloadType === constants.PayloadType.Stake) {
+        if (payload) {
+            return amountStrToBytes32(payload, constants.ORDER_DECIMALS_ON_ETHEREUM)
         }
+        throw new Error('Payload is required for staking')
     }
+}
 
-    class RequestOpts extends Assignable {
-        nonce!: BN
-
-        static schema: borsh.Schema = new Map([[RequestOpts, { kind: 'struct', fields: [['nonce', 'u64']] }]])
-
-        print() {
-            console.log(`Nonce: ${this.nonce}`)
-        }
+function checkENV(ENV: string) {
+    if (!constants.ENV.includes(ENV)) {
+        throw new Error(`Invalid environment: ${ENV}`)
     }
-
-    const requestOpts = borsh.deserialize(RequestOpts.schema, RequestOpts, buffer)
-    requestOpts.print()
-    return requestOpts
 }

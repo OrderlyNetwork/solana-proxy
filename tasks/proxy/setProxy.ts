@@ -1,19 +1,18 @@
 import { task } from 'hardhat/config'
+import bs58 from 'bs58'
 import { Program, workspace, BN } from '@coral-xyz/anchor'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
 import {
     getPeerAddress,
     setupAnchor,
     printProxyConfig,
-    getConfig,
     printPeerPda,
     getDeployedProxyProgram,
     updateConfig,
     getEndpoint,
-    getUsdcTokenAccount,
+    getTokenATA,
     getOrderlyEid,
     getSolanaChainId,
-    getTokenATA,
     createAndSendV0Tx,
     getOptions,
     delay,
@@ -23,10 +22,22 @@ import {
     getLzConfig,
     getQuoteRemainingAccounts,
     publicKeyIntoHex,
-    getPayloadDataType,
     amountStrToBytes32,
     getSendRemainingAccounts,
     printTxLinks,
+    createAndSendV0TxWithTable,
+    getDeployedOftProgram,
+    checkPayloadType,
+    getPayloadType,
+    createComposeMsgForStaking,
+    getChainEventId,
+    getPayload,
+    getAmountFromStr,
+    getOftAccounts,
+    getUsdcMint,
+    getInitOAppRemainingAccounts,
+    getAccountsForEndpointV2Send,
+    createALT,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -39,7 +50,7 @@ import {
     getReceiveLibProgramId,
     getDefaultSendLibConfigPda,
 } from './pdaHelper'
-import { PublicKey, AccountMeta, Connection } from '@solana/web3.js'
+import { PublicKey, AccountMeta, Connection, ComputeBudgetProgram } from '@solana/web3.js'
 import { isAddress } from 'web3-validator'
 import {
     fromWeb3JsInstruction,
@@ -54,11 +65,15 @@ import {
     signerIdentity,
     transactionBuilder,
     Transaction,
+    TransactionBuilder,
 } from '@metaplex-foundation/umi'
 import { bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
 import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
-import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM, PEER_ADDRESS } from './constants'
+import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2'
+import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM } from './constants'
 import { config } from 'process'
+import { setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox'
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 
 task('sol:proxy:init', 'Create and init Proxy Config PDA')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
@@ -69,23 +84,26 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
         console.log('Proxy Config PDA:', proxyConfigPda.toBase58())
         const lzReceiveTypesPda = getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
         const endpoint = getEndpoint()
-        const usdcTokenAccount = getUsdcTokenAccount(taskArgs.env)
+        const usdcMint = getUsdcMint(taskArgs.env)
+        console.log(usdcMint)
         const orderlyEid = getOrderlyEid(taskArgs.env)
         const solChainId = getSolanaChainId(taskArgs.env)
-        const proxyTokenAccount = getTokenATA(usdcTokenAccount, proxyConfigPda)
+        const proxyTokenAccount = getTokenATA(usdcMint, proxyConfigPda)
         const oappRegistryPda = getOAppRegistryPda(proxyConfigPda)
         const admin = wallet
         const peerAddress = getPeerAddress(taskArgs.env)
-
+        console.log('proxy config pda', proxyConfigPda.toBase58())
         console.log('OApp Registry PDA:', oappRegistryPda.toBase58())
         try {
             const proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
             printProxyConfig(proxyConfig)
-        } catch {
+        } catch (e) {
+            console.log(e)
+            console.log('Proxy Config not found, initializing...')
             const initProxyParams = {
                 endpointProgram: endpoint.program,
-                usdcTokenAccount: usdcTokenAccount,
-                admin: wallet.publicKey,
+                usdcTokenAccount: usdcMint,
+                admin: admin.publicKey,
                 orderlyEid: orderlyEid,
                 solChainId: solChainId,
             }
@@ -94,12 +112,9 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
                 proxyConfig: proxyConfigPda,
                 lzReceiveTypesAccounts: lzReceiveTypesPda,
                 proxyTokenAccount: proxyTokenAccount,
-                tokenMint: usdcTokenAccount,
+                tokenMint: usdcMint,
             }
-            const registerRemainingAccounts = endpoint.getRegisterOappIxAccountMetaForCPI(
-                wallet.publicKey,
-                proxyConfigPda
-            )
+            const registerRemainingAccounts = getInitOAppRemainingAccounts(wallet, proxyConfigPda)
             const initProxyIx = await proxyProgram.methods
                 .initProxy(initProxyParams)
                 .accounts(initProxyAccounts)
@@ -170,12 +185,8 @@ task('sol:proxy:setpeer', 'Set Peer Config for Solana Proxy')
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-        const endpoint = getEndpoint()
-        const usdcTokenAccount = getUsdcTokenAccount(taskArgs.env)
+        const usdcMint = getUsdcMint(taskArgs.env)
         const orderlyEid = getOrderlyEid(taskArgs.env)
-        const solChainId = getSolanaChainId(taskArgs.env)
-        const proxyTokenAccount = getTokenATA(usdcTokenAccount, proxyConfigPda)
-        const peerPda = getPeerPda(proxyProgram.programId, proxyConfigPda, orderlyEid)
         const peerAddress = getPeerAddress(taskArgs.env)
 
         const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
@@ -234,10 +245,7 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
-        const programId = fromWeb3JsPublicKey(proxyProgram.programId)
         const orderlyEid = getOrderlyEid(taskArgs.env)
-        console.log(orderlyEid)
-        console.log(oftStore)
         const rpc = getUmi(taskArgs.env).rpc
         const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
 
@@ -292,7 +300,7 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
                         requiredDvnCount: config.sendLibConfig.ulnConfig.requiredDVNCount,
                         optionalDvnCount: config.sendLibConfig.ulnConfig.optionalDVNCount,
                         optionalDvnThreshold: config.sendLibConfig.ulnConfig.optionalDVNThreshold,
-                        requiredDvns: config.sendLibConfig?.ulnConfig.requiredDVNs.map(
+                        requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map(
                             (address) => new PublicKey(address)
                         ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
                         optionalDvns: [],
@@ -465,12 +473,10 @@ task('sol:proxy:quote', 'Get quote for Solana Proxy')
             proxyConfig: proxyConfigPda,
             peerConfig: peerConfigPda,
         }
-        const payloadType = getPayloadDataType(taskArgs.payloadType)
-        console.log(taskArgs.payload)
+        const payloadType = checkPayloadType(taskArgs.payloadType)
         const amount = taskArgs.payload
             ? amountStrToBytes32(taskArgs.payload, ORDER_DECIMALS_ON_ETHEREUM)
             : amountStrToBytes32('0', ORDER_DECIMALS_ON_ETHEREUM)
-        console.log(amount)
         const quoteParams = {
             userAccount: wallet.publicKey,
             payloadType: payloadType,
@@ -483,7 +489,7 @@ task('sol:proxy:quote', 'Get quote for Solana Proxy')
             .remainingAccounts(remainingAccounts)
             .view()
 
-        console.log('native fee:', nativeFee)
+        console.log('native fee:', nativeFee.toString())
     })
 
 task('sol:proxy:request', 'Send request for Solana Proxy')
@@ -491,8 +497,151 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
     .addParam('payloadType', 'The payload type to request', undefined, devtoolsTypes.string)
     .addOptionalParam('payload', 'The payload to request', '0', devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
-        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const [provider, wallet, rpcString] = setupAnchor(taskArgs.env)
+        const payloadType = checkPayloadType(taskArgs.payloadType)
+
+        if (payloadType === getPayloadType().Stake) {
+            console.log('Stake')
+            const payload = getPayload(payloadType, taskArgs.payload)
+            const amount = getAmountFromStr(taskArgs.payload)
+            const oftProgram = getDeployedOftProgram(taskArgs.env, provider)
+            const orderlyEid = getOrderlyEid(taskArgs.env)
+            const stakingOptions = Options.newOptions()
+                .addExecutorLzReceiveOption(0, 500000)
+                .addExecutorComposeOption(0, 500000, 0)
+                .toBytes()
+
+            const composeMsg = createComposeMsgForStaking(
+                getSolanaChainId(taskArgs.env),
+                payloadType,
+                payload!,
+                getChainEventId(taskArgs.env),
+                wallet.publicKey
+            )
+            const rpc = getUmi(taskArgs.env).rpc
+            const oftAccounts = getOftAccounts(taskArgs.env)
+            console.log(wallet)
+            console.log('1')
+            const { lzTokenFee, nativeFee } = await oft.quote(
+                rpc,
+                {
+                    payer: fromWeb3JsPublicKey(wallet.publicKey),
+                    tokenMint: oftAccounts.mint,
+                    tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
+                },
+                {
+                    dstEid: orderlyEid,
+                    to: oftAccounts.ledgerOccManger,
+                    amountLd: amount,
+                    minAmountLd: amount,
+                    options: stakingOptions,
+                    composeMsg: composeMsg,
+                    payInLzToken: false,
+                },
+                {
+                    oft: oftAccounts.programId,
+                }
+            )
+
+            console.log('lzTokenFee:', lzTokenFee.toString())
+            console.log('nativeFee:', nativeFee.toString())
+
+            const [eventAuthorityPDA] = new EventPDADeriver(oftAccounts.programId).eventAuthority()
+
+            const oftSendParams = {
+                dstEid: orderlyEid,
+                to: oftAccounts.ledgerOccManger,
+                amountLd: new BN(1),
+                minAmountLd: new BN(1),
+                options: Buffer.from(stakingOptions),
+                composeMsg: Buffer.from(composeMsg),
+                nativeFee: new BN(985540), // convert from bigint into BN
+                lzTokenFee: new BN(0),
+            }
+
+            // const oftSendParams = {
+            //     dstEid: toEid,
+            //     to: Array.from(recipientAddressBytes32),
+            //     amountLd: new BN(amount),
+            //     minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
+            //     options: Buffer.from(options),
+            //     composeMsg: Buffer.from(composeMsg),
+            //     nativeFee,
+            //     lzTokenFee: new BN(0),
+            // }
+
+            const oftPeerPda = getPeerPda(oftAccounts.programId, oftAccounts.oftStore, orderlyEid)
+            const senderATA = getTokenATA(wallet.publicKey, oftAccounts.mint)
+            const oftSendAccounts = {
+                signer: wallet.publicKey,
+                peer: oftPeerPda,
+                oftStore: oftAccounts.oftStore,
+                tokenSource: senderATA,
+                tokenEscrow: oftAccounts.escrow,
+                tokenMint: oftAccounts.mint,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                eventAuthority: oftPeerPda,
+                program: oftAccounts.programId,
+            }
+
+            const connection = new Connection(rpc.getEndpoint(), 'confirmed')
+            const msgReceiver = bytes32ToEthAddress(oftAccounts.evmOftAddress)
+            const msgSender = publicKeyIntoHex(oftAccounts.oftStore)
+            const path = {
+                sender: msgSender,
+                dstEid: orderlyEid,
+                receiver: msgReceiver,
+            }
+            const remainingAccounts = await getSendRemainingAccounts(connection, wallet, path)
+            const ixSend = await oftProgram.methods
+                .send(oftSendParams)
+                .accounts(oftSendAccounts)
+                .remainingAccounts(remainingAccounts)
+                .instruction()
+            const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+            await createALT(provider, wallet)
+            // return await createAndSendV0Tx([ixSend], provider, wallet)
+
+            // const umi = getUmi(taskArgs.env)
+            // console.log('hi')
+            // const payer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(wallet.payer.secretKey))
+            // umi.use(signerIdentity(payer))
+            // console.log(payer)
+            // const ix = await oft.send(
+            //     rpc,
+            //     {
+            //         payer: payer,
+            //         tokenMint: oftAccounts.mint,
+            //         tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
+            //         tokenSource: fromWeb3JsPublicKey(oftAccounts.escrow),
+            //     },
+            //     {
+            //         to: oftAccounts.ledgerOccManger,
+            //         dstEid: orderlyEid,
+            //         amountLd: amount,
+            //         minAmountLd: amount,
+            //         options: stakingOptions,
+            //         composeMsg: composeMsg,
+            //         nativeFee,
+            //     },
+            //     {
+            //         oft: oftAccounts.programId,
+            //     }
+            // )
+            // console.log('hi2')
+            // const { signature } = await new TransactionBuilder([ix])
+            //     .add(setComputeUnitLimit(umi, { units: 500_000 }))
+            //     .sendAndConfirm(umi)
+
+            // console.log('hi')
+            // const transactionSignatureBase58 = bs58.encode(signature)
+            // printTxLinks(taskArgs.env, transactionSignatureBase58)
+        }
+
+        return
+
         const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+
         const rpc = getUmi(taskArgs.env).rpc
         const connection = new Connection(rpc.getEndpoint(), 'confirmed')
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
@@ -510,7 +659,6 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
             proxyConfig: proxyConfigPda,
             peerConfig: peerConfigPda,
         }
-        const payloadType = getPayloadDataType(taskArgs.payloadType)
         console.log(taskArgs.payload)
         const amount = taskArgs.payload
             ? amountStrToBytes32(taskArgs.payload, ORDER_DECIMALS_ON_ETHEREUM)
@@ -543,4 +691,69 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
         const tx = await createAndSendV0Tx([requestIx], provider, wallet)
         console.log('Tx to send request for Solana Proxy:', tx)
         printTxLinks(taskArgs.env, tx)
+    })
+task('sol:proxy:claim', 'Send request for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
+    .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', '0', devtoolsTypes.string)
+    .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        const rpc = getUmi(taskArgs.env).rpc
+        const connection = new Connection(rpc.getEndpoint(), 'confirmed')
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const orderlyEid = getOrderlyEid(taskArgs.env)
+        const peerConfigPda = getPeerPda(proxyProgram.programId, proxyConfigPda, orderlyEid)
+        const msgReceiver = bytes32ToEthAddress(getPeerAddress(taskArgs.env)!)
+        const msgSender = publicKeyIntoHex(proxyConfigPda)
+        console.log('Claiming reward from the Solana network...')
+        console.log('Distribution ID:', taskArgs.distributionId)
+        console.log('cumulative amount:', taskArgs.cumulativeAmount)
+        console.log('Merkle proof:', taskArgs.merkleProof)
+        console.log('Proxy program ID:', proxyProgram.programId.toBase58())
+
+        const cumulativeAmountArray = amountStrToBytes32(taskArgs.cumulativeAmount, ORDER_DECIMALS_ON_ETHEREUM)
+        const proofArray = taskArgs.merkleProof.map((p: string) =>
+            Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex')))
+        )
+
+        const claimRewardParams = {
+            distributionId: taskArgs.distributionId,
+            cumulativeAmount: cumulativeAmountArray,
+            merkleProof: proofArray,
+        }
+
+        const claimRewardAccounts = {
+            user: wallet.publicKey,
+        }
+
+        // TODO: Call quote to get the fee
+        const nativeFee = 123456
+
+        const sendParam = {
+            nativeFee: new BN(nativeFee),
+            lzTokenFee: new BN(0),
+        }
+
+        // const metaplexOftSendRemainingAccounts = await getAllOftSendAccounts(provider, config.oftProgramId, config.oftEscrowAta, wallet.publicKey, getOrderlyEid());
+        // console.log('Send remaining accounts:', metaplexOftSendRemainingAccounts);
+        // const web3OftSendRemainingAccounts = metaplexToWeb3AccountMetaArray(metaplexOftSendRemainingAccounts);
+
+        const ixClaimReward = await proxyProgram.methods
+            .claimReward(claimRewardParams, sendParam)
+            .accounts(claimRewardAccounts)
+            .instruction()
+
+        const txSig = await createAndSendV0Tx([ixClaimReward], provider, wallet)
+        console.log('Tx to claim reward for Solana Proxy:', txSig)
+        printTxLinks(taskArgs.env, txSig)
+    })
+
+task('sol:proxy:pda', 'Get PDA for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet, rpc] = setupAnchor(taskArgs.env)
+        const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
+        console.log('Proxy program ID:', proxyProgram.programId)
     })
