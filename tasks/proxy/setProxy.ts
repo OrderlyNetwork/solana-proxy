@@ -38,6 +38,7 @@ import {
     getInitOAppRemainingAccounts,
     getAccountsForEndpointV2Send,
     createALT,
+    extendALT,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -500,146 +501,6 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
         const [provider, wallet, rpcString] = setupAnchor(taskArgs.env)
         const payloadType = checkPayloadType(taskArgs.payloadType)
 
-        if (payloadType === getPayloadType().Stake) {
-            console.log('Stake')
-            const payload = getPayload(payloadType, taskArgs.payload)
-            const amount = getAmountFromStr(taskArgs.payload)
-            const oftProgram = getDeployedOftProgram(taskArgs.env, provider)
-            const orderlyEid = getOrderlyEid(taskArgs.env)
-            const stakingOptions = Options.newOptions()
-                .addExecutorLzReceiveOption(0, 500000)
-                .addExecutorComposeOption(0, 500000, 0)
-                .toBytes()
-
-            const composeMsg = createComposeMsgForStaking(
-                getSolanaChainId(taskArgs.env),
-                payloadType,
-                payload!,
-                getChainEventId(taskArgs.env),
-                wallet.publicKey
-            )
-            const rpc = getUmi(taskArgs.env).rpc
-            const oftAccounts = getOftAccounts(taskArgs.env)
-            console.log(wallet)
-            console.log('1')
-            const { lzTokenFee, nativeFee } = await oft.quote(
-                rpc,
-                {
-                    payer: fromWeb3JsPublicKey(wallet.publicKey),
-                    tokenMint: oftAccounts.mint,
-                    tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
-                },
-                {
-                    dstEid: orderlyEid,
-                    to: oftAccounts.ledgerOccManger,
-                    amountLd: amount,
-                    minAmountLd: amount,
-                    options: stakingOptions,
-                    composeMsg: composeMsg,
-                    payInLzToken: false,
-                },
-                {
-                    oft: oftAccounts.programId,
-                }
-            )
-
-            console.log('lzTokenFee:', lzTokenFee.toString())
-            console.log('nativeFee:', nativeFee.toString())
-
-            const [eventAuthorityPDA] = new EventPDADeriver(oftAccounts.programId).eventAuthority()
-
-            const oftSendParams = {
-                dstEid: orderlyEid,
-                to: oftAccounts.ledgerOccManger,
-                amountLd: new BN(1),
-                minAmountLd: new BN(1),
-                options: Buffer.from(stakingOptions),
-                composeMsg: Buffer.from(composeMsg),
-                nativeFee: new BN(985540), // convert from bigint into BN
-                lzTokenFee: new BN(0),
-            }
-
-            // const oftSendParams = {
-            //     dstEid: toEid,
-            //     to: Array.from(recipientAddressBytes32),
-            //     amountLd: new BN(amount),
-            //     minAmountLd: new BN(((BigInt(amount) * BigInt(9)) / BigInt(10)).toString()),
-            //     options: Buffer.from(options),
-            //     composeMsg: Buffer.from(composeMsg),
-            //     nativeFee,
-            //     lzTokenFee: new BN(0),
-            // }
-
-            const oftPeerPda = getPeerPda(oftAccounts.programId, oftAccounts.oftStore, orderlyEid)
-            const senderATA = getTokenATA(wallet.publicKey, oftAccounts.mint)
-            const oftSendAccounts = {
-                signer: wallet.publicKey,
-                peer: oftPeerPda,
-                oftStore: oftAccounts.oftStore,
-                tokenSource: senderATA,
-                tokenEscrow: oftAccounts.escrow,
-                tokenMint: oftAccounts.mint,
-                tokenProgram: TOKEN_PROGRAM_ID,
-                eventAuthority: oftPeerPda,
-                program: oftAccounts.programId,
-            }
-
-            const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-            const msgReceiver = bytes32ToEthAddress(oftAccounts.evmOftAddress)
-            const msgSender = publicKeyIntoHex(oftAccounts.oftStore)
-            const path = {
-                sender: msgSender,
-                dstEid: orderlyEid,
-                receiver: msgReceiver,
-            }
-            const remainingAccounts = await getSendRemainingAccounts(connection, wallet, path)
-            const ixSend = await oftProgram.methods
-                .send(oftSendParams)
-                .accounts(oftSendAccounts)
-                .remainingAccounts(remainingAccounts)
-                .instruction()
-            const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
-            await createALT(provider, wallet)
-            // return await createAndSendV0Tx([ixSend], provider, wallet)
-
-            // const umi = getUmi(taskArgs.env)
-            // console.log('hi')
-            // const payer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(wallet.payer.secretKey))
-            // umi.use(signerIdentity(payer))
-            // console.log(payer)
-            // const ix = await oft.send(
-            //     rpc,
-            //     {
-            //         payer: payer,
-            //         tokenMint: oftAccounts.mint,
-            //         tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
-            //         tokenSource: fromWeb3JsPublicKey(oftAccounts.escrow),
-            //     },
-            //     {
-            //         to: oftAccounts.ledgerOccManger,
-            //         dstEid: orderlyEid,
-            //         amountLd: amount,
-            //         minAmountLd: amount,
-            //         options: stakingOptions,
-            //         composeMsg: composeMsg,
-            //         nativeFee,
-            //     },
-            //     {
-            //         oft: oftAccounts.programId,
-            //     }
-            // )
-            // console.log('hi2')
-            // const { signature } = await new TransactionBuilder([ix])
-            //     .add(setComputeUnitLimit(umi, { units: 500_000 }))
-            //     .sendAndConfirm(umi)
-
-            // console.log('hi')
-            // const transactionSignatureBase58 = bs58.encode(signature)
-            // printTxLinks(taskArgs.env, transactionSignatureBase58)
-        }
-
-        return
-
         const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
 
         const rpc = getUmi(taskArgs.env).rpc
@@ -756,4 +617,168 @@ task('sol:proxy:pda', 'Get PDA for Solana Proxy')
         const [provider, wallet, rpc] = setupAnchor(taskArgs.env)
         const proxyProgram = getDeployedProxyProgram(taskArgs.env, provider)
         console.log('Proxy program ID:', proxyProgram.programId)
+    })
+
+task('sol:proxy:stake', 'Stake from Solana through Solana OFT')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addParam('amount', 'The amount to stake', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const oftProgram = getDeployedOftProgram(taskArgs.env, provider)
+
+        console.log('Stake')
+        const payload = getPayload(1, taskArgs.amount)
+        const amount = getAmountFromStr(taskArgs.amount)
+        const orderlyEid = getOrderlyEid(taskArgs.env)
+        const stakingOptions = Options.newOptions()
+            // .addExecutorLzReceiveOption(0, 500000)
+            .addExecutorComposeOption(0, 500000, 0)
+            .toBytes() // Buffer.from('')  Options.newOptions().addExecutorLzReceiveOption(0, 500000).addExecutorComposeOption(0, 500000, 0).toBytes()
+
+        const composeMsg = createComposeMsgForStaking(
+            getSolanaChainId(taskArgs.env),
+            1,
+            payload!,
+            getChainEventId(taskArgs.env),
+            wallet.publicKey
+        )
+        const rpc = getUmi(taskArgs.env).rpc
+        const oftAccounts = getOftAccounts(taskArgs.env)
+        console.log(wallet)
+        console.log('1')
+
+        // const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+        //     units: 1000000,
+        // })
+
+        // const buffer = await simulateTransaction(
+        //     provider.connection,
+        //     [modifyComputeUnits, ixQuoteSend],
+        //     ixQuoteSend.programId,
+        //     wallet.publicKey,
+        //     'confirmed',
+        //     undefined,
+        //     new PublicKey(config.proxyLookupTable)
+        // )
+
+        // const fee = EndpointProgram.types.messagingFeeBeet.read(buffer, 0)
+        const { lzTokenFee, nativeFee } = await oft.quote(
+            rpc,
+            {
+                payer: fromWeb3JsPublicKey(wallet.publicKey),
+                tokenMint: oftAccounts.mint,
+                tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
+            },
+            {
+                dstEid: orderlyEid,
+                to: oftAccounts.ledgerOccManger,
+                amountLd: amount,
+                minAmountLd: 0n,
+                options: stakingOptions,
+                composeMsg: composeMsg,
+                payInLzToken: false,
+            },
+            {
+                oft: oftAccounts.programId,
+            }
+        )
+
+        console.log('lzTokenFee:', lzTokenFee.toString())
+        console.log('nativeFee:', nativeFee.toString())
+
+        const [eventAuthorityPDA] = new EventPDADeriver(oftAccounts.programId).eventAuthority()
+        console.log('2')
+        const oftSendParams = {
+            dstEid: orderlyEid,
+            to: oftAccounts.ledgerOccManger,
+            amountLd: new BN(10000000000),
+            minAmountLd: new BN(((BigInt(10000000000) * BigInt(9)) / BigInt(10)).toString()),
+            options: Buffer.from(stakingOptions),
+            composeMsg: Buffer.from(composeMsg),
+            nativeFee: new BN(nativeFee.toString()), // convert from bigint into BN
+            lzTokenFee: new BN(0),
+        }
+        console.log('3')
+        const oftPeerPda = getPeerPda(oftAccounts.programId, oftAccounts.oftStore, orderlyEid)
+        const senderATA = getTokenATA(oftAccounts.mint, wallet.publicKey)
+        const oftSendAccounts = {
+            signer: wallet.publicKey,
+            peer: oftPeerPda,
+            oftStore: oftAccounts.oftStore,
+            tokenSource: senderATA,
+            tokenEscrow: oftAccounts.escrow,
+            tokenMint: oftAccounts.mint,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            eventAuthority: eventAuthorityPDA,
+            program: oftAccounts.programId,
+        }
+        console.log('4')
+        const connection = new Connection(rpc.getEndpoint(), 'confirmed')
+        const msgReceiver = bytes32ToEthAddress(oftAccounts.evmOftAddress)
+        const msgSender = publicKeyIntoHex(oftAccounts.oftStore)
+        const path = {
+            sender: msgSender,
+            dstEid: orderlyEid,
+            receiver: msgReceiver,
+        }
+        console.log('5')
+        const remainingAccounts = await getSendRemainingAccounts(connection, wallet, path)
+        console.log('6')
+        const ixSend = await oftProgram.methods
+            .send(oftSendParams)
+            .accounts(oftSendAccounts)
+            .remainingAccounts(remainingAccounts)
+            .instruction()
+        const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
+        console.log('7')
+        // const alt = await createALT(provider, wallet)
+        const alt = oftAccounts.alt
+        console.log('8')
+        console.log(ixSend.keys)
+        const accountList = ixSend.keys.slice(10).map((account) => account.pubkey)
+        console.log(accountList)
+        await extendALT(provider, wallet, oftAccounts.alt, accountList)
+        console.log('9')
+        await createAndSendV0TxWithTable(
+            [ixSend, ixAddComputeBudget],
+            provider,
+            wallet.publicKey,
+            [wallet.payer],
+            oftAccounts.alt
+        )
+
+        // const umi = getUmi(taskArgs.env)
+        // console.log('hi')
+        // const payer = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(wallet.payer.secretKey))
+        // umi.use(signerIdentity(payer))
+        // console.log(payer)
+        // const ix = await oft.send(
+        //     rpc,
+        //     {
+        //         payer: payer,
+        //         tokenMint: oftAccounts.mint,
+        //         tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
+        //         tokenSource: fromWeb3JsPublicKey(oftAccounts.escrow),
+        //     },
+        //     {
+        //         to: oftAccounts.ledgerOccManger,
+        //         dstEid: orderlyEid,
+        //         amountLd: amount,
+        //         minAmountLd: amount,
+        //         options: stakingOptions,
+        //         composeMsg: composeMsg,
+        //         nativeFee,
+        //     },
+        //     {
+        //         oft: oftAccounts.programId,
+        //     }
+        // )
+        // console.log('hi2')
+        // const { signature } = await new TransactionBuilder([ix])
+        //     .add(setComputeUnitLimit(umi, { units: 500_000 }))
+        //     .sendAndConfirm(umi)
+
+        // console.log('hi')
+        // const transactionSignatureBase58 = bs58.encode(signature)
+        // printTxLinks(taskArgs.env, transactionSignatureBase58)
     })

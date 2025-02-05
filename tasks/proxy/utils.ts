@@ -196,6 +196,9 @@ export async function createAndSendV0Tx(
     // Step 1 - Fetch Latest Blockhash
     let latestBlockhash = await provider.connection.getLatestBlockhash('finalized')
 
+    console.log('latestBlockhash:', latestBlockhash)
+    console.log('txInstructions:', txInstructions.keys)
+
     // Step 2 - Generate Transaction Message
     const messageV0 = new TransactionMessage({
         payerKey: wallet.publicKey,
@@ -242,13 +245,30 @@ export async function createAndSendV0TxWithTable(
 }
 
 export async function createALT(provider: AnchorProvider, wallet: Wallet) {
-    const alt = await AddressLookupTableProgram.createLookupTable({
+    const ixCreateALT = await AddressLookupTableProgram.createLookupTable({
         authority: wallet.publicKey,
         payer: wallet.publicKey,
         recentSlot: await provider.connection.getSlot(),
     })
-    console.log('ALT created:', alt)
-    return alt
+    const tx = await createAndSendV0Tx([ixCreateALT[0]], provider, wallet)
+    console.log('ALT created:', tx)
+    console.log('ALT pda:', ixCreateALT[1])
+    return ixCreateALT[1]
+}
+
+export async function extendALT(provider: AnchorProvider, wallet: Wallet, alt: PublicKey, addressList: PublicKey[]) {
+    console.log('Extending ALT...')
+    console.log('alt:', alt)
+    const ixExtendLookupTable = AddressLookupTableProgram.extendLookupTable({
+        payer: wallet.publicKey,
+        authority: wallet.publicKey,
+        lookupTable: alt,
+        addresses: addressList,
+    })
+    console.log(ixExtendLookupTable.keys)
+    console.log('ixExtendLookupTable:', ixExtendLookupTable)
+    const tx = await createAndSendV0Tx([ixExtendLookupTable], provider, wallet)
+    console.log('ALT extended:', tx)
 }
 
 export function bytes32ToEvmAddress(bytes32Address: Uint8Array): string {
@@ -268,7 +288,6 @@ export function bytes32ToEvmAddress(bytes32Address: Uint8Array): string {
 
     return evmAddress
 }
-
 export function metaplexToWeb3AccountMetaArray(metaplexAccountMetaArray: MetaplexAccountMeta[]): AccountMeta[] {
     return metaplexAccountMetaArray.map((acc) => {
         return {
