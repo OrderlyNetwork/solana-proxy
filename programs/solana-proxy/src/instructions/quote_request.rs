@@ -9,6 +9,8 @@ use oapp::endpoint::instructions::QuoteParams;
 #[derive(Accounts)]
 #[instruction(params: RequestParams)]
 pub struct QuoteRequest<'info> {
+    #[account()]
+    pub user: Signer<'info>,
     #[account(
         seeds = [PROXY_CONFIG_SEED],
         bump = proxy_config.bump
@@ -30,12 +32,11 @@ impl QuoteRequest<'_> {
     pub fn apply(ctx: Context<QuoteRequest>, params: &RequestParams) -> Result<MessagingFee> {
         require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
 
-        // Ok(MessagingFee { native_fee: 0, lz_token_fee: 0 })
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
 
         let vault_occ_message = SolanaVaultOCCMessage {
             token: TokenType::PLACEHOLDER as u8,
-            sender: params.user_account,
+            sender: ctx.accounts.user.key(),
             payload_type: params.payload_type,
             payload: params.payload.clone(),
         };
@@ -53,20 +54,6 @@ impl QuoteRequest<'_> {
         return Ok(MessagingFee { native_fee: messaging_fee.native_fee, lz_token_fee: messaging_fee.lz_token_fee });
     }
 }
-
-// #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
-// pub struct QuoteRequestParams {
-//     pub user_account: Pubkey,
-//     pub payload_type: u8,
-//     pub payload: Vec<u8>,
-// }
-
-// impl QuoteRequestParams {
-//     pub fn get_lz_fee(endpoint_program: Pubkey, remaining_accounts: &[AccountInfo], endpint_quote_params: QuoteParams) -> Result<MessagingFee> {
-//         let messaging_fee = oapp::endpoint_cpi::quote(endpoint_program, remaining_accounts, endpint_quote_params)?;
-//         Ok(MessagingFee { native_fee: messaging_fee.native_fee, lz_token_fee: messaging_fee.lz_token_fee })
-//     }
-// }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub enum PayloadType {

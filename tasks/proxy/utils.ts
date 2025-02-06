@@ -59,7 +59,7 @@ import * as borsh from 'borsh'
 
 import * as constants from './constants'
 import { PayloadType } from './constants'
-import { getPeerPda, getProxyConfigPda } from './pdaHelper'
+import { getClaimDataPda, getPeerPda, getProxyConfigPda } from './pdaHelper'
 
 // const LOCALHOST_RPC_URL = 'http://localhost:8899'
 // const SOLANA_DEVNET_RPC_URL = 'https://api.devnet.solana.com'
@@ -130,6 +130,20 @@ export function amountStrToBytes32(
 export function getAmountFromStr(amountStr: string) {
     const bigNumber = ethers.BigNumber.from(amountStr)
     return bigNumber.toBigInt()
+}
+
+export function convertBytes32ToHex(bytes32: number[]) {
+    return '0x' + bytes32.map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+export function encodeClaimRewardPayload(distributionId: string, cumulativeAmount: string, root: string) {
+    const encodedStr = defaultAbiCoder.encode(
+        ['tuple(uint32,uint256,bytes32)'],
+        [[distributionId, cumulativeAmount, root]]
+    )
+    const encodedBytesArray = arrayify(encodedStr)
+    console.log('Encoded claim reward payload:', encodedBytesArray, encodedBytesArray.length)
+    return encodedBytesArray
 }
 
 // export function getProxyConfigPda(proxyProgramId: PublicKey): PublicKey {
@@ -442,25 +456,25 @@ export function getAmountForComposeMsg(amount: string, payloadDataType: constant
     return amountStrToBytes32(amount)
 }
 
-export function encodeClaimRewardPayload(
-    distributionId: number,
-    cumulativeAmount: string,
-    merkleProof: string[]
-): Uint8Array {
-    if (!Array.isArray(merkleProof)) {
-        throw new TypeError('merkleProof must be an array')
-    }
+// export function encodeClaimRewardPayload(
+//     distributionId: number,
+//     cumulativeAmount: string,
+//     merkleProof: string[]
+// ): Uint8Array {
+//     if (!Array.isArray(merkleProof)) {
+//         throw new TypeError('merkleProof must be an array')
+//     }
 
-    const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount)
-    const proofArray = merkleProof.map((p) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
-    const encodedStr = defaultAbiCoder.encode(
-        ['tuple(uint32,uint256,bytes32[])'],
-        [[distributionId, cumulativeAmountArray, proofArray]]
-    )
-    // console.log('Encoded claim reward payload:', encodedStr)
-    const encodedBytes = arrayify(encodedStr)
-    return encodedBytes
-}
+//     const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount)
+//     const proofArray = merkleProof.map((p) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
+//     const encodedStr = defaultAbiCoder.encode(
+//         ['tuple(uint32,uint256,bytes32[])'],
+//         [[distributionId, cumulativeAmountArray, proofArray]]
+//     )
+//     // console.log('Encoded claim reward payload:', encodedStr)
+//     const encodedBytes = arrayify(encodedStr)
+//     return encodedBytes
+// }
 
 export function encodeUserRequestPayload(amountArray: number[]): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(['tuple(uint256)'], [[amountArray]])
@@ -535,7 +549,7 @@ export async function quoteStakingFee(wallet: Wallet, amount: string, ENV: strin
             dstEid: orderlyEid,
             to: oftAccounts.ledgerOccManger,
             amountLd: amountInBigInt,
-            minAmountLd: 0n, // should be the same as amount for deployed oft
+            minAmountLd: 0n, // TODO: should be the same as amount for deployed oft
             options: stakingOptions,
             composeMsg: stakingMsg,
             payInLzToken: false,
@@ -597,7 +611,7 @@ export async function sendStakingRequest(
         receiver: evmOftPeer,
     }
     const oftProgram = getOftProgram(ENV, provider)
-    const remainingAccounts = await getSendRemainingAccounts(connection, wallet, path)
+    const remainingAccounts = await getSendRemainingAccounts(connection, wallet.publicKey, path)
     const ixSend = await oftProgram.methods
         .send(oftSendParams)
         .accounts(oftSendAccounts)
@@ -621,40 +635,91 @@ export async function sendStakingRequest(
     return tx
 }
 
+export async function quoteClaimFee(program: Program<SolanaProxy>, payer: PublicKey, ENV: string) {
+    console.log('hihere', ENV)
+    const { params, accounts, connection, path } = prepareParamsAndAccounts(
+        program,
+        payer,
+        constants.PayloadType.ClaimRewardSolana,
+        undefined, // no payload needed for claim request, the payload has been upload through instruction submit_proof
+        ENV
+    )
+    const claimData = getClaimDataPda(program.programId, payer)
+    const remainingAccounts = await getQuoteRemainingAccounts(connection, payer, path)
+    const { lzTokenFee, nativeFee } = await program.methods
+        .quoteClaim()
+        .accounts({
+            user: accounts.user,
+            claimData: claimData,
+            proxyConfig: accounts.proxyConfig,
+            peerConfig: accounts.peerConfig,
+        })
+        .remainingAccounts(remainingAccounts)
+        .view()
+    console.log('lzTokenFee:', lzTokenFee.toString())
+    console.log('nativeFee:', nativeFee.toString())
+    return { lzTokenFee, nativeFee }
+}
+
+export async function sendClaimRequest(
+    program: Program<SolanaProxy>,
+    provider: AnchorProvider,
+    payer: Wallet,
+    nativeFee: BN,
+    lzTokenFee: BN,
+    ENV: string
+) {
+    console.log('Sending claim request')
+    const { accounts, connection, path } = prepareParamsAndAccounts(
+        program,
+        payer.publicKey,
+        constants.PayloadType.ClaimRewardSolana,
+        Buffer.from(''),
+        ENV
+    )
+    const remainingAccounts = await getSendRemainingAccounts(connection, payer.publicKey, path)
+    const msgFee = {
+        lzTokenFee: lzTokenFee,
+        nativeFee: nativeFee,
+    }
+    const claimData = getClaimDataPda(program.programId, payer.publicKey)
+    const claimAccounts = {
+        user: payer.publicKey,
+        claimData: claimData,
+        proxyConfig: accounts.proxyConfig,
+        peerConfig: accounts.peerConfig,
+    }
+
+    const requestIx = await program.methods
+        .sendClaim(msgFee)
+        .accounts(claimAccounts)
+        .remainingAccounts(remainingAccounts)
+        .instruction()
+    const tx = await createAndSendV0Tx([requestIx], provider, payer)
+    console.log('Tx to send request for Solana Proxy:', tx)
+    return tx
+}
+
 export async function quoteFee(
     program: Program<SolanaProxy>,
     payer: PublicKey,
-    userAccount: PublicKey,
+    // userAccount: PublicKey,
     payloadType: constants.PayloadType,
     payload: Uint8Array,
     ENV: string
 ) {
-    const quoteParams = {
-        userAccount: userAccount,
-        payloadType: payloadType,
-        payload: Buffer.from(payload),
-    }
-    const proxyConfigPda = getProxyConfigPda(program.programId)
-    const orderlyEid = getOrderlyEid(ENV)
-    const peerConfigPda = getPeerPda(program.programId, proxyConfigPda, orderlyEid)
-
-    const quoteAccounts = {
-        proxyConfig: proxyConfigPda,
-        peerConfig: peerConfigPda,
-    }
-    const rpc = getUmi(ENV).rpc
-    const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-    const msgReceiver = bytes32ToEthAddress(getPeerAddress(ENV)!)
-    const msgSender = publicKeyIntoHex(proxyConfigPda)
-    const path = {
-        sender: msgSender,
-        dstEid: orderlyEid,
-        receiver: msgReceiver,
-    }
+    const { params, accounts, connection, path } = prepareParamsAndAccounts(
+        program,
+        payer,
+        // userAccount,
+        payloadType,
+        payload,
+        ENV
+    )
     const remainingAccounts = await getQuoteRemainingAccounts(connection, payer, path)
     const { lzTokenFee, nativeFee } = await program.methods
-        .quoteRequest(quoteParams)
-        .accounts(quoteAccounts)
+        .quoteRequest(params)
+        .accounts(accounts)
         .remainingAccounts(remainingAccounts)
         .view()
     console.log('✅ Quoted fee')
@@ -667,50 +732,66 @@ export async function sendRequest(
     program: Program<SolanaProxy>,
     provider: AnchorProvider,
     payer: Wallet,
-    userAccount: PublicKey,
+    // userAccount: PublicKey,
     payloadType: constants.PayloadType,
     payload: Uint8Array,
     nativeFee: BN,
     lzTokenFee: BN,
     ENV: string
 ) {
-    const requestParams = {
-        userAccount: userAccount,
-        payloadType: payloadType,
-        payload: Buffer.from(payload),
-    }
-    const proxyConfigPda = getProxyConfigPda(program.programId)
-    console.log('proxyConfigPda:', proxyConfigPda)
-    const orderlyEid = getOrderlyEid(ENV)
-    const peerConfigPda = getPeerPda(program.programId, proxyConfigPda, orderlyEid)
-
-    const requestAccounts = {
-        peerConfig: peerConfigPda,
-        user: payer.publicKey,
-        proxyConfig: proxyConfigPda,
-    }
-    const rpc = getUmi(ENV).rpc
-    const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-    const msgReceiver = bytes32ToEthAddress(getPeerAddress(ENV)!)
-    const msgSender = publicKeyIntoHex(proxyConfigPda)
-    const path = {
-        sender: msgSender,
-        dstEid: orderlyEid,
-        receiver: msgReceiver,
-    }
-    const sendRemainingAccounts = await getSendRemainingAccounts(connection, payer.publicKey, path)
+    const { params, accounts, connection, path } = prepareParamsAndAccounts(
+        program,
+        payer.publicKey,
+        // userAccount,
+        payloadType,
+        payload,
+        ENV
+    )
+    const remainingAccounts = await getSendRemainingAccounts(connection, payer.publicKey, path)
     const msgFee = {
         lzTokenFee: lzTokenFee,
         nativeFee: nativeFee,
     }
     const requestIx = await program.methods
-        .sendRequest(requestParams, msgFee)
-        .accounts(requestAccounts)
-        .remainingAccounts(sendRemainingAccounts)
+        .sendRequest(params, msgFee)
+        .accounts(accounts)
+        .remainingAccounts(remainingAccounts)
         .instruction()
     const tx = await createAndSendV0Tx([requestIx], provider, payer)
     console.log('Tx to send request for Solana Proxy:', tx)
     return tx
+}
+
+function prepareParamsAndAccounts(
+    program: Program<SolanaProxy>,
+    payer: PublicKey,
+    payloadType: constants.PayloadType,
+    payload: Uint8Array = Buffer.from(''),
+    ENV: string
+) {
+    const params = {
+        payloadType: payloadType,
+        payload: Buffer.from(payload),
+    }
+    const proxyConfigPda = getProxyConfigPda(program.programId)
+    const orderlyEid = getOrderlyEid(ENV)
+    const peerConfigPda = getPeerPda(program.programId, proxyConfigPda, orderlyEid)
+
+    const accounts = {
+        user: payer,
+        peerConfig: peerConfigPda,
+        proxyConfig: proxyConfigPda,
+    }
+    const rpc = getUmi(ENV).rpc
+    const connection = new Connection(rpc.getEndpoint(), 'confirmed')
+    const oappReceiver = bytes32ToEthAddress(getPeerAddress(ENV)!)
+    const oappSender = publicKeyIntoHex(proxyConfigPda)
+    const path = {
+        sender: oappSender,
+        dstEid: orderlyEid,
+        receiver: oappReceiver,
+    }
+    return { params, accounts, connection, path }
 }
 
 // this function has limit on composeMsg size: 288 bytes can be sent while 320 returns error VersionedTransaction too large

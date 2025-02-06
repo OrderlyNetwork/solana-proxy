@@ -10,6 +10,8 @@ use oapp::endpoint::{instructions::SendParams, MessagingReceipt};
 #[derive(Accounts)]
 #[instruction(params: RequestParams)]
 pub struct SendRequest<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
     #[account(
         seeds = [PROXY_CONFIG_SEED],
         bump = proxy_config.bump
@@ -35,7 +37,7 @@ impl SendRequest<'_> {
 
         let vault_occ_message = SolanaVaultOCCMessage {
             token: TokenType::PLACEHOLDER as u8,
-            sender: params.user_account,
+            sender: ctx.accounts.user.key(),
             payload_type: params.payload_type,
             payload: params.payload.clone(),
         };
@@ -65,7 +67,6 @@ impl SendRequest<'_> {
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct RequestParams {
-    pub user_account: Pubkey,
     pub payload_type: u8,
     pub payload: Vec<u8>,
 }

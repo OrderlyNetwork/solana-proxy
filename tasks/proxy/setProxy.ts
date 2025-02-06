@@ -37,6 +37,10 @@ import {
     sendStakingRequest,
     quoteFee,
     sendRequest,
+    encodeClaimRewardPayload,
+    convertBytes32ToHex,
+    quoteClaimFee,
+    sendClaimRequest,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -49,6 +53,7 @@ import {
     getReceiveLibProgramId,
     getDefaultSendLibConfigPda,
     getProofPda,
+    getClaimDataPda,
 } from './pdaHelper'
 import { PublicKey, AccountMeta, Connection, ComputeBudgetProgram } from '@solana/web3.js'
 import { isAddress } from 'web3-validator'
@@ -462,7 +467,6 @@ task('sol:proxy:quote', 'Get quote for Solana Proxy')
         const { lzTokenFee, nativeFee } = await quoteFee(
             proxyProgram,
             wallet.publicKey,
-            wallet.publicKey,
             payloadType,
             Buffer.from(payload),
             taskArgs.env
@@ -488,7 +492,6 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
         const { lzTokenFee, nativeFee } = await quoteFee(
             proxyProgram,
             wallet.publicKey,
-            wallet.publicKey,
             payloadType,
             Buffer.from(payload),
             taskArgs.env
@@ -498,7 +501,6 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
             proxyProgram,
             provider,
             wallet,
-            wallet.publicKey,
             payloadType,
             Buffer.from(payload),
             nativeFee,
@@ -506,66 +508,6 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
             taskArgs.env
         )
         printTxLinks(taskArgs.env, tx)
-    })
-task('sol:proxy:submitproof', 'Send request for Solana Proxy')
-    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
-    .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
-    .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', '0', devtoolsTypes.string)
-    .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
-    .setAction(async (taskArgs, hre) => {
-        const [provider, wallet] = setupAnchor(taskArgs.env)
-        const proxyProgram = getProxyProgram(taskArgs.env, provider)
-        const rpc = getUmi(taskArgs.env).rpc
-        const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-        const orderlyEid = getOrderlyEid(taskArgs.env)
-        const peerConfigPda = getPeerPda(proxyProgram.programId, proxyConfigPda, orderlyEid)
-        const msgReceiver = bytes32ToEthAddress(getPeerAddress(taskArgs.env)!)
-        const msgSender = publicKeyIntoHex(proxyConfigPda)
-        console.log('Claiming reward from the Solana network...')
-        console.log('Distribution ID:', taskArgs.distributionId)
-        console.log('cumulative amount:', taskArgs.cumulativeAmount)
-        console.log('Merkle proof:', taskArgs.merkleProof)
-        console.log('Proxy program ID:', proxyProgram.programId.toBase58())
-
-        const cumulativeAmountArray = amountStrToBytes32(taskArgs.cumulativeAmount, ORDER_DECIMALS_ON_ETHEREUM)
-        const proofArray = taskArgs.merkleProof.map((p: string) =>
-            Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex')))
-        )
-
-        const claimRewardParams = {
-            distributionId: taskArgs.distributionId,
-            cumulativeAmount: cumulativeAmountArray,
-            merkleProof: proofArray,
-        }
-
-        const proofPda = getProofPda(proxyProgram.programId, wallet.publicKey)
-
-        const claimRewardAccounts = {
-            user: wallet.publicKey,
-            proof: proofPda,
-        }
-
-        // TODO: Call quote to get the fee
-        const nativeFee = 123456
-
-        const sendParam = {
-            nativeFee: new BN(nativeFee),
-            lzTokenFee: new BN(0),
-        }
-
-        // const metaplexOftSendRemainingAccounts = await getAllOftSendAccounts(provider, config.oftProgramId, config.oftEscrowAta, wallet.publicKey, getOrderlyEid());
-        // console.log('Send remaining accounts:', metaplexOftSendRemainingAccounts);
-        // const web3OftSendRemainingAccounts = metaplexToWeb3AccountMetaArray(metaplexOftSendRemainingAccounts);
-
-        const ixClaimReward = await proxyProgram.methods
-            .submitProof(claimRewardParams, sendParam)
-            .accounts(claimRewardAccounts)
-            .instruction()
-
-        const txSig = await createAndSendV0Tx([ixClaimReward], provider, wallet)
-        console.log('Tx to claim reward for Solana Proxy:', txSig)
-        printTxLinks(taskArgs.env, txSig)
     })
 
 task('sol:proxy:pda', 'Get PDA for Solana Proxy and Solana OFT')
@@ -601,16 +543,71 @@ task('sol:proxy:stake', 'Stake from Solana through Solana OFT')
         printTxLinks(taskArgs.env, tx)
     })
 
-task('sol:proxy:claimReward', 'Claim reward from Solana Proxy')
+task('sol:proxy:submitproof', 'Send request for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .addParam('distributionId', 'Distribution ID of the reward', 0, devtoolsTypes.int)
     .addParam('cumulativeAmount', 'cumulative amount of reward from Mrekle proof', '0', devtoolsTypes.string)
+    .addParam('merkleProof', 'Merkle proof of the reward', '', devtoolsTypes.csv)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
-        const rpc = getUmi(taskArgs.env).rpc
-        const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-        const orderlyEid = getOrderlyEid(taskArgs.env)
-        const peerConfigPda = getPeerPda(proxyProgram.programId, proxyConfigPda, orderlyEid)
+
+        console.log('Claiming reward from the Solana network...')
+        console.log('Distribution ID:', taskArgs.distributionId)
+        console.log('cumulative amount:', taskArgs.cumulativeAmount)
+        console.log('Merkle proof:', taskArgs.merkleProof)
+        console.log('Proxy program ID:', proxyProgram.programId.toBase58())
+
+        const cumulativeAmountArray = amountStrToBytes32(taskArgs.cumulativeAmount, ORDER_DECIMALS_ON_ETHEREUM)
+        const proofArray = taskArgs.merkleProof.map((p: string) =>
+            Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex')))
+        )
+
+        const claimRewardParams = {
+            distributionId: taskArgs.distributionId,
+            cumulativeAmount: cumulativeAmountArray,
+            merkleProof: proofArray,
+        }
+
+        const claimDataPda = getClaimDataPda(proxyProgram.programId, wallet.publicKey)
+
+        const claimRewardAccounts = {
+            user: wallet.publicKey,
+            claimData: claimDataPda,
+        }
+
+        const ixSubmitProof = await proxyProgram.methods
+            .submitProof(claimRewardParams)
+            .accounts(claimRewardAccounts)
+            .instruction()
+
+        const txSig = await createAndSendV0Tx([ixSubmitProof], provider, wallet)
+        console.log('Tx to submit claim proof to Solana Proxy:', txSig)
+        printTxLinks(taskArgs.env, txSig)
+    })
+
+task('sol:proxy:claim', 'Claim reward from Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        const claimDataPda = getClaimDataPda(proxyProgram.programId, wallet.publicKey)
+        let claimData
+        try {
+            claimData = await proxyProgram.account.claimData.fetch(claimDataPda)
+            // console.log('Claim data:', claimData)
+            // console.log('Distribution ID:', claimData.distributionId)
+            // console.log('Cumulative amount:', claimData.amount)
+            // console.log('Root:', claimData.root)
+            // console.log('User:', claimData.user.toBase58())
+        } catch (e) {
+            // console.log(e)
+            throw new Error('Claim data not found, please submit proof first')
+        }
+
+        console.log('hii here:', taskArgs.env)
+        const { lzTokenFee, nativeFee } = await quoteClaimFee(proxyProgram, wallet.publicKey, taskArgs.env)
+
+        const tx = await sendClaimRequest(proxyProgram, provider, wallet, nativeFee, lzTokenFee, taskArgs.env)
+        printTxLinks(taskArgs.env, tx)
     })
