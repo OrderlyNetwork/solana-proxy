@@ -1,7 +1,7 @@
 import { PathOrFileDescriptor, readFileSync } from 'fs'
 
 import fs from 'fs'
-import { join } from 'path'
+import path, { join } from 'path'
 import { toWeb3JsInstruction } from '@metaplex-foundation/umi-web3js-adapters'
 import { WrappedInstruction } from '@metaplex-foundation/umi'
 import {
@@ -59,7 +59,7 @@ import * as borsh from 'borsh'
 
 import * as constants from './constants'
 import { PayloadType } from './constants'
-import { getPeerPda } from './pdaHelper'
+import { getPeerPda, getProxyConfigPda } from './pdaHelper'
 
 // const LOCALHOST_RPC_URL = 'http://localhost:8899'
 // const SOLANA_DEVNET_RPC_URL = 'https://api.devnet.solana.com'
@@ -165,9 +165,6 @@ export async function createAndSendV0Tx(
 ) {
     // Step 1 - Fetch Latest Blockhash
     let latestBlockhash = await provider.connection.getLatestBlockhash('finalized')
-
-    console.log('latestBlockhash:', latestBlockhash)
-    console.log('txInstructions:', txInstructions.keys)
 
     // Step 2 - Generate Transaction Message
     const messageV0 = new TransactionMessage({
@@ -359,154 +356,6 @@ export async function getAllOftQuoteSendAccounts(
     ]
 }
 
-export async function getOftSendAccounts(
-    provider: AnchorProvider,
-    oftProgramIdStr: string,
-    oftEscrowAtaStr: string,
-    signerPubKey: PublicKey,
-    dstEid: number
-): Promise<MetaplexAccountMeta[]> {
-    const { oftProgramId, tokenEscrow, tokenMint, oftStore, peer } = await getCommonOftAccounts(
-        provider,
-        oftProgramIdStr,
-        oftEscrowAtaStr,
-        dstEid
-    )
-
-    const signerAta = await getAssociatedTokenAddress(toWeb3JsPublicKey(tokenMint), signerPubKey, true)
-    const [eventAuthorityPDA] = new EventPDADeriver(new PublicKey(oftProgramIdStr)).eventAuthority()
-    const tokenProgram = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
-
-    const txBuilder = instructions.send(
-        { programs: oft.createOFTProgramRepo(oftProgramId) },
-        {
-            signer: createNoopSigner(fromWeb3JsPublicKey(signerPubKey)),
-            peer: peer,
-            oftStore: oftStore,
-            tokenSource: fromWeb3JsPublicKey(signerAta),
-            tokenEscrow: tokenEscrow,
-            tokenMint: tokenMint,
-            tokenProgram: tokenProgram,
-            eventAuthority: fromWeb3JsPublicKey(eventAuthorityPDA),
-            program: oftProgramId,
-
-            // The following parameters can be any value and will not affect obtaining the accounts.
-            ...fakeSendInstructionData(dstEid),
-            nativeFee: 0n,
-            lzTokenFee: 0n,
-        }
-    )
-
-    const ix = txBuilder.items[0]
-
-    return [...ix.instruction.keys]
-}
-
-export async function getRemainingOftSendAccounts(
-    provider: AnchorProvider,
-    oftProgramIdStr: string,
-    oftEscrowAtaStr: string,
-    signerPubKey: PublicKey,
-    dstEid: number
-): Promise<MetaplexAccountMeta[]> {
-    const { oftStore, peerInfo, sendHelper } = await getCommonOftAccounts(
-        provider,
-        oftProgramIdStr,
-        oftEscrowAtaStr,
-        dstEid
-    )
-
-    // Get remaining accounts from msgLib(simple_msgLib or uln)
-    const remainAccounts = (
-        await sendHelper.getSendAccounts(
-            provider.connection,
-            signerPubKey,
-            toWeb3JsPublicKey(oftStore),
-            dstEid,
-            hexlify(peerInfo.peerAddress)
-        )
-    ).map((acc) => {
-        return {
-            pubkey: fromWeb3JsPublicKey(acc.pubkey),
-            isSigner: acc.isSigner,
-            isWritable: acc.isWritable,
-        }
-    })
-
-    return remainAccounts
-}
-
-export async function getAllOftSendAccounts(
-    provider: AnchorProvider,
-    oftProgramIdStr: string,
-    oftEscrowAtaStr: string,
-    signerPubKey: PublicKey,
-    dstEid: number
-): Promise<MetaplexAccountMeta[]> {
-    const { oftProgramId, tokenEscrow, tokenMint, oftStore, peer, peerInfo, sendHelper } = await getCommonOftAccounts(
-        provider,
-        oftProgramIdStr,
-        oftEscrowAtaStr,
-        dstEid
-    )
-
-    const signerAta = await getAssociatedTokenAddress(toWeb3JsPublicKey(tokenMint), signerPubKey, true)
-    const [eventAuthorityPDA] = new EventPDADeriver(new PublicKey(oftProgramIdStr)).eventAuthority()
-    const tokenProgram = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
-
-    const txBuilder = instructions.send(
-        { programs: oft.createOFTProgramRepo(oftProgramId) },
-        {
-            signer: createNoopSigner(fromWeb3JsPublicKey(signerPubKey)),
-            peer: peer,
-            oftStore: oftStore,
-            tokenSource: fromWeb3JsPublicKey(signerAta),
-            tokenEscrow: tokenEscrow,
-            tokenMint: tokenMint,
-            tokenProgram: tokenProgram,
-            eventAuthority: fromWeb3JsPublicKey(eventAuthorityPDA),
-            program: oftProgramId,
-
-            // The following parameters can be any value and will not affect obtaining the accounts.
-            ...fakeSendInstructionData(dstEid),
-            nativeFee: 0n,
-            lzTokenFee: 0n,
-        }
-    )
-
-    // Get remaining accounts from msgLib(simple_msgLib or uln)
-    const ix = txBuilder.addRemainingAccounts(
-        (
-            await sendHelper.getSendAccounts(
-                provider.connection,
-                signerPubKey,
-                toWeb3JsPublicKey(oftStore),
-                dstEid,
-                hexlify(peerInfo.peerAddress)
-            )
-        ).map((acc) => {
-            return {
-                pubkey: fromWeb3JsPublicKey(acc.pubkey),
-                isSigner: acc.isSigner,
-                isWritable: acc.isWritable,
-            }
-        })
-    ).items[0]
-
-    return [
-        {
-            pubkey: ix.instruction.programId,
-            isSigner: false,
-            isWritable: false,
-        },
-        ...ix.instruction.keys,
-    ]
-}
-
-function accountMeta(pubkey: string | PublicKey, isSigner: boolean, isWritable: boolean): AccountMeta {
-    return { pubkey: (pubkey = typeof pubkey === 'string' ? new PublicKey(pubkey) : pubkey), isSigner, isWritable }
-}
-
 export async function printQuoteSendRemainAccounts(ENV: string, provider: AnchorProvider) {
     const wallet = provider.wallet as Wallet
     const config = getConfig()
@@ -559,41 +408,6 @@ export function getAccountsForEndpointV2QuoteSend(): AccountMeta[] {
         accountMeta(config.priceFeedConfigPda, false, false),
         accountMeta(config.dvnProgramId, false, false),
         accountMeta(config.dvnConfigPda, false, false),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
-    ]
-}
-
-export function getAccountsForEndpointV2Send(signer: string | PublicKey, signerSigns: boolean): AccountMeta[] {
-    const config = getConfig()
-    return [
-        // ----------- Endpoint V2 send addresses -----------
-        accountMeta(config.endpointV2ProgramId, false, false),
-        accountMeta(config.oftStorePda, false, false),
-        accountMeta(config.sendLibProgramId, false, false),
-        accountMeta(config.sendLibConfigPda, false, false),
-        accountMeta(config.defaultSendLibConfigPda, false, false),
-        accountMeta(config.sendLibInfoPda, false, false),
-        accountMeta(config.endpointSettingsPda, false, false),
-        accountMeta(config.noncePda, false, true),
-        // ----------- Unknown part -----------
-        accountMeta(config.eventAuthorityPda, false, false),
-        accountMeta(config.endpointV2ProgramId, false, false),
-        accountMeta(config.ulnSettingsPda, false, false),
-        accountMeta(config.sendConfigPda, false, false),
-        accountMeta(config.defaultSendConfigPda, false, false),
-        accountMeta(signer, signerSigns, false),
-        accountMeta(config.treasuryProgramId, false, false),
-        accountMeta(SystemProgram.programId, false, false),
-        accountMeta(config.ulnEventAuthorityPda, false, false),
-        // ----------- Send (Message) Library send addresses -----------
-        accountMeta(config.sendLibProgramId, false, false),
-        accountMeta(config.executorProgramId, false, false),
-        accountMeta(config.executorConfigPda, false, true),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
-        accountMeta(config.dvnProgramId, false, false),
-        accountMeta(config.dvnConfigPda, false, true),
         accountMeta(config.priceFeedProgramId, false, false),
         accountMeta(config.priceFeedConfigPda, false, false),
     ]
@@ -679,11 +493,12 @@ export function createStakingMsg(amount: string, sender: PublicKey, ENV: string)
     let token = constants.LedgerToken.ORDER
     const payload = Buffer.from('')
 
+    // TODO: using enpacked encode
     const encodedStr = defaultAbiCoder.encode(
         ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
         [
             [
-                getChainEventId().toNumber(),
+                getChainEventId(),
                 getSrcChainId(ENV),
                 token,
                 amountInBytese32,
@@ -739,7 +554,8 @@ export async function sendStakingRequest(
     wallet: Wallet,
     amount: string,
     fee: string,
-    ENV: string
+    ENV: string,
+    extendAlt: boolean = false
 ) {
     const orderlyEid = getOrderlyEid(ENV)
     const oftAccounts = getOftAccounts(ENV)
@@ -789,14 +605,11 @@ export async function sendStakingRequest(
         .instruction()
     const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 
-    // const alt = await createALT(provider, wallet)
-    // const alt = oftAccounts.alt
-    // console.log('8')
-    // console.log(ixSend.keys)
-    // const accountList = ixSend.keys.slice(10).map((account) => account.pubkey)
-    // console.log(accountList)
-    // await extendALT(provider, wallet, oftAccounts.alt, accountList)
-    // console.log('9')
+    if (extendAlt) {
+        const accountList = remainingAccounts.map((account) => account.pubkey)
+        await extendALT(provider, wallet, oftAccounts.alt, accountList)
+        await delay(ENV)
+    }
     const tx = await createAndSendV0TxWithTable(
         [ixSend, ixAddComputeBudget],
         provider,
@@ -808,100 +621,99 @@ export async function sendStakingRequest(
     return tx
 }
 
-// this function has limit on composeMsg size: 288 bytes can be sent while 320 returns error VersionedTransaction too large
-export async function oftSendWithComposeMsg(provider: AnchorProvider, amount: string, composeMsg: Uint8Array) {
-    const wallet = provider.wallet as Wallet
-    const umi = createUmi(provider.connection.rpcEndpoint).use(mplToolbox())
-    const umiWalletKeyPair = umi.eddsa.createKeypairFromSecretKey(wallet.payer.secretKey)
-    const umiWalletSigner = createSignerFromKeypair(umi, umiWalletKeyPair)
-    umi.use(signerIdentity(umiWalletSigner))
-
-    const config = getConfig()
-    const oftProgramId = metaplexPublicKey(config.oftProgramId)
-    const mint = metaplexPublicKey(config.mintPda)
-    const umiEscrowPublicKey = metaplexPublicKey(config.oftEscrowAta)
-    const tokenProgramId = fromWeb3JsPublicKey(TOKEN_PROGRAM_ID)
-
-    const userTokenPda = findAssociatedTokenPda(umi, {
-        mint: metaplexPublicKey(config.mintPda),
-        owner: fromWeb3JsPublicKey(wallet.publicKey),
-        tokenProgramId,
-    })
-
-    if (!userTokenPda) {
-        throw new Error(
-            `No token account found for mint ${config.mintPda} and owner ${wallet.publicKey} in program ${tokenProgramId}`
-        )
+export async function quoteFee(
+    program: Program<SolanaProxy>,
+    payer: PublicKey,
+    userAccount: PublicKey,
+    payloadType: constants.PayloadType,
+    payload: Uint8Array,
+    ENV: string
+) {
+    const quoteParams = {
+        userAccount: userAccount,
+        payloadType: payloadType,
+        payload: Buffer.from(payload),
     }
+    const proxyConfigPda = getProxyConfigPda(program.programId)
+    const orderlyEid = getOrderlyEid(ENV)
+    const peerConfigPda = getPeerPda(program.programId, proxyConfigPda, orderlyEid)
 
-    const occManagerAddressBytes32 = addressToBytes32(config.occManagerAddress)
-    const toEid = getOrderlyEid()
-    const fromEid = getSolanaEid()
-    const computeUnitPriceScaleFactor = 4
-    // Defining extra message execution options for the send operation
-    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
-
-    const { nativeFee } = await oft.quote(
-        umi.rpc,
-        {
-            payer: fromWeb3JsPublicKey(wallet.publicKey),
-            tokenMint: mint,
-            tokenEscrow: umiEscrowPublicKey,
-        },
-        {
-            dstEid: toEid,
-            to: occManagerAddressBytes32,
-            amountLd: BigInt(amount),
-            minAmountLd: 1n,
-            options: options,
-            payInLzToken: false,
-            composeMsg,
-        },
-        {
-            oft: oftProgramId,
-        }
-    )
-
-    console.log('nativeFee:', nativeFee)
-
-    const ix = await oft.send(
-        umi.rpc,
-        {
-            payer: umiWalletSigner,
-            tokenMint: mint,
-            tokenEscrow: umiEscrowPublicKey,
-            tokenSource: userTokenPda[0],
-        },
-        {
-            dstEid: toEid,
-            to: occManagerAddressBytes32,
-            amountLd: BigInt(amount),
-            minAmountLd: 1n,
-            options: options,
-            composeMsg,
-            nativeFee,
-        },
-        {
-            oft: oftProgramId,
-            token: tokenProgramId,
-        }
-    )
-
-    let txBuilder = transactionBuilder([ix])
-    txBuilder = await addComputeUnitInstructions(
-        provider.connection,
-        umi,
-        fromEid,
-        txBuilder,
-        umiWalletSigner,
-        computeUnitPriceScaleFactor
-    )
-    const { signature } = await txBuilder.sendAndConfirm(umi)
-    const transactionSignatureBase58 = bs58.encode(signature)
-
-    console.log(`✅ Sent ${amount} token(s) to destination EID: ${toEid}!`)
-    printTxLinks(transactionSignatureBase58)
+    const quoteAccounts = {
+        proxyConfig: proxyConfigPda,
+        peerConfig: peerConfigPda,
+    }
+    const rpc = getUmi(ENV).rpc
+    const connection = new Connection(rpc.getEndpoint(), 'confirmed')
+    const msgReceiver = bytes32ToEthAddress(getPeerAddress(ENV)!)
+    const msgSender = publicKeyIntoHex(proxyConfigPda)
+    const path = {
+        sender: msgSender,
+        dstEid: orderlyEid,
+        receiver: msgReceiver,
+    }
+    const remainingAccounts = await getQuoteRemainingAccounts(connection, payer, path)
+    const { lzTokenFee, nativeFee } = await program.methods
+        .quoteRequest(quoteParams)
+        .accounts(quoteAccounts)
+        .remainingAccounts(remainingAccounts)
+        .view()
+    console.log('✅ Quoted fee')
+    console.log('lzTokenFee:', lzTokenFee.toString())
+    console.log('nativeFee:', nativeFee.toString())
+    return { lzTokenFee, nativeFee }
 }
+
+export async function sendRequest(
+    program: Program<SolanaProxy>,
+    provider: AnchorProvider,
+    payer: Wallet,
+    userAccount: PublicKey,
+    payloadType: constants.PayloadType,
+    payload: Uint8Array,
+    nativeFee: BN,
+    lzTokenFee: BN,
+    ENV: string
+) {
+    const requestParams = {
+        userAccount: userAccount,
+        payloadType: payloadType,
+        payload: Buffer.from(payload),
+    }
+    const proxyConfigPda = getProxyConfigPda(program.programId)
+    console.log('proxyConfigPda:', proxyConfigPda)
+    const orderlyEid = getOrderlyEid(ENV)
+    const peerConfigPda = getPeerPda(program.programId, proxyConfigPda, orderlyEid)
+
+    const requestAccounts = {
+        peerConfig: peerConfigPda,
+        user: payer.publicKey,
+        proxyConfig: proxyConfigPda,
+    }
+    const rpc = getUmi(ENV).rpc
+    const connection = new Connection(rpc.getEndpoint(), 'confirmed')
+    const msgReceiver = bytes32ToEthAddress(getPeerAddress(ENV)!)
+    const msgSender = publicKeyIntoHex(proxyConfigPda)
+    const path = {
+        sender: msgSender,
+        dstEid: orderlyEid,
+        receiver: msgReceiver,
+    }
+    const sendRemainingAccounts = await getSendRemainingAccounts(connection, payer.publicKey, path)
+    const msgFee = {
+        lzTokenFee: lzTokenFee,
+        nativeFee: nativeFee,
+    }
+    const requestIx = await program.methods
+        .sendRequest(requestParams, msgFee)
+        .accounts(requestAccounts)
+        .remainingAccounts(sendRemainingAccounts)
+        .instruction()
+    const tx = await createAndSendV0Tx([requestIx], provider, payer)
+    console.log('Tx to send request for Solana Proxy:', tx)
+    return tx
+}
+
+// this function has limit on composeMsg size: 288 bytes can be sent while 320 returns error VersionedTransaction too large
 
 export async function getTransactionWithRetries(
     txSignature: string,
@@ -948,8 +760,8 @@ export function getEndpoint() {
 export function getInitOAppRemainingAccounts(wallet: Wallet, oapp: PublicKey) {
     const endpoint = getEndpoint()
     const accounts = endpoint.getRegisterOappIxAccountMetaForCPI(wallet.publicKey, oapp)
-    console.log('accounts:', accounts)
-    console.log('account len')
+    // console.log('accounts:', accounts)
+    // console.log('account len', accounts.length)
     return accounts
 }
 
@@ -962,20 +774,20 @@ type Path = {
     dstEid: number
     receiver: string
 }
-export async function getQuoteRemainingAccounts(connection: Connection, wallet: Wallet, path: Path) {
+export async function getQuoteRemainingAccounts(connection: Connection, payer: PublicKey, path: Path) {
     const endpoint = getEndpoint()
     const msgLib = getMsgLib()
 
-    const remainingAccounts = await endpoint.getQuoteIXAccountMetaForCPI(connection, wallet.publicKey, path, msgLib)
+    const remainingAccounts = await endpoint.getQuoteIXAccountMetaForCPI(connection, payer, path, msgLib)
 
     return remainingAccounts
 }
 
-export async function getSendRemainingAccounts(connection: Connection, wallet: Wallet, path: Path) {
+export async function getSendRemainingAccounts(connection: Connection, payer: PublicKey, path: Path) {
     const endpoint = getEndpoint()
     const msgLib = getMsgLib()
 
-    const remainingAccounts = await endpoint.getSendIXAccountMetaForCPI(connection, wallet.publicKey, path, msgLib)
+    const remainingAccounts = await endpoint.getSendIXAccountMetaForCPI(connection, payer, path, msgLib)
     return remainingAccounts
 }
 
@@ -1003,7 +815,7 @@ export function getSolanaChainId(ENV: string): number {
     return constants.DEV_SOL_CHAIN_ID
 }
 
-export function getChainEventId(): BN {
+export function getChainEventId() {
     return constants.CHAIN_EVENT_ID_PLACEHOLDER
 }
 
@@ -1043,9 +855,9 @@ export function intoIx(wrappedIx: WrappedInstruction[]) {
 }
 
 export async function delay(ENV: string) {
-    if (ENV === 'mainnet') {
+    if (ENV === constants.ENV[4]) {
         // sleep for 2 seconds
-        await new Promise((resolve) => setTimeout(resolve, 2000))
+        await new Promise((resolve) => setTimeout(resolve, 5000))
     }
     await new Promise((resolve) => setTimeout(resolve, 1000))
 }
@@ -1112,12 +924,14 @@ export function getPayload(payloadType: constants.PayloadType, payload: string) 
     }
 }
 
+// @dev: get the ORDER amount in ETHEREUM DECIMALS: 18
 export function getOrderAmountInBytes32(amount: string) {
     const bigNumber = ethers.BigNumber.from(amount).mul(constants.ORDER_DECIMALS_ON_ETHEREUM)
     const bytes32 = ethers.utils.zeroPad(bigNumber.toHexString(), 32)
     return Array.from(bytes32)
 }
 
+// @dev: get the ORDER amount in SOLANA DECIMALS: 10
 export function getOrderAmountInBigInt(amount: string) {
     const bigNumber = ethers.BigNumber.from(amount).mul(constants.ORDER_DECIMALS_ON_SOLANA)
     return bigNumber.toBigInt()
