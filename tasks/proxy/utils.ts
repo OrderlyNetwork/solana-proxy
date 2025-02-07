@@ -1,7 +1,3 @@
-import { PathOrFileDescriptor, readFileSync } from 'fs'
-
-import fs from 'fs'
-import path, { join } from 'path'
 import { toWeb3JsInstruction } from '@metaplex-foundation/umi-web3js-adapters'
 import { WrappedInstruction } from '@metaplex-foundation/umi'
 import {
@@ -58,13 +54,7 @@ import { assert } from '@layerzerolabs/lz-utilities'
 import * as borsh from 'borsh'
 
 import * as constants from './constants'
-import { PayloadType } from './constants'
 import { getClaimDataPda, getPeerPda, getProxyConfigPda } from './pdaHelper'
-
-// const LOCALHOST_RPC_URL = 'http://localhost:8899'
-// const SOLANA_DEVNET_RPC_URL = 'https://api.devnet.solana.com'
-// const SOLANA_MAINNET_RPC_URL = 'https://api.mainnet-beta.solana.com'
-// const SOLANA_AMOUNT_SCALE_FACTOR = ethers.BigNumber.from('100000000')
 
 export function setUpEnv(ENV: string) {
     const [provider, wallet, rpc] = setupAnchor(ENV)
@@ -118,18 +108,11 @@ export function getProxyProgram(ENV: string, provider: AnchorProvider): Program<
 export function getOftProgram(ENV: string, provider: AnchorProvider): Program<Oft> {
     return new Program<Oft>(oftIDL, constants.OFT_ACCOUNTS[ENV].programId.toString(), provider)
 }
-export function amountStrToBytes32(
-    amountStr: string,
-    scaleFactor: ethers.BigNumber = ethers.BigNumber.from('1')
-): number[] {
+
+export function convertIntoBytes32(amountStr: string, scaleFactor: ethers.BigNumber = ethers.BigNumber.from('1')) {
     const bigNumber = ethers.BigNumber.from(amountStr).mul(scaleFactor)
     const bytes32 = ethers.utils.zeroPad(bigNumber.toHexString(), 32)
     return Array.from(bytes32)
-}
-
-export function getAmountFromStr(amountStr: string) {
-    const bigNumber = ethers.BigNumber.from(amountStr)
-    return bigNumber.toBigInt()
 }
 
 export function convertBytes32ToHex(bytes32: number[]) {
@@ -146,10 +129,6 @@ export function encodeClaimRewardPayload(distributionId: string, cumulativeAmoun
     return encodedBytesArray
 }
 
-// export function getProxyConfigPda(proxyProgramId: PublicKey): PublicKey {
-//     return PublicKey.findProgramAddressSync([Buffer.from(PROXY_CONFIG_SEED, 'utf8')], proxyProgramId)[0]
-// }
-
 export function printTxLinks(ENV: string, txid: string) {
     console.log(`Solana transaction:    ${getExplorerTxLink(txid, isDevnet(ENV))}`)
     console.log(`LzyerZero transaction: ${getLayerZeroScanLink(txid, isDevnet(ENV))}`)
@@ -165,11 +144,6 @@ export function printProxyConfig(proxyConfig: any) {
     console.log('  orderlyEid:       ', proxyConfig.orderlyEid.toString())
     console.log('  solChainId:       ', proxyConfig.solChainId.toString())
     console.log('  paused:           ', proxyConfig.paused.toString())
-}
-
-export function printPeerPda(peer: any) {
-    console.log(`Print Peer Pda:`)
-    console.log('  peer address: ', bytes32ToEthAddress(Buffer.from(peer.peerAddress as Uint8Array)))
 }
 
 export async function createAndSendV0Tx(
@@ -223,18 +197,6 @@ export async function createAndSendV0TxWithTable(
     const tx = new VersionedTransaction(msg)
     tx.sign(signers)
     return await provider.connection.sendTransaction(tx)
-}
-
-export async function createALT(provider: AnchorProvider, wallet: Wallet) {
-    const ixCreateALT = await AddressLookupTableProgram.createLookupTable({
-        authority: wallet.publicKey,
-        payer: wallet.publicKey,
-        recentSlot: await provider.connection.getSlot(),
-    })
-    const tx = await createAndSendV0Tx([ixCreateALT[0]], provider, wallet)
-    console.log('ALT created:', tx)
-    console.log('ALT pda:', ixCreateALT[1])
-    return ixCreateALT[1]
 }
 
 export async function extendALT(provider: AnchorProvider, wallet: Wallet, alt: PublicKey, addressList: PublicKey[]) {
@@ -443,39 +405,6 @@ export function getAccountsForOftSend(signer: string | PublicKey, signerSigns: b
     ]
 }
 
-export function getAmountForComposeMsg(amount: string, payloadDataType: constants.PayloadType): number[] {
-    if (
-        payloadDataType === constants.PayloadType.Stake ||
-        payloadDataType === constants.PayloadType.CreateOrderUnstakeRequest ||
-        payloadDataType === constants.PayloadType.EsOrderUnstakeAndVest ||
-        payloadDataType === constants.PayloadType.RedeemValor ||
-        payloadDataType === constants.PayloadType.UnstakeOrderNow
-    ) {
-        return amountStrToBytes32(amount, SOLANA_AMOUNT_SCALE_FACTOR)
-    }
-    return amountStrToBytes32(amount)
-}
-
-// export function encodeClaimRewardPayload(
-//     distributionId: number,
-//     cumulativeAmount: string,
-//     merkleProof: string[]
-// ): Uint8Array {
-//     if (!Array.isArray(merkleProof)) {
-//         throw new TypeError('merkleProof must be an array')
-//     }
-
-//     const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount)
-//     const proofArray = merkleProof.map((p) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
-//     const encodedStr = defaultAbiCoder.encode(
-//         ['tuple(uint32,uint256,bytes32[])'],
-//         [[distributionId, cumulativeAmountArray, proofArray]]
-//     )
-//     // console.log('Encoded claim reward payload:', encodedStr)
-//     const encodedBytes = arrayify(encodedStr)
-//     return encodedBytes
-// }
-
 export function encodeUserRequestPayload(amountArray: number[]): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(['tuple(uint256)'], [[amountArray]])
     // console.log('Encoded user request payload:', encodedStr)
@@ -636,7 +565,6 @@ export async function sendStakingRequest(
 }
 
 export async function quoteClaimFee(program: Program<SolanaProxy>, payer: PublicKey, ENV: string) {
-    console.log('hihere', ENV)
     const { params, accounts, connection, path } = prepareParamsAndAccounts(
         program,
         payer,
@@ -670,7 +598,7 @@ export async function submitProof(
     cumulativeAmount: string,
     merkleProof: string[]
 ) {
-    const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount, constants.ORDER_DECIMALS_ON_ETHEREUM)
+    const cumulativeAmountArray = convertIntoBytes32(cumulativeAmount, constants.ORDER_DECIMALS_ON_ETHEREUM)
     const proofArray = merkleProof.map((p: string) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
 
     const claimRewardParams = {
@@ -1031,13 +959,28 @@ export function checkPayloadType(payloadType: number | string): constants.Payloa
     }
 }
 
-export function getPayload(payloadType: constants.PayloadType, payload: string) {
-    if (payloadType === constants.PayloadType.Stake) {
-        if (payload) {
-            return amountStrToBytes32(payload, constants.ORDER_DECIMALS_ON_ETHEREUM)
-        }
-        throw new Error('Payload is required for staking')
+export function checkPayload(payloadType: constants.PayloadType, payload: string) {
+    let encodedPayload
+    if (
+        payloadType === getPayloadType().CreateOrderUnstakeRequest ||
+        payloadType === getPayloadType().CancelOrderUnstakeRequest ||
+        payloadType === getPayloadType().WithdrawOrder ||
+        payloadType === getPayloadType().EsOrderUnstakeAndVest ||
+        payloadType === getPayloadType().RedeemValor ||
+        payloadType === getPayloadType().ClaimUsdcRevenue || // TODO: check USDC and Valor decimal
+        payloadType === getPayloadType().UnstakeOrderNow
+    ) {
+        encodedPayload = convertIntoBytes32(payload, constants.ORDER_DECIMALS_ON_ETHEREUM)
+    } else if (
+        payloadType === getPayloadType().CancelVestingRequest ||
+        payloadType === getPayloadType().CancelAllVestingRequests || // Not supported anymore. Do not remove for backward compatibility
+        payloadType === getPayloadType().ClaimVestingRequest
+    ) {
+        encodedPayload = convertIntoBytes32(payload)
+    } else {
+        throw new Error('Invalid payload type')
     }
+    return encodedPayload
 }
 
 // @dev: get the ORDER amount in ETHEREUM DECIMALS: 18

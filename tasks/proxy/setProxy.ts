@@ -20,7 +20,6 @@ import {
     getLzConfig,
     getQuoteRemainingAccounts,
     publicKeyIntoHex,
-    amountStrToBytes32,
     getSendRemainingAccounts,
     printTxLinks,
     createAndSendV0TxWithTable,
@@ -28,8 +27,6 @@ import {
     checkPayloadType,
     getPayloadType,
     getChainEventId,
-    getPayload,
-    getAmountFromStr,
     getOftAccounts,
     getUsdcMint,
     getInitOAppRemainingAccounts,
@@ -42,6 +39,8 @@ import {
     quoteClaimFee,
     sendClaimRequest,
     submitProof,
+    convertIntoBytes32,
+    checkPayload,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -53,11 +52,9 @@ import {
     getSendLibProgramId,
     getReceiveLibProgramId,
     getDefaultSendLibConfigPda,
-    getProofPda,
     getClaimDataPda,
 } from './pdaHelper'
 import { PublicKey, AccountMeta, Connection, ComputeBudgetProgram } from '@solana/web3.js'
-import { isAddress } from 'web3-validator'
 import {
     fromWeb3JsInstruction,
     fromWeb3JsPublicKey,
@@ -459,19 +456,8 @@ task('sol:proxy:quote', 'Get quote for Solana Proxy')
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
 
         const payloadType = checkPayloadType(taskArgs.payloadType)
-        let payload
-        if (payloadType === getPayloadType().UnstakeOrderNow) {
-            payload = amountStrToBytes32(taskArgs.payload, ORDER_DECIMALS_ON_ETHEREUM)
-        } else {
-            throw new Error('Invalid payload type')
-        }
-        const { lzTokenFee, nativeFee } = await quoteFee(
-            proxyProgram,
-            wallet.publicKey,
-            payloadType,
-            Buffer.from(payload),
-            taskArgs.env
-        )
+        const payload = checkPayload(payloadType, taskArgs.payload)
+        await quoteFee(proxyProgram, wallet.publicKey, payloadType, Buffer.from(payload), taskArgs.env)
     })
 
 task('sol:proxy:request', 'Send request for Solana Proxy')
@@ -480,16 +466,11 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
     .addOptionalParam('payload', 'The payload to request', '0', devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet, rpcString] = setupAnchor(taskArgs.env)
-        const payloadType = checkPayloadType(taskArgs.payloadType)
-
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
 
-        let payload
-        if (payloadType === getPayloadType().UnstakeOrderNow) {
-            payload = amountStrToBytes32(taskArgs.payload, ORDER_DECIMALS_ON_ETHEREUM)
-        } else {
-            throw new Error('Invalid payload type')
-        }
+        const payloadType = checkPayloadType(taskArgs.payloadType)
+        const payload = checkPayload(payloadType, taskArgs.payload)
+
         const { lzTokenFee, nativeFee } = await quoteFee(
             proxyProgram,
             wallet.publicKey,
