@@ -41,6 +41,7 @@ import {
     convertBytes32ToHex,
     quoteClaimFee,
     sendClaimRequest,
+    submitProof,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -558,32 +559,16 @@ task('sol:proxy:submitproof', 'Send request for Solana Proxy')
         console.log('Merkle proof:', taskArgs.merkleProof)
         console.log('Proxy program ID:', proxyProgram.programId.toBase58())
 
-        const cumulativeAmountArray = amountStrToBytes32(taskArgs.cumulativeAmount, ORDER_DECIMALS_ON_ETHEREUM)
-        const proofArray = taskArgs.merkleProof.map((p: string) =>
-            Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex')))
+        const tx = await submitProof(
+            proxyProgram,
+            provider,
+            wallet.publicKey,
+            wallet,
+            taskArgs.distributionId,
+            taskArgs.cumulativeAmount,
+            taskArgs.merkleProof
         )
-
-        const claimRewardParams = {
-            distributionId: taskArgs.distributionId,
-            cumulativeAmount: cumulativeAmountArray,
-            merkleProof: proofArray,
-        }
-
-        const claimDataPda = getClaimDataPda(proxyProgram.programId, wallet.publicKey)
-
-        const claimRewardAccounts = {
-            user: wallet.publicKey,
-            claimData: claimDataPda,
-        }
-
-        const ixSubmitProof = await proxyProgram.methods
-            .submitProof(claimRewardParams)
-            .accounts(claimRewardAccounts)
-            .instruction()
-
-        const txSig = await createAndSendV0Tx([ixSubmitProof], provider, wallet)
-        console.log('Tx to submit claim proof to Solana Proxy:', txSig)
-        printTxLinks(taskArgs.env, txSig)
+        printTxLinks(taskArgs.env, tx)
     })
 
 task('sol:proxy:claim', 'Claim reward from Solana Proxy')
@@ -595,17 +580,15 @@ task('sol:proxy:claim', 'Claim reward from Solana Proxy')
         let claimData
         try {
             claimData = await proxyProgram.account.claimData.fetch(claimDataPda)
-            // console.log('Claim data:', claimData)
-            // console.log('Distribution ID:', claimData.distributionId)
-            // console.log('Cumulative amount:', claimData.amount)
-            // console.log('Root:', claimData.root)
-            // console.log('User:', claimData.user.toBase58())
+            console.log('Distribution ID:', claimData.distributionId)
+            console.log('Cumulative amount:', claimData.amount)
+            console.log('Root:', claimData.root)
+            console.log('User:', claimData.user.toBase58())
         } catch (e) {
             // console.log(e)
             throw new Error('Claim data not found, please submit proof first')
         }
 
-        console.log('hii here:', taskArgs.env)
         const { lzTokenFee, nativeFee } = await quoteClaimFee(proxyProgram, wallet.publicKey, taskArgs.env)
 
         const tx = await sendClaimRequest(proxyProgram, provider, wallet, nativeFee, lzTokenFee, taskArgs.env)

@@ -661,6 +661,41 @@ export async function quoteClaimFee(program: Program<SolanaProxy>, payer: Public
     return { lzTokenFee, nativeFee }
 }
 
+export async function submitProof(
+    program: Program<SolanaProxy>,
+    provider: AnchorProvider,
+    user: PublicKey,
+    wallet: Wallet,
+    distributionId: number,
+    cumulativeAmount: string,
+    merkleProof: string[]
+) {
+    const cumulativeAmountArray = amountStrToBytes32(cumulativeAmount, constants.ORDER_DECIMALS_ON_ETHEREUM)
+    const proofArray = merkleProof.map((p: string) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
+
+    const claimRewardParams = {
+        distributionId: distributionId,
+        cumulativeAmount: cumulativeAmountArray,
+        merkleProof: proofArray,
+    }
+
+    const claimDataPda = getClaimDataPda(program.programId, user)
+
+    const claimRewardAccounts = {
+        user: user,
+        claimData: claimDataPda,
+    }
+
+    const ixSubmitProof = await program.methods
+        .submitProof(claimRewardParams)
+        .accounts(claimRewardAccounts)
+        .instruction()
+
+    const txSig = await createAndSendV0Tx([ixSubmitProof], provider, wallet)
+    console.log('Tx to submit claim proof to Solana Proxy:', txSig)
+    return txSig
+}
+
 export async function sendClaimRequest(
     program: Program<SolanaProxy>,
     provider: AnchorProvider,
@@ -905,7 +940,7 @@ export function getSrcChainId(ENV: string): number {
 }
 
 export function getPeerAddress(ENV: string) {
-    return constants.PEER_ADDRESS[ENV]
+    return constants.PROXY_ACCOUNTS[ENV].peerAddress
 }
 
 export function getOptions(ENV: string) {
