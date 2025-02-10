@@ -337,6 +337,19 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         console.log('Tx to set Config for Solana Proxy:', tx)
     })
 
+task('sol:proxy:delegate', 'Set Delegate for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
+        const rpc = getUmi(taskArgs.env).rpc
+        const curDelegate = await oft.getDelegate(rpc, oftStore)
+        console.log('Current Delegate:', curDelegate.toString())
+        const newDelegate = new PublicKey(taskArgs.delegate)
+    })
+
 task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
@@ -348,11 +361,17 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         const orderlyEid = getOrderlyEid(taskArgs.env)
         const rpc = getUmi(taskArgs.env).rpc
 
-        const delegate = await oft.getDelegate(rpc, oftStore)
-        console.log('Delegate:', delegate.toString())
+        console.log('=============== Proxy Config ===============')
+        const admin = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+        console.log('Admin:', admin.admin.toString())
+        console.log('Endpoint Program:', admin.endpointProgram.toString())
+        console.log('Orderly EID:', admin.orderlyEid)
+        console.log('Solana Chain ID:', admin.solChainId)
+        console.log('USDC Token Account:', admin.usdcTokenAccount.toString())
+        console.log('Paused:', admin.paused)
+        console.log('=============== OAPP Options ===============')
         const peerAddress = await oft.getPeerAddress(rpc, oftStore, orderlyEid, programId)
-        console.log('Peer Address:', peerAddress)
-
+        console.log('Peer Address:', '0x' + peerAddress.slice(26).toString())
         const enforcedOptions = await oft.getEnforcedOptions(rpc, oftStore, orderlyEid, programId)
         const options = getOptions(taskArgs.env)
         const [optionSend, optionSendAndCall] = getEncodedOptions(options)
@@ -371,8 +390,12 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         )
 
         try {
+            console.log('=============== Endpoint Config ===============')
+
+            const delegate = await oft.getDelegate(rpc, oftStore)
+            console.log('Delegate:', delegate.toString())
             const endpointConfig = await oft.getEndpointConfig(rpc, oftStore, orderlyEid)
-            // sleep for 2
+
             console.log(`Endpoint config - send lib config: `) // , endpointConfig.sendLibraryConfig
             console.log(`    - messageLib: `, endpointConfig.sendLibraryConfig.messageLib.toString())
             console.log(`    - uln sendConfig: `)
@@ -537,7 +560,7 @@ task('sol:proxy:submitproof', 'Send request for Solana Proxy')
         console.log('Claiming reward from the Solana network...')
         console.log('Distribution ID:', taskArgs.distributionId)
         console.log('cumulative amount:', taskArgs.cumulativeAmount)
-        console.log('Merkle proof:', taskArgs.merkleProof)
+        console.log('Merkle proof:', taskArgs.merkleProof, taskArgs.merkleProof.length)
         console.log('Proxy program ID:', proxyProgram.programId.toBase58())
 
         const tx = await submitProof(
@@ -550,6 +573,27 @@ task('sol:proxy:submitproof', 'Send request for Solana Proxy')
             taskArgs.merkleProof
         )
         printTxLinks(taskArgs.env, tx)
+    })
+
+task('sol:proxy:quoteclaim', 'Quote claim for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        const claimDataPda = getClaimDataPda(proxyProgram.programId, wallet.publicKey)
+        let claimData
+        try {
+            claimData = await proxyProgram.account.claimData.fetch(claimDataPda)
+            console.log('Distribution ID:', claimData.distributionId)
+            console.log('Cumulative amount:', claimData.amount)
+            console.log('Root:', claimData.root)
+            console.log('User:', claimData.user.toBase58())
+        } catch (e) {
+            // console.log(e)
+            throw new Error('Claim data not found, please submit proof first')
+        }
+
+        await quoteClaimFee(proxyProgram, wallet.publicKey, taskArgs.env)
     })
 
 task('sol:proxy:claim', 'Claim reward from Solana Proxy')

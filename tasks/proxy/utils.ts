@@ -599,8 +599,7 @@ export async function submitProof(
     merkleProof: string[]
 ) {
     const cumulativeAmountArray = convertIntoBytes32(cumulativeAmount, constants.ORDER_DECIMALS_ON_ETHEREUM)
-    const proofArray = merkleProof.map((p: string) => Array.from(Uint8Array.from(Buffer.from(p.slice(2), 'hex'))))
-
+    const proofArray = merkleProof.map((p: string) => Array.from(Uint8Array.from(Buffer.from(p, 'hex'))))
     const claimRewardParams = {
         distributionId: distributionId,
         cumulativeAmount: cumulativeAmountArray,
@@ -618,7 +617,7 @@ export async function submitProof(
         .submitProof(claimRewardParams)
         .accounts(claimRewardAccounts)
         .instruction()
-
+    // const addComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
     const txSig = await createAndSendV0Tx([ixSubmitProof], provider, wallet)
     console.log('Tx to submit claim proof to Solana Proxy:', txSig)
     return txSig
