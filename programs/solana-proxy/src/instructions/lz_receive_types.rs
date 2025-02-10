@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
 use oapp::endpoint_cpi::LzAccount;
-use oapp::LzReceiveParams;
+// use oapp::LzReceiveParams;
 #[derive(Accounts)]
 #[instruction(params: LzReceiveParams)]
 pub struct LzReceiveTypes<'info> {
@@ -66,4 +66,15 @@ impl LzReceiveTypes<'_> {
 
         Ok(accounts)
     }
+}
+
+// Redefine LzReceiveParams to avoid the IdlError: Type not found: {"name":"params","type":{"defined":"LzReceiveParams"}}
+#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+pub struct LzReceiveParams {
+    pub src_eid: u32,
+    pub sender: [u8; 32],
+    pub nonce: u64,
+    pub guid: [u8; 32],
+    pub message: Vec<u8>,
+    pub extra_data: Vec<u8>,
 }

@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 use oapp::endpoint::{cpi::accounts::Clear, instructions::ClearParams, ConstructCPIContext};
-use oapp::LzReceiveParams;
+use crate::instructions::LzReceiveParams;
 
 use crate::errors::ProxyError;
 use crate::instructions::msg_codec::{SolanaLedgerOCCMessage, TokenType};
@@ -33,7 +33,7 @@ pub struct LzReceive<'info> {
 
     #[account(
         mint::token_program = token_program,
-        constraint = proxy_config.usdc == token_mint.key() @ ProxyError::InvalidUSDCAccount
+        constraint = proxy_config.usdc_token_account == token_mint.key() @ ProxyError::InvalidUSDCAccount
     )]
     pub token_mint: Account<'info, Mint>,
 
@@ -45,6 +45,7 @@ pub struct LzReceive<'info> {
     )]
     pub proxy_token_account: Account<'info, TokenAccount>,
 
+    /// CHECK: 
     #[account(
         constraint = SolanaLedgerOCCMessage::get_receiver(&params.message) == receiver.key() @ ProxyError::InvalidReceiver
     )]
