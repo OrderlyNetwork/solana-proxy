@@ -34,14 +34,14 @@ pub struct QuoteClaim<'info> {
 
 impl QuoteClaim<'_> {
     pub fn apply(ctx: Context<QuoteClaim>) -> Result<MessagingFee> {
-        let payload_type = PayloadType::ClaimRewardSolana as u8;
+        let payload_type = PayloadType::ClaimRewardSolana;
 
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
 
         let vault_occ_message = SolanaVaultOCCMessage {
-            token: TokenType::PLACEHOLDER as u8,
+            token: payload_type.get_token_type() as u8,
             sender: ctx.accounts.user.key(),
-            payload_type,
+            payload_type: payload_type as u8,
             payload: ctx.accounts.claim_data.encode_claim_payload(),
         };
         let endpoint_quote_params = QuoteParams {
