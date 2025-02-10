@@ -14,7 +14,7 @@ pub struct SetPeerConfig<'info> {
         seeds = [PEER_SEED, proxy_config.key().as_ref(), &params.remote_eid.to_be_bytes()],
         bump
     )]
-    pub peer: Account<'info, PeerConfig>,
+    pub peer_config: Account<'info, PeerConfig>,
 
     #[account(
         seeds = [PROXY_CONFIG_SEED],
@@ -30,28 +30,28 @@ impl SetPeerConfig<'_> {
     pub fn apply(ctx: &mut Context<SetPeerConfig>, params: &SetPeerConfigParams) -> Result<()> {
         match params.config.clone() {
             PeerConfigParam::PeerAddress(peer_address) => {
-                ctx.accounts.peer.peer_address = peer_address;
+                ctx.accounts.peer_config.peer_address = peer_address;
             },
             PeerConfigParam::FeeBps(fee_bps) => {
                 if let Some(fee_bps) = fee_bps {
                     require!(fee_bps < MAX_FEE_BASIS_POINTS, ProxyError::InvalidFee);
                 }
-                ctx.accounts.peer.fee_bps = fee_bps;
+                ctx.accounts.peer_config.fee_bps = fee_bps;
             },
             PeerConfigParam::EnforcedOptions { send, send_and_call } => {
                 oapp::options::assert_type_3(&send)?;
-                ctx.accounts.peer.enforced_options.send = send;
+                ctx.accounts.peer_config.enforced_options.send = send;
                 oapp::options::assert_type_3(&send_and_call)?;
-                ctx.accounts.peer.enforced_options.send_and_call = send_and_call;
+                ctx.accounts.peer_config.enforced_options.send_and_call = send_and_call;
             },
             PeerConfigParam::OutboundRateLimit(rate_limit_params) => {
-                Self::update_rate_limiter(&mut ctx.accounts.peer.outbound_rate_limiter, &rate_limit_params)?;
+                Self::update_rate_limiter(&mut ctx.accounts.peer_config.outbound_rate_limiter, &rate_limit_params)?;
             },
             PeerConfigParam::InboundRateLimit(rate_limit_params) => {
-                Self::update_rate_limiter(&mut ctx.accounts.peer.inbound_rate_limiter, &rate_limit_params)?;
+                Self::update_rate_limiter(&mut ctx.accounts.peer_config.inbound_rate_limiter, &rate_limit_params)?;
             },
         }
-        ctx.accounts.peer.bump = ctx.bumps.peer;
+        ctx.accounts.peer_config.bump = ctx.bumps.peer_config;
         Ok(())
     }
 
