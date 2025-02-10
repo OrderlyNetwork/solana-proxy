@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::events::RequestSent;
-use crate::instructions::msg_codec::{SolanaVaultOCCMessage, TokenType};
+use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage};
 use crate::instructions::quote_request::MessagingFee;
 use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
 use crate::ProxyError;
@@ -33,12 +33,15 @@ impl SendRequest<'_> {
     pub fn apply(ctx: Context<SendRequest>, params: &RequestParams, msg_fee: &MessagingFee) -> Result<MessagingReceipt> {
         require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
 
+        let payload_type = PayloadType::from_u8(params.payload_type);
+        require!(payload_type.check_vault_payload_type(), ProxyError::InvalidPayloadType);
+
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
 
         let vault_occ_message = SolanaVaultOCCMessage {
-            token: TokenType::PLACEHOLDER as u8,
+            token: payload_type.get_token_type() as u8,
             sender: ctx.accounts.user.key(),
-            payload_type: params.payload_type,
+            payload_type: payload_type as u8,
             payload: params.payload.clone(),
         };
 

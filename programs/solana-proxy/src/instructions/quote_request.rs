@@ -1,9 +1,8 @@
-use anchor_lang::prelude::*;
-
-use crate::instructions::msg_codec::{SolanaVaultOCCMessage, TokenType};
+use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage, TokenType};
 use crate::instructions::RequestParams;
 use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
 use crate::ProxyError;
+use anchor_lang::prelude::*;
 use oapp::endpoint::instructions::QuoteParams;
 
 #[derive(Accounts)]
@@ -31,7 +30,8 @@ pub struct QuoteRequest<'info> {
 impl QuoteRequest<'_> {
     pub fn apply(ctx: Context<QuoteRequest>, params: &RequestParams) -> Result<MessagingFee> {
         require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
-
+        let payload_type = PayloadType::from_u8(params.payload_type);
+        require!(payload_type.check_vault_payload_type(), ProxyError::InvalidPayloadType);
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
 
         let vault_occ_message = SolanaVaultOCCMessage {
@@ -53,29 +53,6 @@ impl QuoteRequest<'_> {
 
         return Ok(MessagingFee { native_fee: messaging_fee.native_fee, lz_token_fee: messaging_fee.lz_token_fee });
     }
-}
-
-#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
-pub enum PayloadType {
-    ClaimReward,               // 0
-    _StakePALCEHOLDER,         // 1
-    CreateOrderUnstakeRequest, // 2
-    CancelOrderUnstakeRequest, // 3
-    WithdrawOrder,             // 4
-    EsOrderUnstakeAndVest,     // 5
-    CancelVestingRequest,      // 6
-    CancelAllVestingRequests,  // 7 Not supported anymore. Do not remove for backward compatibility
-    ClaimVestingRequest,       // 8
-    RedeemValor,               // 9
-    ClaimUsdcRevenue,          // 10
-    /* ====== Backward Payloads from ledger side ====== */
-    _ClaimRewardBackwardPALCEHOLDER,         // 11
-    _WithdrawOrderBackwardPALCEHOLDER,       // 12
-    _ClaimVestingRequestBackwardPALCEHOLDER, // 13
-    ClaimUsdcRevenueBackwardPALCEHOLDER,     // 14
-    /* ====== New Payloads ====== */
-    UnstakeOrderNow,   // 15
-    ClaimRewardSolana, // 16
 }
 
 // Redefined MessagingFee here as a workaround to be able to use view() in tests
