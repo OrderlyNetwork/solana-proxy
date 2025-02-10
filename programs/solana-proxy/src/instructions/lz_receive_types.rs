@@ -1,5 +1,5 @@
 use crate::instructions::msg_codec::SolanaLedgerOCCMessage;
-use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
+use crate::state::{AccountList, ProxyConfig, ACCOUNT_LIST_SEED, PEER_SEED, PROXY_CONFIG_SEED};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
@@ -13,6 +13,11 @@ pub struct LzReceiveTypes<'info> {
         bump = proxy_config.bump,
     )]
     pub proxy_config: Account<'info, ProxyConfig>,
+    // #[account(
+    //     seeds = [ACCOUNT_LIST_SEED, &proxy_config.key().as_ref()],
+    //     bump = account_list.bump
+    // )]
+    // pub account_list: Account<'info, AccountList>,
 }
 
 impl LzReceiveTypes<'_> {
@@ -25,7 +30,8 @@ impl LzReceiveTypes<'_> {
             &[PEER_SEED, ctx.accounts.proxy_config.key().as_ref(), &ctx.accounts.proxy_config.orderly_eid.to_be_bytes()],
             ctx.program_id,
         );
-        let token_mint = ctx.accounts.proxy_config.usdc;
+        let token_mint = ctx.accounts.proxy_config.usdc_token_account;
+        // let token_mint = ctx.accounts.account_list.usdc_token_account;
 
         let proxy_token_account = get_associated_token_address(&ctx.accounts.proxy_config.key(), &token_mint);
         let receiver = SolanaLedgerOCCMessage::get_receiver(&params.message);
