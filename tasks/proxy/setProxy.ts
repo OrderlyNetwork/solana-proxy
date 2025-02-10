@@ -25,6 +25,7 @@ import {
     createAndSendV0TxWithTable,
     getOftProgram,
     checkPayloadType,
+    getProxyAccounts,
     getPayloadType,
     getChainEventId,
     getOftAccounts,
@@ -41,6 +42,8 @@ import {
     submitProof,
     convertIntoBytes32,
     checkPayload,
+    printEndpointConfig,
+    printOptions,
 } from './utils'
 import {
     getProxyConfigPda,
@@ -337,17 +340,39 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         console.log('Tx to set Config for Solana Proxy:', tx)
     })
 
-task('sol:proxy:delegate', 'Set Delegate for Solana Proxy')
+task('sol:proxy:pause', 'Pause Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addParam('paused', 'The paused state', undefined, devtoolsTypes.boolean)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        console.log(taskArgs.paused)
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const ixSetPause = await proxyProgram.methods
+            .setPause({ paused: taskArgs.paused })
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+            })
+            .instruction()
+        const tx = await createAndSendV0Tx([ixSetPause], provider, wallet)
+        console.log('Tx to set Pause for Solana Proxy:', tx)
+    })
+
+task('sol:proxy:admin', 'Transfer Admin for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-        const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
-        const rpc = getUmi(taskArgs.env).rpc
-        const curDelegate = await oft.getDelegate(rpc, oftStore)
-        console.log('Current Delegate:', curDelegate.toString())
-        const newDelegate = new PublicKey(taskArgs.delegate)
+        const proxyAccounts = getProxyAccounts(taskArgs.env)
+
+        const ixTransferAdmin = await proxyProgram.methods
+            .transferAdmin({ newAdmin: proxyAccounts.multisig })
+            .accounts({ admin: wallet.publicKey, proxyConfig: proxyConfigPda })
+            .instruction()
+        const tx = await createAndSendV0Tx([ixTransferAdmin], provider, wallet)
+        console.log('Tx to transfer Admin for Solana Proxy:', tx)
     })
 
 task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
@@ -362,32 +387,15 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         const rpc = getUmi(taskArgs.env).rpc
 
         console.log('=============== Proxy Config ===============')
-        const admin = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
-        console.log('Admin:', admin.admin.toString())
-        console.log('Endpoint Program:', admin.endpointProgram.toString())
-        console.log('Orderly EID:', admin.orderlyEid)
-        console.log('Solana Chain ID:', admin.solChainId)
-        console.log('USDC Token Account:', admin.usdcTokenAccount.toString())
-        console.log('Paused:', admin.paused)
+        const proxyConfigData = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+        printProxyConfig(proxyConfigData)
+
         console.log('=============== OAPP Options ===============')
         const peerAddress = await oft.getPeerAddress(rpc, oftStore, orderlyEid, programId)
         console.log('Peer Address:', '0x' + peerAddress.slice(26).toString())
         const enforcedOptions = await oft.getEnforcedOptions(rpc, oftStore, orderlyEid, programId)
         const options = getOptions(taskArgs.env)
-        const [optionSend, optionSendAndCall] = getEncodedOptions(options)
-        console.log(
-            `The option config for send: receive gas = ${options.LZ_RECEIVE_GAS}, receive value = ${options.LZ_RECEIVE_VALUE}`
-        )
-        console.log(`The option config into bytes:    `, Buffer.from(optionSend).toString('hex'))
-        console.log(`The option set onchain for send: `, Buffer.from(enforcedOptions.send).toString('hex'))
-        console.log(
-            `The option config for sendAndCall: receive gas = ${options.LZ_RECEIVE_GAS}, receive value = ${options.LZ_RECEIVE_VALUE}, compose gas = ${options.LZ_COMPOSE_GAS}, compose value = ${options.LZ_COMPOSE_VALUE}`
-        )
-        console.log(`The option config into bytes:           `, Buffer.from(optionSendAndCall).toString('hex'))
-        console.log(
-            `The option set onchain for sendAndCall: `,
-            Buffer.from(enforcedOptions.sendAndCall).toString('hex')
-        )
+        printOptions(options, enforcedOptions)
 
         try {
             console.log('=============== Endpoint Config ===============')
@@ -396,77 +404,9 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
             console.log('Delegate:', delegate.toString())
             const endpointConfig = await oft.getEndpointConfig(rpc, oftStore, orderlyEid)
 
-            console.log(`Endpoint config - send lib config: `) // , endpointConfig.sendLibraryConfig
-            console.log(`    - messageLib: `, endpointConfig.sendLibraryConfig.messageLib.toString())
-            console.log(`    - uln sendConfig: `)
-            console.log(`        - uln: `)
-            console.log(
-                `           - confirmation: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.confirmations.toString()
-            )
-            console.log(
-                `           - requiredDvns:: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.requiredDvns.toString()
-            )
-            console.log(
-                `           - requiredDvnCount: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.requiredDvnCount
-            )
-            console.log(
-                `           - optionalDvns: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.optionalDvns.toLocaleString()
-            )
-            console.log(
-                `           - optionalDvnCount: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.optionalDvnCount
-            )
-            console.log(
-                `           - optionalDvnThreshold: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.optionalDvnThreshold
-            )
-            console.log(`        - executor: `)
-            console.log(
-                `           - maxMessageSize: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.executor.maxMessageSize
-            )
-            console.log(
-                `           - executor: `,
-                endpointConfig.sendLibraryConfig.ulnSendConfig?.executor.executor.toString()
-            )
-
-            console.log(`Endpoint config - receive lib config: `) // , endpointConfig.receiveLibraryConfig
-            console.log(`    - messageLib: `, endpointConfig.receiveLibraryConfig.messageLib.toString())
-            console.log(`    - timeout: `, endpointConfig.receiveLibraryConfig.timeout)
-            console.log(`    - uln receiveConfig: `)
-            console.log(`        - uln: `)
-            console.log(
-                `           - confirmation: `,
-                endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.confirmations.toString()
-            )
-            console.log(
-                `           - requiredDvns:: `,
-                endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.requiredDvns.toString()
-            )
-            console.log(
-                `           - requiredDvnCount: `,
-                endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.requiredDvnCount
-            )
-            console.log(
-                `           - optionalDvns: `,
-                endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.optionalDvns.toLocaleString()
-            )
-            console.log(
-                `           - optionalDvnCount: `,
-                endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.optionalDvnCount
-            )
-            console.log(
-                `           - optionalDvnThreshold: `,
-                endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.optionalDvnThreshold
-            )
+            printEndpointConfig(endpointConfig)
         } catch (e) {
-            console.log(e)
-            // console.log("Using default endpoint config")
-            console.log(`🛎️ Config for orderly network not set yet, please set it`)
+            console.log(`🛎️ Config for orderly network not set yet, please set it first`)
         }
     })
 
