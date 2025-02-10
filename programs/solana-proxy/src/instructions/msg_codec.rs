@@ -33,7 +33,7 @@ impl SolanaVaultOCCMessage {
 pub struct SolanaLedgerOCCMessage {
     pub token: TokenType,
     pub receiver: Pubkey,
-    pub payload_type: u8,
+    pub payload_type: PayloadType,
     pub payload: Vec<u8>,
 }
 
@@ -43,11 +43,54 @@ pub const PAYLOAD_TYPE_OFFSET: usize = RECEIVER_OFFSET + 1;
 pub const PAYLOAD_OFFSET: usize = PAYLOAD_TYPE_OFFSET;
 
 impl SolanaLedgerOCCMessage {
-    pub fn decode(encoded: &[u8]) {}
+    pub fn get_token_type(message: &[u8]) -> TokenType {
+        let token_type = u8::from_be_bytes(message[0..TOKEN_TYPE_OFFSET].try_into().expect("Failed to convert token type"));
+        match token_type {
+            0 => TokenType::ORDER,
+            1 => TokenType::ESORDER,
+            2 => TokenType::USDC,
+            _ => TokenType::PLACEHOLDER,
+        }
+    }
+
+    pub fn get_receiver(message: &[u8]) -> Pubkey {
+        let mut receiver = [0u8; 32];
+        receiver.copy_from_slice(&message[TOKEN_TYPE_OFFSET..RECEIVER_OFFSET]);
+        Pubkey::new_from_array(receiver)
+    }
+
+    pub fn get_payload_type(message: &[u8]) -> PayloadType {
+        let payload_type = u8::from_be_bytes(
+            message[RECEIVER_OFFSET..PAYLOAD_TYPE_OFFSET]
+                .try_into()
+                .expect("Failed to convert payload type"),
+        );
+        PayloadType::from_u8(payload_type)
+    }
+
+    pub fn get_payload(message: &[u8]) -> Vec<u8> {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&message[PAYLOAD_TYPE_OFFSET..]);
+        payload
+    }
+
+    pub fn get_usdc_amount(amount_bytes: &[u8; 32]) -> u64 {
+        let mut amount = [0u8; 8];
+        amount.copy_from_slice(&amount_bytes[32 - 8..32]);
+        u64::from_be_bytes(amount)
+    }
+
+    pub fn decode(message: &[u8]) -> Result<Self> {
+        let token_type = Self::get_token_type(message);
+        let receiver = Self::get_receiver(message);
+        let payload_type = Self::get_payload_type(message);
+        let payload = Self::get_payload(message);
+        Ok(Self { token: token_type, receiver, payload_type, payload })
+    }
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
-pub enum PayloadDataType {
+pub enum PayloadType {
     /* ====== Payloads From vault side ====== */
     ClaimReward,               // 0
     Stake,                     // 1
@@ -70,59 +113,60 @@ pub enum PayloadDataType {
     ClaimRewardSolana, // 16
 }
 
-impl PayloadDataType {
+impl PayloadType {
     pub fn get_token_type(&self) -> TokenType {
+        // For all types of the message sent from Solana Proxy to Orderly Omniledger, the token type is PLACEHOLDER
         match self {
-            PayloadDataType::ClaimReward => TokenType::ORDER,
-            PayloadDataType::Stake => TokenType::ORDER,
-            PayloadDataType::CreateOrderUnstakeRequest => TokenType::ORDER,
-            PayloadDataType::CancelOrderUnstakeRequest => TokenType::ORDER,
-            PayloadDataType::WithdrawOrder => TokenType::ORDER,
-            PayloadDataType::EsOrderUnstakeAndVest => TokenType::ESORDER,
-            PayloadDataType::CancelVestingRequest => TokenType::ESORDER,
-            PayloadDataType::CancelAllVestingRequests => TokenType::ESORDER,
-            PayloadDataType::ClaimVestingRequest => TokenType::ESORDER,
-            PayloadDataType::RedeemValor => TokenType::ESORDER,
-            PayloadDataType::ClaimUsdcRevenue => TokenType::USDC,
-            PayloadDataType::ClaimRewardBackward => TokenType::ORDER,
-            PayloadDataType::WithdrawOrderBackward => TokenType::ORDER,
-            PayloadDataType::ClaimVestingRequestBackward => TokenType::ORDER,
-            PayloadDataType::ClaimUsdcRevenueBackward => TokenType::USDC,
-            PayloadDataType::UnstakeOrderNow => TokenType::ORDER,
-            PayloadDataType::ClaimRewardSolana => TokenType::ORDER,
+            _ => TokenType::PLACEHOLDER,
         }
     }
 
     pub fn check_vault_payload_type(&self) -> bool {
+        // The following payload types are supported to send by Solana Proxy
         match self {
-            PayloadDataType::ClaimReward => true,
-            PayloadDataType::CreateOrderUnstakeRequest => true,
-            PayloadDataType::CancelOrderUnstakeRequest => true,
-            PayloadDataType::WithdrawOrder => true,
-            PayloadDataType::EsOrderUnstakeAndVest => true,
-            PayloadDataType::CancelVestingRequest => true,
-            PayloadDataType::CancelAllVestingRequests => true,
-            PayloadDataType::ClaimVestingRequest => true,
-            PayloadDataType::RedeemValor => true,
-            PayloadDataType::ClaimUsdcRevenue => true,
-            PayloadDataType::ClaimUsdcRevenueBackward => true,
-            PayloadDataType::UnstakeOrderNow => true,
-            PayloadDataType::ClaimRewardSolana => true,
+            PayloadType::CreateOrderUnstakeRequest => true,
+            PayloadType::CancelOrderUnstakeRequest => true,
+            PayloadType::WithdrawOrder => true,
+            PayloadType::EsOrderUnstakeAndVest => true,
+            PayloadType::CancelVestingRequest => true,
+            PayloadType::CancelAllVestingRequests => true,
+            PayloadType::ClaimVestingRequest => true,
+            PayloadType::RedeemValor => true,
+            PayloadType::ClaimUsdcRevenue => true,
+            PayloadType::UnstakeOrderNow => true,
+            PayloadType::ClaimRewardSolana => true,
             _ => false,
         }
     }
 
     pub fn check_ledger_payload_type(&self) -> bool {
+        // The following payload types are supported to receive by Solana Proxy
         match self {
-            PayloadDataType::ClaimUsdcRevenueBackward => true,
+            PayloadType::ClaimUsdcRevenueBackward => true,
             _ => false,
         }
     }
-}
 
-pub fn to_bytes32(bytes: &[u8]) -> [u8; 32] {
-    let mut bytes32 = [0u8; 32];
-    // add ledding zeros to the bytes
-    bytes32[32 - bytes.len()..].copy_from_slice(bytes);
-    bytes32
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            0 => PayloadType::ClaimReward,
+            1 => PayloadType::Stake,
+            2 => PayloadType::CreateOrderUnstakeRequest,
+            3 => PayloadType::CancelOrderUnstakeRequest,
+            4 => PayloadType::WithdrawOrder,
+            5 => PayloadType::EsOrderUnstakeAndVest,
+            6 => PayloadType::CancelVestingRequest,
+            7 => PayloadType::CancelAllVestingRequests,
+            8 => PayloadType::ClaimVestingRequest,
+            9 => PayloadType::RedeemValor,
+            10 => PayloadType::ClaimUsdcRevenue,
+            11 => PayloadType::ClaimRewardBackward,
+            12 => PayloadType::WithdrawOrderBackward,
+            13 => PayloadType::ClaimVestingRequestBackward,
+            14 => PayloadType::ClaimUsdcRevenueBackward,
+            15 => PayloadType::UnstakeOrderNow,
+            16 => PayloadType::ClaimRewardSolana,
+            _ => todo!(),
+        }
+    }
 }
