@@ -45,6 +45,7 @@ import {
     printEndpointConfig,
     printOptions,
 } from './utils'
+import * as constants from './constants'
 import {
     getProxyConfigPda,
     getLzReceiveTypesPda,
@@ -75,7 +76,7 @@ import {
 } from '@metaplex-foundation/umi'
 import { bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
 import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
-import { EventPDADeriver, SendHelper } from '@layerzerolabs/lz-solana-sdk-v2'
+import { EventPDADeriver, SendHelper, EndpointProgram, EndpointPDADeriver } from '@layerzerolabs/lz-solana-sdk-v2'
 import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM } from './constants'
 import { config } from 'process'
 import { setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox'
@@ -366,13 +367,52 @@ task('sol:proxy:admin', 'Transfer Admin for Solana Proxy')
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const proxyAccounts = getProxyAccounts(taskArgs.env)
+        const oftStore = proxyConfigPda
+        const [oAppRegistry] = new EndpointPDADeriver(constants.ENDPOINT_PROGRAM_ID).oappRegistry(oftStore)
+        const [endpointEventAuthority] = new EventPDADeriver(constants.ENDPOINT_PROGRAM_ID).eventAuthority()
+        const endpointProgram = getEndpoint()
+        const keys = EndpointProgram.instructions.createSetDelegateInstructionAccounts(
+            {
+                oapp: oftStore,
+                oappRegistry: oAppRegistry,
+                eventAuthority: endpointEventAuthority,
+                program: endpointProgram.program,
+            },
+            endpointProgram.program
+        )
+
+        for (const acc of keys) {
+            acc.isSigner = false
+        }
+
+        let remainingAccounts = []
+
+        remainingAccounts.push(
+            {
+                pubkey: endpointProgram.program,
+                isSigner: false,
+                isWritable: false,
+            },
+            ...keys
+        )
+
+        console.log('remainingAccounts', remainingAccounts)
+
+        const ixSetDelegateAndAdmin = await proxyProgram.methods
+            .setDelegate({ delegate: proxyAccounts.multisig })
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+            })
+            .remainingAccounts(remainingAccounts)
+            .instruction()
 
         const ixTransferAdmin = await proxyProgram.methods
             .transferAdmin({ newAdmin: proxyAccounts.multisig })
             .accounts({ admin: wallet.publicKey, proxyConfig: proxyConfigPda })
             .instruction()
-        const tx = await createAndSendV0Tx([ixTransferAdmin], provider, wallet)
-        console.log('Tx to transfer Admin for Solana Proxy:', tx)
+        const tx = await createAndSendV0Tx([ixSetDelegateAndAdmin, ixTransferAdmin], provider, wallet)
+        console.log('Tx to set Delegate and Admin for Solana Proxy:', tx)
     })
 
 task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
