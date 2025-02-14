@@ -24,7 +24,7 @@ impl LzReceiveTypes<'_> {
     pub fn apply(ctx: &Context<LzReceiveTypes>, params: &LzReceiveParams) -> Result<Vec<LzAccount>> {
         let mut accounts = vec![
             LzAccount { pubkey: Pubkey::default(), is_signer: true, is_writable: true }, // 0: signer
-            LzAccount { pubkey: ctx.accounts.proxy_config.key(), is_signer: true, is_writable: false }, // 1: proxy config
+            LzAccount { pubkey: ctx.accounts.proxy_config.key(), is_signer: false, is_writable: false }, // 1: proxy config
         ];
         let (peer_config, _) = Pubkey::find_program_address(
             &[PEER_SEED, ctx.accounts.proxy_config.key().as_ref(), &ctx.accounts.proxy_config.orderly_eid.to_be_bytes()],
@@ -42,13 +42,14 @@ impl LzReceiveTypes<'_> {
             LzAccount { pubkey: peer_config, is_signer: false, is_writable: false },
             LzAccount { pubkey: token_mint, is_signer: false, is_writable: false },
             LzAccount { pubkey: proxy_token_account, is_signer: false, is_writable: true },
+            LzAccount { pubkey: receiver, is_signer: false, is_writable: false },
             LzAccount { pubkey: receiver_token_account, is_signer: false, is_writable: true },
             LzAccount { pubkey: token_program, is_signer: false, is_writable: false },
         ]);
 
         let (event_authority_account, _) = Pubkey::find_program_address(&[oapp::endpoint_cpi::EVENT_SEED], &ctx.program_id);
         accounts.extend_from_slice(&[
-            LzAccount { pubkey: solana_program::system_program::ID, is_signer: false, is_writable: false },
+            // LzAccount { pubkey: solana_program::system_program::ID, is_signer: false, is_writable: false },
             LzAccount { pubkey: event_authority_account, is_signer: false, is_writable: false },
             LzAccount { pubkey: ctx.program_id.key(), is_signer: false, is_writable: false },
         ]);
@@ -68,7 +69,7 @@ impl LzReceiveTypes<'_> {
     }
 }
 
-// Redefine LzReceiveParams to avoid the IdlError: Type not found: {"name":"params","type":{"defined":"LzReceiveParams"}}
+// Redefine LzReceiveParams to avoid the Anchor IdlError: Type not found: {"name":"params","type":{"defined":"LzReceiveParams"}}
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct LzReceiveParams {
     pub src_eid: u32,
