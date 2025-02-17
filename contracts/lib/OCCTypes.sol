@@ -8,6 +8,52 @@ enum LedgerToken {
     USDC,
     PLACEHOLDER
 }
+
+/// @dev The data type of the payload, only types 2 - 10, 14, 15 and 16 are supported for Solana by LedgerOApp, other types (type 0 only for EVM chains ) are relayed through OFT contracts
+enum PayloadDataType {
+    /* ====== Payloads From vault side ====== */
+    ClaimReward, // 0
+    Stake, // 1
+    CreateOrderUnstakeRequest, // 2
+    CancelOrderUnstakeRequest, // 3
+    WithdrawOrder, // 4
+    EsOrderUnstakeAndVest, // 5
+    CancelVestingRequest, // 6
+    CancelAllVestingRequests, // 7 Not supported anymore. Do not remove for backward compatibility
+    ClaimVestingRequest, // 8
+    RedeemValor, // 9
+    ClaimUsdcRevenue, // 10
+    /* ====== Backward Payloads from ledger side ====== */
+    ClaimRewardBackward, // 11
+    WithdrawOrderBackward, // 12
+    ClaimVestingRequestBackward, // 13
+    ClaimUsdcRevenueBackward, // 14
+    /* ====== New Payloads ====== */
+    UnstakeOrderNow, // 15
+    ClaimRewardSolana // 16
+}
+
+library PayloadTypeChecker {
+    function checkVaultPayloadType(uint8 _payloadType) internal pure returns (bool) {
+        return
+            _payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest) ||
+            _payloadType == uint8(PayloadDataType.CancelOrderUnstakeRequest) ||
+            _payloadType == uint8(PayloadDataType.WithdrawOrder) ||
+            _payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest) ||
+            _payloadType == uint8(PayloadDataType.CancelVestingRequest) ||
+            _payloadType == uint8(PayloadDataType.CancelAllVestingRequests) ||
+            _payloadType == uint8(PayloadDataType.ClaimVestingRequest) ||
+            _payloadType == uint8(PayloadDataType.RedeemValor) ||
+            _payloadType == uint8(PayloadDataType.ClaimUsdcRevenue) ||
+            _payloadType == uint8(PayloadDataType.UnstakeOrderNow) ||
+            _payloadType == uint8(PayloadDataType.ClaimRewardSolana);
+    }
+
+    function checkLedgerPayloadType(uint8 _payloadType) internal pure returns (bool) {
+        return _payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward);
+    }
+}
+
 struct EvmVaultMessage {
     /// @dev the event id for the message, different id for different chains
     uint256 chainedEventId;

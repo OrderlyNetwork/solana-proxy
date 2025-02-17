@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import { SolanaVaultMessage, OCCVaultMessage, EvmVaultMessage, SolanaLedgerMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken } from "./lib/OCCTypes.sol";
+import { SolanaVaultMessage, OCCVaultMessage, EvmVaultMessage, SolanaLedgerMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken, PayloadTypeChecker } from "./lib/OCCTypes.sol";
 import { ILedgerOCCManager } from "./lib/ILedgerOCCManager.sol";
 import { SolanaProxyMsgCodec } from "./lib/MsgCodec.sol";
 import { OAppUpgradeable, MessagingFee, Origin } from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppUpgradeable.sol";
@@ -30,7 +30,7 @@ contract LedgerOApp is OAppUpgradeable {
 
     using SolanaProxyMsgCodec for bytes;
     using OptionsBuilder for bytes;
-
+    using PayloadTypeChecker for uint8;
     /// @dev modifier that only allow OCCManager to call
     modifier onlyOCCManager() {
         require(msg.sender == occManagerAddr, "OnlyLedger");
@@ -92,6 +92,7 @@ contract LedgerOApp is OAppUpgradeable {
     ) internal override {
         if (_origin.srcEid == solanaEid) {
             SolanaVaultMessage memory solanaVaultMessage = _message.decodeSolanaVaultMessage();
+            require(solanaVaultMessage.payloadType.checkVaultPayloadType(), "LedgerOApp: invalid vault payload type");
             OCCVaultMessage memory occVaultMessage = OCCVaultMessage({
                 chainedEventId: 0, // @dev: chainEventId will update in OCCManager for solana proxy
                 srcChainId: eid2ChainId[solanaEid],
@@ -118,6 +119,7 @@ contract LedgerOApp is OAppUpgradeable {
             payloadType: _message.payloadType,
             payload: abi.encode(_message.tokenAmount)
         });
+        require(solanaLedgerMessage.payloadType.checkLedgerPayloadType(), "LedgerOApp: invalid ledger payload type");
         bytes memory message = SolanaProxyMsgCodec.encodeSolanaLedgerMessage(solanaLedgerMessage);
         uint128 oappGas = defaultOappGas;
         if (oappGas == 0) {
