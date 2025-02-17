@@ -14,10 +14,7 @@ contract LedgerOApp is OAppUpgradeable {
     /// @dev OCCManager address
     address public occManagerAddr;
 
-    /// @dev fee for message send to Solana mapping
-    mapping(uint8 => uint256) public payloadType2OappFee;
-
-    uint128 public defaultOappGas;
+    mapping(uint8 => LzOptions) public payloadType2LzOptions;
 
     /// @dev mapping from chainId to eid
     mapping(uint256 => uint32) public chainId2Eid;
@@ -62,12 +59,9 @@ contract LedgerOApp is OAppUpgradeable {
         occManagerAddr = _occManagerAddr;
     }
 
-    function setPayloadType2OappFee(uint8 payloadType, uint256 oappFee) external onlyOwner {
-        payloadType2OappFee[payloadType] = oappFee;
-    }
-
-    function setDefaultOappGas(uint128 _defaultOappGas) external onlyOwner {
-        defaultOappGas = _defaultOappGas;
+    function setOptions(uint8 _payloadType, uint128 _gas, uint128 _value) external onlyOwner {
+        require(_payloadType.checkLedgerPayloadType(), "LedgerOApp: invalid ledger payload type");
+        payloadType2LzOptions[_payloadType] = LzOptions(_gas, _value);
     }
 
     function setChainId2Eid(uint256 chainId, uint32 eid) external onlyOwner {
@@ -121,27 +115,26 @@ contract LedgerOApp is OAppUpgradeable {
         });
         require(solanaLedgerMessage.payloadType.checkLedgerPayloadType(), "LedgerOApp: invalid ledger payload type");
         bytes memory message = SolanaProxyMsgCodec.encodeSolanaLedgerMessage(solanaLedgerMessage);
-        uint128 oappGas = defaultOappGas;
-        if (oappGas == 0) {
-            oappGas = 800000;
-        }
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(oappGas, 0);
+        LzOptions memory typeOptions = payloadType2LzOptions[_message.payloadType];
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            typeOptions.gas,
+            typeOptions.value
+        );
         MessagingFee memory msgFee = _quote(solanaEid, message, options, false);
 
         _lzSend(solanaEid, message, options, msgFee, payable(this));
-    }
-
-    /**
-     * @notice estimate the Layerzero fee for sending a message from ledger to Solana chain in _lzSend
-     */
-    function estimateOappFeeFromLedgerToSolana(OCCLedgerMessage memory _message) internal view returns (uint256) {
-        return payloadType2OappFee[_message.payloadType];
     }
 
     fallback() external payable {}
 
     receive() external payable {}
 
-    /// gap for upgradeable
-    uint256[48] private __gap;
+/**
+ * @dev LzOptions is a struct that contains the options for the LayerZero message
+ * @param gas The gas limit for the LayerZero message
+ * @param value The value for the LayerZero message
+ */
+struct LzOptions {
+    uint128 gas;
+    uint128 value;
 }
