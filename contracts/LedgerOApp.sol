@@ -30,7 +30,7 @@ contract LedgerOApp is OAppUpgradeable {
     using PayloadTypeChecker for uint8;
     /// @dev modifier that only allow OCCManager to call
     modifier onlyOCCManager() {
-        require(msg.sender == occManagerAddr, "OnlyLedger");
+        require(msg.sender == occManagerAddr, "OnlyLedgerOCCManager can call this function");
         _;
     }
 
@@ -70,6 +70,7 @@ contract LedgerOApp is OAppUpgradeable {
     }
 
     function setSolanaEid(uint32 _solanaEid) external onlyOwner {
+        require(_solanaEid != 0, "Zero eid");
         solanaEid = _solanaEid;
     }
 
@@ -88,7 +89,7 @@ contract LedgerOApp is OAppUpgradeable {
             SolanaVaultMessage memory solanaVaultMessage = _message.decodeSolanaVaultMessage();
             require(solanaVaultMessage.payloadType.checkVaultPayloadType(), "LedgerOApp: invalid vault payload type");
             OCCVaultMessage memory occVaultMessage = OCCVaultMessage({
-                chainedEventId: 0, // @dev: chainEventId will update in OCCManager for solana proxy
+                chainedEventId: 0, // @dev: chainEventId will be updated in OCCManager for solana proxy
                 srcChainId: eid2ChainId[solanaEid],
                 token: solanaVaultMessage.token,
                 tokenAmount: uint256(0),
@@ -107,14 +108,17 @@ contract LedgerOApp is OAppUpgradeable {
      * @dev Only OCCManager can call this function
      */
     function ledgerOappSend(OCCLedgerMessage calldata _message) external onlyOCCManager {
+        require(_message.payloadType.checkLedgerPayloadType(), "LedgerOApp: invalid ledger payload type");
+        require(_message.dstChainId == eid2ChainId[solanaEid], "LedgerOApp: only send to solana");
+        require(_message.token == LedgerToken.USDC, "LedgerOApp: Only USDC is supported");
         SolanaLedgerMessage memory solanaLedgerMessage = SolanaLedgerMessage({
             token: _message.token,
             receiver: _message.receiver,
             payloadType: _message.payloadType,
             payload: abi.encode(_message.tokenAmount)
         });
-        require(solanaLedgerMessage.payloadType.checkLedgerPayloadType(), "LedgerOApp: invalid ledger payload type");
         bytes memory message = SolanaProxyMsgCodec.encodeSolanaLedgerMessage(solanaLedgerMessage);
+
         LzOptions memory typeOptions = payloadType2LzOptions[_message.payloadType];
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             typeOptions.gas,
@@ -128,6 +132,7 @@ contract LedgerOApp is OAppUpgradeable {
     fallback() external payable {}
 
     receive() external payable {}
+}
 
 /**
  * @dev LzOptions is a struct that contains the options for the LayerZero message
