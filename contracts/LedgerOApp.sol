@@ -87,7 +87,7 @@ contract LedgerOApp is OAppUpgradeable {
         bytes calldata _message,
         address /*_executor*/,
         bytes calldata /*_extraData*/
-    ) internal virtual override {
+    ) internal override {
         if (_origin.srcEid == solanaEid) {
             SolanaVaultMessage memory solanaVaultMessage = _message.decodeSolanaVaultMessage();
             require(solanaVaultMessage.payloadType.checkVaultPayloadType(), "LedgerOApp: invalid vault payload type");
