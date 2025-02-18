@@ -89,7 +89,7 @@ impl SolanaLedgerOCCMessage {
     }
 }
 
-#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+#[derive(PartialEq, Clone, AnchorSerialize, AnchorDeserialize)]
 pub enum PayloadType {
     /* ====== Payloads From vault side ====== */
     ClaimReward,               // 0
@@ -111,18 +111,35 @@ pub enum PayloadType {
     /* ====== New Payloads ====== */
     UnstakeOrderNow,   // 15
     ClaimRewardSolana, // 16
+
+    /* ====== Placeholder ====== */
+    PLACEHOLDER,
 }
 
 impl PayloadType {
     pub fn get_token_type(&self) -> TokenType {
         // For all types of the message sent from Solana Proxy to Orderly Omniledger, the token type is PLACEHOLDER
+        // For the staking message sent throung Solana OFT compose pattern, the token type is ORDER,  and will be checked on Orderly Side
         match self {
             _ => TokenType::PLACEHOLDER,
         }
     }
 
+    pub fn get_backward_token_type(&self) -> TokenType {
+        match self {
+            // Only ClaimUsdcRevenueBackward msg will be sent from Orderly Omniledger to Solana Proxy
+            PayloadType::ClaimUsdcRevenueBackward => TokenType::USDC,
+            // The following payload types will be sent from Orderly Omniledger to Solana OFT directly
+            PayloadType::ClaimRewardBackward => TokenType::ORDER,
+            PayloadType::WithdrawOrderBackward => TokenType::ORDER,
+            PayloadType::ClaimVestingRequestBackward => TokenType::ORDER,
+
+            _ => TokenType::PLACEHOLDER,
+        }
+    }
+
     pub fn check_vault_payload_type(&self) -> bool {
-        // The following payload types are supported to send by Solana Proxy
+        // The following payload types are supported to send through Solana Proxy
         match self {
             PayloadType::CreateOrderUnstakeRequest => true,
             PayloadType::CancelOrderUnstakeRequest => true,
@@ -166,7 +183,7 @@ impl PayloadType {
             14 => PayloadType::ClaimUsdcRevenueBackward,
             15 => PayloadType::UnstakeOrderNow,
             16 => PayloadType::ClaimRewardSolana,
-            _ => todo!(),
+            _ => PayloadType::PLACEHOLDER,
         }
     }
 }

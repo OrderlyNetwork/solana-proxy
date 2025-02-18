@@ -1,18 +1,20 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program, system_instruction};
 
 use crate::events::RequestSent;
 use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage};
 use crate::instructions::quote_request::MessagingFee;
-use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
+use crate::state::{BackwardFee, PeerConfig, ProxyConfig, BACKWARD_FEE_SEED, PEER_SEED, PROXY_CONFIG_SEED};
 use crate::ProxyError;
 use oapp::endpoint::{instructions::SendParams, MessagingReceipt};
 
 #[derive(Accounts)]
-#[instruction(params: RequestParams)]
+#[instruction(params: RequestParams, msg_fee: MessagingFee)]
 pub struct SendRequest<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(
+        mut,
         seeds = [PROXY_CONFIG_SEED],
         bump = proxy_config.bump
     )]
@@ -27,6 +29,13 @@ pub struct SendRequest<'info> {
         bump = peer_config.bump
     )]
     pub peer_config: Account<'info, PeerConfig>,
+
+    #[account(
+        seeds = [BACKWARD_FEE_SEED],
+        bump = backward_fee.bump,
+        // constraint = backward_fee.order_backward_fee < msg_fee.native_fee @ProxyError::InsufficientMessagingFee
+    )]
+    pub backward_fee: Account<'info, BackwardFee>,
 }
 
 impl SendRequest<'_> {
@@ -34,6 +43,18 @@ impl SendRequest<'_> {
         require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
 
         let payload_type = PayloadType::from_u8(params.payload_type);
+        let backward_fee: u64;
+        if payload_type == PayloadType::WithdrawOrder
+            || payload_type == PayloadType::ClaimVestingRequest
+            || payload_type == PayloadType::UnstakeOrderNow
+        {
+            backward_fee = ctx.accounts.backward_fee.order_backward_fee;
+        } else if payload_type == PayloadType::ClaimUsdcRevenue {
+            backward_fee = ctx.accounts.backward_fee.usdc_backward_fee;
+        } else {
+            backward_fee = 0;
+        }
+
         require!(payload_type.check_vault_payload_type(), ProxyError::InvalidPayloadType);
 
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
@@ -50,7 +71,7 @@ impl SendRequest<'_> {
             receiver: ctx.accounts.peer_config.peer_address,
             message: vault_occ_message.encode(),
             options,
-            native_fee: msg_fee.native_fee,
+            native_fee: msg_fee.native_fee - backward_fee,
             lz_token_fee: msg_fee.lz_token_fee,
         };
 
@@ -61,6 +82,13 @@ impl SendRequest<'_> {
             &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]],
             send_params,
         )?;
+
+        if backward_fee > 0 {
+            program::invoke(
+                &system_instruction::transfer(ctx.accounts.user.key, &ctx.accounts.proxy_config.key(), backward_fee),
+                &[ctx.accounts.user.to_account_info(), ctx.accounts.proxy_config.to_account_info()],
+            )?;
+        }
 
         emit!(RequestSent { guid: receipt.guid, request: params.clone() });
 

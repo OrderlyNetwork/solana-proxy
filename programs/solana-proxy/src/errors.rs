@@ -25,4 +25,8 @@ pub enum ProxyError {
     InvalidLedgerPayloadType,
     #[msg("Invalid sender")]
     InvalidSender,
+    #[msg("Insufficient messaging fee")]
+    InsufficientMessagingFee,
+    #[msg("Insufficient balance")]
+    InsufficientBalance,
 }

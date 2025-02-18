@@ -52,6 +52,14 @@ pub mod solana_proxy {
         InitProxy::apply(&mut ctx, &params)
     }
 
+    pub fn set_backward_fee(mut ctx: Context<SetBackwardFee>, params: SetBackwardFeeParams) -> Result<()> {
+        SetBackwardFee::apply(&mut ctx, &params)
+    }
+
+    pub fn withdraw_fee(mut ctx: Context<WithdrawFee>, params: WithdrawFeeParams) -> Result<()> {
+        WithdrawFee::apply(&mut ctx, &params)
+    }
+
     pub fn set_pause(mut ctx: Context<SetPause>, params: SetPauseParams) -> Result<()> {
         SetPause::apply(&mut ctx, &params)
     }

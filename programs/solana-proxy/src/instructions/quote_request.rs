@@ -1,6 +1,6 @@
 use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage, TokenType};
 use crate::instructions::RequestParams;
-use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
+use crate::state::{BackwardFee, PeerConfig, ProxyConfig, BACKWARD_FEE_SEED, PEER_SEED, PROXY_CONFIG_SEED};
 use crate::ProxyError;
 use anchor_lang::prelude::*;
 use oapp::endpoint::instructions::QuoteParams;
@@ -25,6 +25,12 @@ pub struct QuoteRequest<'info> {
         bump = peer_config.bump
     )]
     pub peer_config: Account<'info, PeerConfig>,
+
+    #[account(
+        seeds = [BACKWARD_FEE_SEED],
+        bump = backward_fee.bump
+    )]
+    pub backward_fee: Account<'info, BackwardFee>,
 }
 
 impl QuoteRequest<'_> {
@@ -51,7 +57,19 @@ impl QuoteRequest<'_> {
         // calling endpoint cpi
         let messaging_fee = oapp::endpoint_cpi::quote(ctx.accounts.proxy_config.endpoint_program, ctx.remaining_accounts, endpoint_quote_params)?;
 
-        return Ok(MessagingFee { native_fee: messaging_fee.native_fee, lz_token_fee: messaging_fee.lz_token_fee });
+        let backward_fee: u64;
+        if payload_type == PayloadType::WithdrawOrder
+            || payload_type == PayloadType::ClaimVestingRequest
+            || payload_type == PayloadType::UnstakeOrderNow
+        {
+            backward_fee = ctx.accounts.backward_fee.order_backward_fee;
+        } else if payload_type == PayloadType::ClaimUsdcRevenue {
+            backward_fee = ctx.accounts.backward_fee.usdc_backward_fee;
+        } else {
+            backward_fee = 0;
+        }
+
+        return Ok(MessagingFee { native_fee: messaging_fee.native_fee + backward_fee, lz_token_fee: messaging_fee.lz_token_fee });
     }
 }
 

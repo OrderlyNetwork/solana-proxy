@@ -1,11 +1,12 @@
 use crate::errors::ProxyError;
 use crate::events::{ClaimProofSubmitted, ClaimRequestSent};
-use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage, TokenType};
+use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage};
 use crate::instructions::quote_request::MessagingFee;
 use oapp::endpoint::{instructions::SendParams, MessagingReceipt};
 
-use crate::state::{ClaimData, PeerConfig, ProxyConfig, CLAIM_DATA_SEED, PEER_SEED, PROXY_CONFIG_SEED};
+use crate::state::{BackwardFee, ClaimData, PeerConfig, ProxyConfig, BACKWARD_FEE_SEED, CLAIM_DATA_SEED, PEER_SEED, PROXY_CONFIG_SEED};
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program, system_instruction};
 use solana_program::keccak::hash;
 use solana_program::keccak::Hash;
 
@@ -74,6 +75,7 @@ impl SubmitProofParams {
 }
 
 #[derive(Accounts)]
+#[instruction(msg_fee: MessagingFee)]
 pub struct SendClaim<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -85,6 +87,7 @@ pub struct SendClaim<'info> {
     pub claim_data: Account<'info, ClaimData>,
 
     #[account(
+        mut,
         seeds = [PROXY_CONFIG_SEED],
         bump = proxy_config.bump,
     )]
@@ -99,6 +102,15 @@ pub struct SendClaim<'info> {
         bump = peer_config.bump
     )]
     pub peer_config: Account<'info, PeerConfig>,
+
+    #[account(
+        seeds = [BACKWARD_FEE_SEED],
+        bump = backward_fee.bump,
+        constraint = backward_fee.order_backward_fee < msg_fee.native_fee @ProxyError::InsufficientMessagingFee
+    )]
+    pub backward_fee: Account<'info, BackwardFee>,
+
+    pub system_program: Program<'info, System>,
 }
 
 impl SendClaim<'_> {
@@ -117,12 +129,21 @@ impl SendClaim<'_> {
             payload: ctx.accounts.claim_data.encode_claim_payload(),
         };
 
+        let backward_fee = ctx.accounts.backward_fee.order_backward_fee;
+
+        if backward_fee > 0 {
+            program::invoke(
+                &system_instruction::transfer(ctx.accounts.user.key, &ctx.accounts.proxy_config.key(), backward_fee),
+                &[ctx.accounts.user.to_account_info(), ctx.accounts.proxy_config.to_account_info()],
+            )?;
+        }
+
         let send_params = SendParams {
             dst_eid: ctx.accounts.proxy_config.orderly_eid,
             receiver: ctx.accounts.peer_config.peer_address,
             message: vault_occ_message.encode(),
             options,
-            native_fee: msg_fee.native_fee,
+            native_fee: msg_fee.native_fee - backward_fee,
             lz_token_fee: msg_fee.lz_token_fee,
         };
 
@@ -133,6 +154,7 @@ impl SendClaim<'_> {
             &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]],
             send_params,
         )?;
+
         emit!(ClaimRequestSent {
             guid: receipt.guid,
             user: ctx.accounts.user.key(),

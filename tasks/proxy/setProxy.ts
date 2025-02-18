@@ -18,32 +18,24 @@ import {
     getEncodedOptions,
     intoIx,
     getLzConfig,
-    getQuoteRemainingAccounts,
-    publicKeyIntoHex,
-    getSendRemainingAccounts,
     printTxLinks,
     createAndSendV0TxWithTable,
     getOftProgram,
     checkPayloadType,
     getProxyAccounts,
-    getPayloadType,
-    getChainEventId,
-    getOftAccounts,
     getUsdcMint,
     getInitOAppRemainingAccounts,
     quoteStakingFee,
     sendStakingRequest,
     quoteFee,
     sendRequest,
-    encodeClaimRewardPayload,
-    convertBytes32ToHex,
     quoteClaimFee,
     sendClaimRequest,
     submitProof,
-    convertIntoBytes32,
     checkPayload,
     printEndpointConfig,
     printOptions,
+    getBackwardFee,
 } from './utils'
 import * as constants from './constants'
 import {
@@ -57,6 +49,7 @@ import {
     getReceiveLibProgramId,
     getDefaultSendLibConfigPda,
     getClaimDataPda,
+    getBackwardFeePda,
 } from './pdaHelper'
 import { PublicKey, AccountMeta, Connection, ComputeBudgetProgram } from '@solana/web3.js'
 import {
@@ -341,6 +334,42 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         console.log('Tx to set Config for Solana Proxy:', tx)
     })
 
+task('sol:proxy:setfee', 'Set backwar fee for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const backwardFeePda = getBackwardFeePda(proxyProgram.programId)
+        const { orderBackwardFee, usdcBackwardFee } = getBackwardFee()
+        const ixSetBackwardFee = await proxyProgram.methods
+            .setBackwardFee({
+                orderBackwardFee: orderBackwardFee,
+                usdcBackwardFee: usdcBackwardFee,
+            })
+            .accounts({ admin: wallet.publicKey, proxyConfig: proxyConfigPda, backwardFee: backwardFeePda })
+            .instruction()
+        const tx = await createAndSendV0Tx([ixSetBackwardFee], provider, wallet)
+        console.log('Tx to set Backward Fee for Solana Proxy:', tx)
+    })
+
+task('sol:proxy:withdrawfee', 'Withdraw fee for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    // .addParam('amount', 'The amount to withdraw', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const amount = new BN(1234568)
+        const { orderBackwardFee, usdcBackwardFee } = getBackwardFee()
+        const ixWithdrawFee = await proxyProgram.methods
+            .withdrawFee({ amount: amount })
+            .accounts({ admin: wallet.publicKey, proxyConfig: proxyConfigPda, feeCollector: wallet.publicKey })
+            .instruction()
+        const tx = await createAndSendV0Tx([ixWithdrawFee], provider, wallet)
+        console.log('Tx to withdraw fee for Solana Proxy:', tx)
+    })
+
 task('sol:proxy:pause', 'Pause Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .addParam('paused', 'The paused state', undefined, devtoolsTypes.boolean)
@@ -396,7 +425,7 @@ task('sol:proxy:admin', 'Transfer Admin for Solana Proxy')
             ...keys
         )
 
-        console.log('remainingAccounts', remainingAccounts)
+        // console.log('remainingAccounts', remainingAccounts)
 
         const ixSetDelegateAndAdmin = await proxyProgram.methods
             .setDelegate({ delegate: proxyAccounts.multisig })
@@ -502,6 +531,22 @@ task('sol:proxy:pda', 'Get PDA for Solana Proxy and Solana OFT')
         const [provider, wallet, rpc] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         console.log('Proxy program ID:', proxyProgram.programId)
+        const usdcMint = getUsdcMint(taskArgs.env)
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        console.log('Proxy Config PDA:', proxyConfigPda.toBase58())
+
+        const proxyTokenAccount = getTokenATA(usdcMint, proxyConfigPda)
+        console.log('Proxy Token Account:', proxyTokenAccount.toBase58())
+
+        const lzReceiveTypesPda = getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
+        console.log('LZ Receive Types PDA:', lzReceiveTypesPda.toBase58())
+    })
+
+task('sol:proxy:lzReceiveTypes', 'Get LZ Receive Types for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
     })
 
 task('sol:proxy:stake', 'Stake from Solana through Solana OFT')
