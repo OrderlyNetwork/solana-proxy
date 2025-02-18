@@ -4,9 +4,10 @@ pragma solidity ^0.8.20;
 // LedgerOApp imports
 import { PayloadDataType, LzOptions, PayloadDataType, LedgerToken, SolanaVaultMessage, SolanaLedgerMessage, OCCLedgerMessage } from "../../contracts/lib/OCCTypes.sol";
 import { SolanaProxyMsgCodec } from "../../contracts/lib/MsgCodec.sol";
+import { LedgerOApp, Origin } from "../../contracts/LedgerOApp.sol";
 
-// LedgerOAppMock imports
-import { LedgerOAppMock, Origin } from "./LedgerOAppMock.sol";
+// LedgerOCCManager imports
+import { LedgerOCCManagerMock } from "./LedgerOCCManagerMock.sol";
 
 // OApp imports
 import { IOAppOptionsType3, EnforcedOptionParam } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OAppOptionsType3.sol";
@@ -37,7 +38,7 @@ contract LedgerOAppTest is TestHelperOz5 {
     uint256 private solanaChainId = 901901901;
     uint128 private solanaGas = 500000;
     uint128 private solanaValue = 0;
-    LedgerOAppMock private ledgerOApp;
+    LedgerOApp private ledgerOApp;
     function setUp() public virtual override {
         super.setUp();
         vm.deal(address(this), 100 ether);
@@ -46,7 +47,7 @@ contract LedgerOAppTest is TestHelperOz5 {
 
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
-        LedgerOAppMock ledgerOAppImpl = new LedgerOAppMock();
+        LedgerOApp ledgerOAppImpl = new LedgerOApp();
         bytes memory ledgerOAppInitData = abi.encodeWithSignature(
             "initialize(address,address,uint32)",
             endpoints[orderlyEid],
@@ -56,7 +57,13 @@ contract LedgerOAppTest is TestHelperOz5 {
 
         ERC1967Proxy ledgerOAppProxy = new ERC1967Proxy(address(ledgerOAppImpl), ledgerOAppInitData);
 
-        ledgerOApp = LedgerOAppMock(payable(address(ledgerOAppProxy)));
+        ledgerOApp = LedgerOApp(payable(address(ledgerOAppProxy)));
+
+        LedgerOCCManagerMock ledgerOCCManagerImpl = new LedgerOCCManagerMock();
+
+        ERC1967Proxy ledgerOCCManagerProxy = new ERC1967Proxy(address(ledgerOCCManagerImpl), "");
+
+        occManager = address(ledgerOCCManagerProxy);
 
         vm.startPrank(owner);
         ledgerOApp.setOCCManagerAddr(occManager);
