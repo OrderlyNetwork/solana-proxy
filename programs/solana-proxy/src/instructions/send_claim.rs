@@ -117,7 +117,7 @@ pub struct SendClaim<'info> {
 
 impl SendClaim<'_> {
     pub fn apply(ctx: &mut Context<SendClaim>, msg_fee: &MessagingFee) -> Result<MessagingReceipt> {
-        require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
+        require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
 
         let payload_type = PayloadType::ClaimRewardSolana;
         require!(payload_type.check_vault_payload_type(), ProxyError::InvalidPayloadType);

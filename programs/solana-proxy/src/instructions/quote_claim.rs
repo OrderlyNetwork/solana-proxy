@@ -1,3 +1,4 @@
+use crate::errors::ProxyError;
 use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage, TokenType};
 use crate::instructions::quote_request::MessagingFee;
 use crate::state::{BackwardFee, ClaimData, PeerConfig, ProxyConfig, BACKWARD_FEE_SEED, CLAIM_DATA_SEED, PEER_SEED, PROXY_CONFIG_SEED};
@@ -40,6 +41,8 @@ pub struct QuoteClaim<'info> {
 
 impl QuoteClaim<'_> {
     pub fn apply(ctx: Context<QuoteClaim>) -> Result<MessagingFee> {
+        require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
+
         let payload_type = PayloadType::ClaimRewardSolana;
 
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);

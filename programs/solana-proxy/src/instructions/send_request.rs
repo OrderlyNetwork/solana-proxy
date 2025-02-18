@@ -40,7 +40,7 @@ pub struct SendRequest<'info> {
 
 impl SendRequest<'_> {
     pub fn apply(ctx: Context<SendRequest>, params: &RequestParams, msg_fee: &MessagingFee) -> Result<MessagingReceipt> {
-        require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
+        require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
 
         let payload_type = PayloadType::from_u8(params.payload_type);
         let backward_fee: u64;

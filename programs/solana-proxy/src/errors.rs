@@ -12,7 +12,7 @@ pub enum ProxyError {
     #[msg("Invalid mint authority")]
     InvalidMintAuthority,
     #[msg("Solana Proxy is Paused")]
-    Paused,
+    ProxyPaused,
     #[msg("User is not the owner of the account")]
     InvalidUser,
     #[msg("Invalid payload type")]

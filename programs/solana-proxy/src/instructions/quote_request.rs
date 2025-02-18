@@ -35,7 +35,8 @@ pub struct QuoteRequest<'info> {
 
 impl QuoteRequest<'_> {
     pub fn apply(ctx: Context<QuoteRequest>, params: &RequestParams) -> Result<MessagingFee> {
-        require!(!ctx.accounts.proxy_config.paused, ProxyError::Paused);
+        require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
+
         let payload_type = PayloadType::from_u8(params.payload_type);
         require!(payload_type.check_vault_payload_type(), ProxyError::InvalidPayloadType);
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);

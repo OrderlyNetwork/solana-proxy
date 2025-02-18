@@ -73,6 +73,8 @@ impl<'info> LzReceive<'info> {
         CpiContext::new(cpi_program, cpi_accounts)
     }
     pub fn apply(ctx: &mut Context<LzReceive>, params: &LzReceiveParams) -> Result<()> {
+        require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
+        
         let seeds: &[&[u8]] = &[PROXY_CONFIG_SEED, &[ctx.accounts.proxy_config.bump]];
 
         let accounts_for_clear = &ctx.remaining_accounts[0..Clear::MIN_ACCOUNTS_LEN];
