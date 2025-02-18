@@ -81,6 +81,8 @@ pub struct SendClaim<'info> {
     pub user: Signer<'info>,
 
     #[account(
+        mut,
+        close = user,
         seeds = [CLAIM_DATA_SEED, user.key().as_ref()],
         bump = claim_data.bump,
     )]
