@@ -48,10 +48,13 @@ contract LedgerOApp is OAppUpgradeable {
     /**
      * @dev Initialize the OApp with the provided endpoint and owner.
      * @param _endpoint The address of the LOCAL LayerZero endpoint.
-     * @param _owner The address of the owner of the OApp.
+     * @param _delegate The address of the delegate/owner of the OApp.
+     * @param _solanaEid The eid of the Solana chain.
      */
-    function initialize(address _endpoint, address _owner) public initializer {
-        __initializeOApp(_endpoint, _owner);
+    function initialize(address _endpoint, address _delegate, uint32 _solanaEid) public initializer {
+        __initializeOApp(_endpoint, _delegate);
+        require(_solanaEid != 0, "Zero eid");
+        solanaEid = _solanaEid;
     }
 
     /* ========== Owner functions ========== */
