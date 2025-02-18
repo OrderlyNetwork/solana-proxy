@@ -1,0 +1,292 @@
+import { PublicKey } from '@solana/web3.js'
+import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities'
+import { EndpointId } from '@layerzerolabs/lz-definitions'
+import { ethers } from 'ethers'
+import { BN } from '@coral-xyz/anchor'
+
+export const ENDPOINT_PROGRAM_ID = new PublicKey('76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6')
+export const SEND_LIB_PROGRAM_ID = new PublicKey('7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH')
+export const RECEIVE_LIB_PROGRAM_ID = SEND_LIB_PROGRAM_ID
+export const TREASURY_PROGRAM_ID = SEND_LIB_PROGRAM_ID
+export const EXECUTOR_PROGRAM_ID = new PublicKey('6doghB248px58JSSwG4qejQ46kFMW4AMj7vzJnWZHNZn')
+export const EXECUTOR_PDA = new PublicKey('AwrbHeCyniXaQhiJZkLhgWdUCteeWSGaSN1sTfLiY7xK')
+export const DVN_PROGRAM_ID = new PublicKey('HtEYV4xB4wvsj5fgTkcfuChYpvGYzgzwvNhgDZQNh7wW')
+export const PRICE_FEED_PROGRAM_ID = new PublicKey('8ahPGPjEbpgGaZx2NV1iG5Shj7TDwvsjkEDcGWjt94TP')
+
+export const DEFAULT_SEND_LIB_CONFIG_PDA = new PublicKey('3hfYq9afjFbedp4GZk6n9ZefuCbhvgf4z4Jiyw2QEEPY')
+export const DEFAULT_RECEIVE_LIB_CONFIG_PDA = new PublicKey('5zekkyLszMmcPKhJNhkwctXdEEg4xLtwbfayZkaFhNCQ')
+
+export const CHAIN_EVENT_ID_PLACEHOLDER = 0 // placeholder for the chain_event_id field in the OCCVaultMessage type
+export const DST_EID = 40200
+export const TEST_DST_EID = EndpointId.ORDERLY_V2_TESTNET // eid of orderly testnet, defined by layerzero: https://docs.layerzero.network/v2/developers/evm/technical-reference/deployed-contracts
+export const MAIN_DST_EID = EndpointId.ORDERLY_V2_MAINNET // eid of orderly mainnet, defined by layerzero: https://docs.layerzero.network/v2/developers/evm/technical-reference/deployed-contracts
+
+export const DEV_SOL_CHAIN_ID = 901901901 // the chainid for solana devnet, defined by orderly
+export const MAIN_SOL_CHAIN_ID = 900900900 // the chainid for solana mainnet, defined by orderly
+
+export const ENV = ['local', 'dev', 'qa', 'staging', 'mainnet']
+
+export const SOLANA_INFO: { [key: string]: any } = {
+    local: {
+        rpc: 'http://localhost:8899',
+        chainEventId: CHAIN_EVENT_ID_PLACEHOLDER,
+        solChainId: DEV_SOL_CHAIN_ID,
+    },
+    dev: {
+        rpc: 'https://api.devnet.solana.com',
+        chainEventId: CHAIN_EVENT_ID_PLACEHOLDER,
+        solChainId: DEV_SOL_CHAIN_ID,
+    },
+    qa: {
+        rpc: 'https://api.devnet.solana.com',
+        chainEventId: CHAIN_EVENT_ID_PLACEHOLDER,
+        solChainId: DEV_SOL_CHAIN_ID,
+    },
+    staging: {
+        rpc: 'https://api.devnet.solana.com',
+        chainEventId: CHAIN_EVENT_ID_PLACEHOLDER,
+        solChainId: DEV_SOL_CHAIN_ID,
+    },
+    mainnet: {
+        rpc: 'https://api.mainnet-beta.solana.com',
+        chainEventId: CHAIN_EVENT_ID_PLACEHOLDER,
+        solChainId: MAIN_SOL_CHAIN_ID,
+    },
+}
+
+export const ORDER_DECIMALS_ON_ETHEREUM = ethers.BigNumber.from('1000000000000000000') // 10^18
+export const DECIMALS_SCALE_FACTOR = ethers.BigNumber.from('100000000') // 10^8
+export const ORDER_DECIMALS_ON_SOLANA = ethers.BigNumber.from('10000000000') // 10^10
+
+export const LZ_RECEIVE_TYPES_SEED = 'LzReceiveTypes'
+export const PEER_SEED = 'Peer'
+export const PROXY_CONFIG_SEED = 'ProxyConfig'
+export const CLAIM_DATA_SEED = 'ClaimData'
+export const ACCOUNT_LIST_SEED = 'AccountList'
+
+// LedgerOApp address
+// export const PEER_ADDRESS: { [key: string]: Uint8Array } = {
+//     local: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+//     dev: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+//     qa: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+//     staging: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+//     mainnet: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+// }
+
+export const PROXY_ACCOUNTS: { [key: string]: any } = {
+    local: {
+        programId: new PublicKey('5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ'),
+        usdcMint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
+        peerAddress: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+    },
+    dev: {
+        programId: new PublicKey('5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ'),
+        usdcMint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
+        peerAddress: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+    },
+    qa: {
+        programId: new PublicKey('2HH2MwVZKqizwQ8DV4CAibLiTqQtkR7SmHDLPimut6rV'),
+        usdcMint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
+        peerAddress: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+    },
+    staging: {
+        programId: new PublicKey('Dwnm7RyRY9mYLwqZbwfc54qKqziapBL39XHgZexJmnAq'),
+        usdcMint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
+        peerAddress: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+    },
+    mainnet: {
+        programId: new PublicKey('Dwnm7RyRY9mYLwqZbwfc54qKqziapBL39XHgZexJmnAq'),
+        usdcMint: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+        peerAddress: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
+    },
+}
+
+export const OFT_ACCOUNTS: { [key: string]: any } = {
+    local: {
+        programId: new PublicKey('rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa'),
+        mint: new PublicKey('8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN'),
+        mintAuthority: new PublicKey('EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm'),
+        escrow: new PublicKey('2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i'),
+        oftStore: new PublicKey('AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg'),
+        multisig: new PublicKey('AbQgW1N8JAZxQFdh3VTx3ukGdGCN1vQYADktp3d2HDYw'),
+        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
+        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+        // alt: address lookup table account for oft
+        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        //
+    },
+    dev: {
+        programId: new PublicKey('rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa'),
+        mint: new PublicKey('8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN'),
+        mintAuthority: new PublicKey('EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm'),
+        escrow: new PublicKey('2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i'),
+        oftStore: new PublicKey('AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg'),
+        multisig: new PublicKey('AbQgW1N8JAZxQFdh3VTx3ukGdGCN1vQYADktp3d2HDYw'),
+        // alt: address lookup table account for oft
+        alt: new PublicKey('EfroxiuFHmrdq4B9Le59vgMTUKZm2dYP2GNYtK9WcRJQ'),
+        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
+        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+    },
+    qa: {
+        programId: new PublicKey('B2BBh7JdvdsmzuG7b4dedeBjSMfmiS91z6gQS3DhRLns'),
+        mint: new PublicKey('HJzi8SG3NtDx3vyuw3Gaq1jdCEYDqiWCyCrVKHCqKW2H'),
+        mintAuthority: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
+        escrow: new PublicKey('85FsyjiLqfyZciG1s3ERzsc47LuxQiEnoUfcnV9urAYZ'),
+        oftStore: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
+        multisig: new PublicKey('2WG7UG81NsutAzKDpJp6ZepEisMKrXS9XvMVPhsfqtuB'),
+        // alt: address lookup table account for oft
+        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
+        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+    },
+    staging: {
+        programId: new PublicKey('3LftFSsxKksyiPYZyJ68Y6VuWcRkVce3Zg5TxwLC6D1o'),
+        mint: new PublicKey('8bgqsYvAQQCjXyi9ePx4ZG9jVazwe2ptSiKZYYNsq4rY'),
+        mintAuthority: new PublicKey('76XwEc7cdcrYpi7PNn5t9TxX3fUQiXjeqVN68GsBdcpk'),
+        escrow: new PublicKey('69q8xwVRgx6UgBmt3C2DayxEUyphKfYENHQyxZ6kMWg3'),
+        oftStore: new PublicKey('76XwEc7cdcrYpi7PNn5t9TxX3fUQiXjeqVN68GsBdcpk'),
+        multisig: new PublicKey('48usEusxMDBxpjLkyrarHupqodAfxXyoaLDVNDJFvkME'),
+        // alt: address lookup table account for oft
+        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
+        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+    },
+    mainnet: {
+        programId: new PublicKey('GZGX6QfUo62VbPyYqPZS6t27Uke1dJmoAP6V3rw6ntTH'),
+        mint: new PublicKey('ABt79MkRXUsoHuV2CVQT32YMXQhTparKFjmidQxgiQ6E'),
+        mintAuthority: new PublicKey('Efvf2QfcPAJc8XCd1MV1MN1JLNDZRKj2ZbJ3xg6pAf7'),
+        escrow: new PublicKey('7PGWT8rti8jpRiySA9pfG3fiReW5Go8jQp3UWXc5SrSk'),
+        oftStore: new PublicKey('Efvf2QfcPAJc8XCd1MV1MN1JLNDZRKj2ZbJ3xg6pAf7'),
+        multisig: new PublicKey('6aQHPsgaSxCGwf1uAVetEmzuz9bpv9Rn4bq9jTg91RH8'),
+        // alt: address lookup table account for oft
+        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
+        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+    },
+}
+
+export const OPTIONS: { [key: string]: any } = {
+    local: {
+        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_VALUE: 0,
+        LZ_COMPOSE_GAS: 0,
+        LZ_COMPOSE_VALUE: 0,
+    },
+    dev: {
+        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_VALUE: 0,
+        LZ_COMPOSE_GAS: 0,
+        LZ_COMPOSE_VALUE: 0,
+    },
+    qa: {
+        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_VALUE: 0,
+        LZ_COMPOSE_GAS: 0,
+        LZ_COMPOSE_VALUE: 0,
+    },
+    staging: {
+        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_VALUE: 0,
+        LZ_COMPOSE_GAS: 0,
+        LZ_COMPOSE_VALUE: 0,
+    },
+    mainnet: {
+        LZ_RECEIVE_GAS: 500000,
+        LZ_RECEIVE_VALUE: 0,
+        LZ_COMPOSE_GAS: 0,
+        LZ_COMPOSE_VALUE: 0,
+    },
+}
+
+export const LZ_CONFIG: { [key: number]: any } = {
+    40200: {
+        endpointId: EndpointId.ORDERLY_V2_TESTNET,
+        sendLibConfig: {
+            sendLibAddress: '2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ',
+            executorConfig: {
+                executorAddress: 'AwrbHeCyniXaQhiJZkLhgWdUCteeWSGaSN1sTfLiY7xK',
+                maxMessageSize: 10000,
+            },
+            ulnConfig: {
+                confirmations: 10,
+                requiredDVNCount: 1,
+                optionalDVNCount: 0,
+                optionalDVNThreshold: 0,
+                requiredDVNs: ['4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb'],
+                optionalDVNs: [],
+            },
+        },
+        receiveLibConfig: {
+            receiveLibAddress: '2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ',
+            timeout: 0,
+            ulnConfig: {
+                confirmations: 1,
+                requiredDVNCount: 1,
+                optionalDVNCount: 0,
+                optionalDVNThreshold: 0,
+                requiredDVNs: ['4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb'],
+                optionalDVNs: [],
+            },
+        },
+    },
+    30213: {
+        endpointId: EndpointId.ORDERLY_V2_MAINNET,
+        sendLibConfig: {
+            sendLibAddress: '2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ',
+            executorConfig: {
+                executorAddress: 'AwrbHeCyniXaQhiJZkLhgWdUCteeWSGaSN1sTfLiY7xK',
+                maxMessageSize: 10000,
+            },
+            ulnConfig: {
+                confirmations: 32,
+                requiredDVNCount: 1,
+                optionalDVNCount: 0,
+                optionalDVNThreshold: 0,
+                requiredDVNs: ['4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb'],
+                optionalDVNs: [],
+            },
+        },
+        receiveLibConfig: {
+            receiveLibAddress: '2XgGZG4oP29U3w5h4nTk1V2LFHL23zKDPJjs3psGzLKQ',
+            timeout: 0,
+            ulnConfig: {
+                confirmations: 5,
+                requiredDVNCount: 1,
+                optionalDVNCount: 0,
+                optionalDVNThreshold: 0,
+                requiredDVNs: ['4VDjp6XQaxoZf5RGwiPU9NR1EXSZn2TP4ATMmiSzLfhb'],
+                optionalDVNs: [],
+            },
+        },
+    },
+}
+
+export enum LedgerToken {
+    ORDER = 0,
+    ESORDER = 1,
+    USDC = 2,
+    PLACEHOLDER = 3,
+}
+
+export enum PayloadType {
+    /* ====== Payloads From vault side ====== */
+    ClaimReward = 0,
+    Stake = 1,
+    CreateOrderUnstakeRequest = 2,
+    CancelOrderUnstakeRequest = 3,
+    WithdrawOrder = 4,
+    EsOrderUnstakeAndVest = 5,
+    CancelVestingRequest = 6,
+    CancelAllVestingRequests = 7, // Not supported anymore. Do not remove for backward compatibility
+    ClaimVestingRequest = 8,
+    RedeemValor = 9,
+    ClaimUsdcRevenue = 10,
+    /* ====== Backward Payloads from ledger side ====== */
+    ClaimRewardBackward = 11,
+    WithdrawOrderBackward = 12,
+    ClaimVestingRequestBackward = 13,
+    ClaimUsdcRevenueBackward = 14,
+    /* ====== New Payloads ====== */
+    UnstakeOrderNow = 15,
+    ClaimRewardSolana = 16,
+}

@@ -7,6 +7,9 @@ target
 typechain
 typechain-types
 
+# Endpoint program lib
+programs/endpoint-mock/src/lib.rs
+
 # Hardhat files
 cache
 artifacts

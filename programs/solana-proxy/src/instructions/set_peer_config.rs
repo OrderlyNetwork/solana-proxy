@@ -1,0 +1,94 @@
+use crate::state::{PeerConfig, ProxyConfig, RateLimiter, PEER_SEED, PROXY_CONFIG_SEED};
+use crate::ProxyError;
+use anchor_lang::prelude::*;
+
+#[derive(Accounts)]
+#[instruction(params: SetPeerConfigParams)]
+pub struct SetPeerConfig<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    #[account(
+        init_if_needed,
+        payer = admin,
+        space = 8 + PeerConfig::INIT_SPACE,
+        seeds = [PEER_SEED, proxy_config.key().as_ref(), &params.remote_eid.to_be_bytes()],
+        bump
+    )]
+    pub peer_config: Account<'info, PeerConfig>,
+
+    #[account(
+        seeds = [PROXY_CONFIG_SEED],
+        bump = proxy_config.bump,
+        has_one = admin @ProxyError::InvalidProxyAdmin
+    )]
+    pub proxy_config: Account<'info, ProxyConfig>,
+
+    pub system_program: Program<'info, System>,
+}
+pub const MAX_FEE_BASIS_POINTS: u16 = 10_000;
+impl SetPeerConfig<'_> {
+    pub fn apply(ctx: &mut Context<SetPeerConfig>, params: &SetPeerConfigParams) -> Result<()> {
+        match params.config.clone() {
+            PeerConfigParam::PeerAddress(peer_address) => {
+                ctx.accounts.peer_config.peer_address = peer_address;
+            },
+            PeerConfigParam::FeeBps(fee_bps) => {
+                if let Some(fee_bps) = fee_bps {
+                    require!(fee_bps < MAX_FEE_BASIS_POINTS, ProxyError::InvalidFee);
+                }
+                ctx.accounts.peer_config.fee_bps = fee_bps;
+            },
+            PeerConfigParam::EnforcedOptions { send, send_and_call } => {
+                oapp::options::assert_type_3(&send)?;
+                ctx.accounts.peer_config.enforced_options.send = send;
+                oapp::options::assert_type_3(&send_and_call)?;
+                ctx.accounts.peer_config.enforced_options.send_and_call = send_and_call;
+            },
+            PeerConfigParam::OutboundRateLimit(rate_limit_params) => {
+                Self::update_rate_limiter(&mut ctx.accounts.peer_config.outbound_rate_limiter, &rate_limit_params)?;
+            },
+            PeerConfigParam::InboundRateLimit(rate_limit_params) => {
+                Self::update_rate_limiter(&mut ctx.accounts.peer_config.inbound_rate_limiter, &rate_limit_params)?;
+            },
+        }
+        ctx.accounts.peer_config.bump = ctx.bumps.peer_config;
+        Ok(())
+    }
+
+    fn update_rate_limiter(rate_limiter: &mut Option<RateLimiter>, params: &Option<RateLimitParams>) -> Result<()> {
+        if let Some(param) = params {
+            let mut limiter = rate_limiter.clone().unwrap_or_default();
+            if let Some(capacity) = param.capacity {
+                limiter.set_capacity(capacity)?;
+            }
+            if let Some(refill_rate) = param.refill_per_second {
+                limiter.set_rate(refill_rate)?;
+            }
+            *rate_limiter = Some(limiter);
+        } else {
+            *rate_limiter = None;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+pub struct SetPeerConfigParams {
+    pub remote_eid: u32,
+    pub config: PeerConfigParam,
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+pub enum PeerConfigParam {
+    PeerAddress([u8; 32]),
+    FeeBps(Option<u16>),
+    EnforcedOptions { send: Vec<u8>, send_and_call: Vec<u8> },
+    OutboundRateLimit(Option<RateLimitParams>),
+    InboundRateLimit(Option<RateLimitParams>),
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize)]
+pub struct RateLimitParams {
+    pub refill_per_second: Option<u64>,
+    pub capacity: Option<u64>,
+}
