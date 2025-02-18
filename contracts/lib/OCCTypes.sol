@@ -54,6 +54,16 @@ library PayloadTypeChecker {
     }
 }
 
+/**
+ * @dev LzOptions is a struct that contains the options for the LayerZero message
+ * @param gas The gas limit for the LayerZero message
+ * @param value The value for the LayerZero message
+ */
+struct LzOptions {
+    uint128 gas;
+    uint128 value;
+}
+
 struct EvmVaultMessage {
     /// @dev the event id for the message, different id for different chains
     uint256 chainedEventId;

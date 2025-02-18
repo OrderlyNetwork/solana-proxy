@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import { SolanaVaultMessage, OCCVaultMessage, EvmVaultMessage, SolanaLedgerMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken, PayloadTypeChecker } from "./lib/OCCTypes.sol";
+import { SolanaVaultMessage, OCCVaultMessage, EvmVaultMessage, SolanaLedgerMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken, PayloadTypeChecker, LzOptions } from "./lib/OCCTypes.sol";
 import { ILedgerOCCManager } from "./lib/ILedgerOCCManager.sol";
 import { SolanaProxyMsgCodec } from "./lib/MsgCodec.sol";
 import { OAppUpgradeable, MessagingFee, Origin } from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppUpgradeable.sol";
@@ -135,14 +135,4 @@ contract LedgerOApp is OAppUpgradeable {
     fallback() external payable {}
 
     receive() external payable {}
-}
-
-/**
- * @dev LzOptions is a struct that contains the options for the LayerZero message
- * @param gas The gas limit for the LayerZero message
- * @param value The value for the LayerZero message
- */
-struct LzOptions {
-    uint128 gas;
-    uint128 value;
 }
