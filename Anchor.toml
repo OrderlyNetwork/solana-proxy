@@ -24,7 +24,8 @@ address = "76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6"
 program = "test/anchor/bin/endpoint.so"
 
 [[test.genesis]]
-address = "7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH"
+#address = "7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH"
+address = "279tDX6wTFgrJaRnGEdjik3NLR8B9AKY1pKVFYcxvw7c"
 program = "test/anchor/bin/uln.so"
 
 

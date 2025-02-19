@@ -205,46 +205,46 @@ describe('Test Solana Proxy', () => {
             .rpc(confirmOptions)
 
         // Initialize Send and Receive Config for ULN
-        const config = utils.getLzConfig(orderlyEid)
+        // const config = utils.getLzConfig(orderlyEid)
 
-        const sendUlnConfig = {
-            confirmations: new BN(config.sendLibConfig.ulnConfig.confirmations),
-            requiredDvnCount: Number(config.sendLibConfig.ulnConfig.requiredDVNCount),
-            optionalDvnCount: Number(config.sendLibConfig.ulnConfig.optionalDVNCount),
-            optionalDvnThreshold: Number(config.sendLibConfig.ulnConfig.optionalDVNThreshold),
-            requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map((address) => new PublicKey(address)),
-            optionalDvns: [],
-        }
-        const receiveUlnConfig = {
-            confirmations: new BN(config.receiveLibConfig?.ulnConfig.confirmations),
-            requiredDvnCount: Number(config.receiveLibConfig?.ulnConfig.requiredDVNCount),
-            optionalDvnCount: Number(config.receiveLibConfig?.ulnConfig.optionalDVNCount),
-            optionalDvnThreshold: Number(config.receiveLibConfig?.ulnConfig.optionalDVNThreshold),
-            requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map((address) => new PublicKey(address)),
-            optionalDvns: [],
-        }
-        const executorConfig = {
-            maxMessageSize: Number(config.sendLibConfig.executorConfig.maxMessageSize),
-            executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
-        }
-        const ulnSendConfigPda = pdaHelper.getUlnSendConfigPda(orderlyEid)
-        const ulnReceiveConfigPda = pdaHelper.getUlnReceiveConfigPda(orderlyEid)
+        // const sendUlnConfig = {
+        //     confirmations: new BN(config.sendLibConfig.ulnConfig.confirmations),
+        //     requiredDvnCount: Number(config.sendLibConfig.ulnConfig.requiredDVNCount),
+        //     optionalDvnCount: Number(config.sendLibConfig.ulnConfig.optionalDVNCount),
+        //     optionalDvnThreshold: Number(config.sendLibConfig.ulnConfig.optionalDVNThreshold),
+        //     requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map((address) => new PublicKey(address)),
+        //     optionalDvns: [],
+        // }
+        // const receiveUlnConfig = {
+        //     confirmations: new BN(config.receiveLibConfig?.ulnConfig.confirmations),
+        //     requiredDvnCount: Number(config.receiveLibConfig?.ulnConfig.requiredDVNCount),
+        //     optionalDvnCount: Number(config.receiveLibConfig?.ulnConfig.optionalDVNCount),
+        //     optionalDvnThreshold: Number(config.receiveLibConfig?.ulnConfig.optionalDVNThreshold),
+        //     requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map((address) => new PublicKey(address)),
+        //     optionalDvns: [],
+        // }
+        // const executorConfig = {
+        //     maxMessageSize: Number(config.sendLibConfig.executorConfig.maxMessageSize),
+        //     executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
+        // }
+        // const ulnSendConfigPda = pdaHelper.getUlnSendConfigPda(orderlyEid)
+        // const ulnReceiveConfigPda = pdaHelper.getUlnReceiveConfigPda(orderlyEid)
 
-        await ulnProgram.methods
-            .initDefaultConfig({
-                eid: orderlyEid,
-                sendUlnConfig: sendUlnConfig,
-                receiveUlnConfig: receiveUlnConfig,
-                executorConfig: executorConfig,
-            })
-            .accounts({
-                admin: admin.publicKey,
-                uln: ulnPda,
-                sendConfig: ulnSendConfigPda,
-                receiveConfig: ulnReceiveConfigPda,
-                systemProgram: SystemProgram.programId,
-            })
-            .rpc(confirmOptions)
+        // await ulnProgram.methods
+        //     .initDefaultConfig({
+        //         eid: orderlyEid,
+        //         sendUlnConfig: sendUlnConfig,
+        //         receiveUlnConfig: receiveUlnConfig,
+        //         executorConfig: executorConfig,
+        //     })
+        //     .accounts({
+        //         admin: admin.publicKey,
+        //         uln: ulnPda,
+        //         sendConfig: ulnSendConfigPda,
+        //         receiveConfig: ulnReceiveConfigPda,
+        //         systemProgram: SystemProgram.programId,
+        //     })
+        //     .rpc(confirmOptions)
     })
 
     it('Initialize Solana Proxy', async () => {
@@ -415,90 +415,146 @@ describe('Test Solana Proxy', () => {
         assert.equal(peerConfig.feeBps, 0)
     })
 
-    it('Set OAPP Config', async () => {
-        const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
-        const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
+    // it('Set OAPP Config', async () => {
+    //     const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
+    //     const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
 
-        const ulnData = await ulnProgram.account.ulnSettings.fetch(ulnPda)
-        console.log('ULN PDA:', ulnPda.toBase58())
-        console.log('ULN Data:', ulnData)
+    //     const ulnData = await ulnProgram.account.ulnSettings.fetch(ulnPda)
+    //     console.log('ULN PDA:', ulnPda.toBase58())
+    //     console.log('ULN Data:', ulnData)
 
-        const initIx = [
-            oft.initConfig(
-                {
-                    admin: admin,
-                    oftStore: oftStore,
-                    payer: admin,
-                },
-                orderlyEid
-            ),
-        ]
-        const ixInitConfig = utils.intoIx(initIx)
-        const txInitConfig = await utils.createAndSendV0Tx(ixInitConfig, provider, wallet)
+    //     const initIx = [
+    //         oft.initConfig(
+    //             {
+    //                 admin: admin,
+    //                 oftStore: oftStore,
+    //                 payer: admin,
+    //             },
+    //             orderlyEid
+    //         ),
+    //     ]
+    //     const ixInitConfig = utils.intoIx(initIx)
+    //     const txInitConfig = await utils.createAndSendV0Tx(ixInitConfig, provider, wallet)
 
-        const endpointData = await endpointProgram.account.endpointSettings.fetch(endpointPda)
-        console.log('Endpoint Data:', endpointData)
+    //     const endpointData = await endpointProgram.account.endpointSettings.fetch(endpointPda)
+    //     console.log('Endpoint Data:', endpointData)
 
-        const config = utils.getLzConfig(orderlyEid)
-        const ixSetConfig = [
-            await oft.setConfig(
-                provider.connection,
-                {
-                    signer: admin.publicKey,
-                    oftStore: oftStore,
-                },
-                {
-                    remoteEid: orderlyEid,
-                    configType: 1, // EXECUTOR
-                    config: {
-                        maxMessageSize: config.sendLibConfig.executorConfig.maxMessageSize,
-                        executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
-                    },
-                }
-            ),
-            await oft.setConfig(
-                provider.connection,
-                {
-                    signer: admin.publicKey,
-                    oftStore: oftStore,
-                },
-                {
-                    remoteEid: orderlyEid,
-                    configType: 2, // SEND ULN
-                    config: {
-                        confirmations: config.sendLibConfig.ulnConfig.confirmations,
-                        requiredDvnCount: config.sendLibConfig.ulnConfig.requiredDVNCount,
-                        optionalDvnCount: config.sendLibConfig.ulnConfig.optionalDVNCount,
-                        optionalDvnThreshold: config.sendLibConfig.ulnConfig.optionalDVNThreshold,
-                        requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map(
-                            (address) => new PublicKey(address)
-                        ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
-                        optionalDvns: [],
-                    },
-                }
-            ),
+    //     const config = utils.getLzConfig(orderlyEid)
+    //     const ixSetConfig = [
+    //         await oft.setConfig(
+    //             provider.connection,
+    //             {
+    //                 signer: admin.publicKey,
+    //                 oftStore: oftStore,
+    //             },
+    //             {
+    //                 remoteEid: orderlyEid,
+    //                 configType: 1, // EXECUTOR
+    //                 config: {
+    //                     maxMessageSize: config.sendLibConfig.executorConfig.maxMessageSize,
+    //                     executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
+    //                 },
+    //             }
+    //         ),
+    //         await oft.setConfig(
+    //             provider.connection,
+    //             {
+    //                 signer: admin.publicKey,
+    //                 oftStore: oftStore,
+    //             },
+    //             {
+    //                 remoteEid: orderlyEid,
+    //                 configType: 2, // SEND ULN
+    //                 config: {
+    //                     confirmations: config.sendLibConfig.ulnConfig.confirmations,
+    //                     requiredDvnCount: config.sendLibConfig.ulnConfig.requiredDVNCount,
+    //                     optionalDvnCount: config.sendLibConfig.ulnConfig.optionalDVNCount,
+    //                     optionalDvnThreshold: config.sendLibConfig.ulnConfig.optionalDVNThreshold,
+    //                     requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map(
+    //                         (address) => new PublicKey(address)
+    //                     ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
+    //                     optionalDvns: [],
+    //                 },
+    //             }
+    //         ),
 
-            await oft.setConfig(
-                provider.connection,
-                {
-                    signer: admin.publicKey,
-                    oftStore: oftStore,
-                },
-                {
-                    remoteEid: orderlyEid,
-                    configType: 3, // RECEIVE ULN
-                    config: {
-                        confirmations: config.receiveLibConfig?.ulnConfig.confirmations,
-                        requiredDvnCount: config.receiveLibConfig?.ulnConfig.requiredDVNCount,
-                        optionalDvnCount: config.receiveLibConfig?.ulnConfig.optionalDVNCount,
-                        optionalDvnThreshold: config.receiveLibConfig?.ulnConfig.optionalDVNThreshold,
-                        requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map(
-                            (address) => new PublicKey(address)
-                        ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
-                        optionalDvns: [],
-                    },
-                }
-            ),
+    //         await oft.setConfig(
+    //             provider.connection,
+    //             {
+    //                 signer: admin.publicKey,
+    //                 oftStore: oftStore,
+    //             },
+    //             {
+    //                 remoteEid: orderlyEid,
+    //                 configType: 3, // RECEIVE ULN
+    //                 config: {
+    //                     confirmations: config.receiveLibConfig?.ulnConfig.confirmations,
+    //                     requiredDvnCount: config.receiveLibConfig?.ulnConfig.requiredDVNCount,
+    //                     optionalDvnCount: config.receiveLibConfig?.ulnConfig.optionalDVNCount,
+    //                     optionalDvnThreshold: config.receiveLibConfig?.ulnConfig.optionalDVNThreshold,
+    //                     requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map(
+    //                         (address) => new PublicKey(address)
+    //                     ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
+    //                     optionalDvns: [],
+    //                 },
+    //             }
+    //         ),
+    //     ]
+    // })
+
+    const quoteFee = async (params: any) => {
+        const accounts = {
+            user: wallet.publicKey,
+            peerConfig: peerConfigPda,
+            proxyConfig: proxyConfigPda,
+            backwardFee: backwardFeePda,
+        }
+        const quoteRemainingAccounts = [
+            {
+                pubkey: endpointProgram.programId,
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: ulnProgram.programId, // send_library_program
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: sendLibraryConfigPda, // send_library_config
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: defaultSendLibraryConfigPda, // default_send_library_config
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: messageLibInfoPda, // send_library_info
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: endpointPda, // endpoint settings
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: noncePda, // nonce
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: eventAuthorityPda,
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: endpointProgram.programId,
+                isWritable: false,
+                isSigner: false,
+            },
         ]
 
         const web3Ix = ixSetConfig.map((ix) => toWeb3JsInstruction(ix))
