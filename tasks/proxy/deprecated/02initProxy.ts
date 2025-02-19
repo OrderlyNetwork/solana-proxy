@@ -9,8 +9,8 @@ import {
     getConfig,
     getDeployedProxyProgram,
     updateConfig,
-} from './utils'
-import { SolanaProxy } from '../../target/types/solana_proxy'
+} from '../utils'
+import { SolanaProxy } from '../../../target/types/solana_proxy'
 import { PublicKey } from '@solana/web3.js'
 import { isAddress } from 'web3-validator'
 
@@ -52,20 +52,20 @@ task('proxy:init', 'Create and init Proxy Config PDA')
             )
         }
 
-        const [provider] = setupAnchor()
-        const proxyProgram = getDeployedProxyProgram(provider)
+        const [provider] = setupAnchor('local')
+        const proxyProgram = getDeployedProxyProgram('local', provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
 
         try {
             const proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
-            printProxyConfig('Proxy already initialized', proxyConfig)
+            // printProxyConfig('Proxy already initialized', proxyConfig)
         } catch {
             const oftProgramId = new PublicKey(config.oftProgramId)
             const mintPda = new PublicKey(config.mintPda)
 
             await initProxy(provider, proxyProgram, oftProgramId, mintPda, config.occManagerAddress)
             const proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
-            printProxyConfig('Proxy Config initialized:', proxyConfig)
+            // printProxyConfig('Proxy Config initialized:', proxyConfig)
 
             updateConfig(config)
         }

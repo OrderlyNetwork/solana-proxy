@@ -455,6 +455,8 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         const orderlyEid = getOrderlyEid(taskArgs.env)
         const rpc = getUmi(taskArgs.env).rpc
 
+        console.log(rpc)
+
         console.log('=============== Proxy Config ===============')
         const proxyConfigData = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
         printProxyConfig(proxyConfigData)

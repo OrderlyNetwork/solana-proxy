@@ -534,4 +534,21 @@ describe('Test Solana Proxy', () => {
             assert.equal(receiveConfig.uln.optionalDvns.length, 0)
         }
     })
+
+    it('Set Backward Fee', async () => {
+        const backwardFeePda = pdaHelper.getBackwardFeePda(proxyProgram.programId)
+        const { orderBackwardFee, usdcBackwardFee } = utils.getBackwardFee()
+        const ixSetBackwardFee = await proxyProgram.methods
+            .setBackwardFee({
+                orderBackwardFee: orderBackwardFee,
+                usdcBackwardFee: usdcBackwardFee,
+            })
+            .accounts({ admin: wallet.publicKey, proxyConfig: proxyConfigPda, backwardFee: backwardFeePda })
+            .instruction()
+        const tx = await utils.createAndSendV0Tx([ixSetBackwardFee], provider, wallet)
+
+        const backwardFee = await proxyProgram.account.backwardFee.fetch(backwardFeePda)
+        assert.equal(backwardFee.orderBackwardFee.toString(), orderBackwardFee.toString())
+        assert.equal(backwardFee.usdcBackwardFee.toString(), usdcBackwardFee.toString())
+    })
 })

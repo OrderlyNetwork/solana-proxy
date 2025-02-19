@@ -6,7 +6,7 @@ import { fromWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import assert from 'assert'
 import fs from 'fs'
 import { types as devtoolsTypes } from '@layerzerolabs/devtools-evm-hardhat'
-import { setupAnchor, getConfig, getOrderlyEid, getProxyConfigPda, getAllOftSendAccounts, updateConfig } from './utils'
+import { setupAnchor, getConfig, getOrderlyEid, getProxyConfigPda, getAllOftSendAccounts, updateConfig } from '../utils'
 
 interface UpdateConfigTaskArgs {
     proxyProgramId?: string
@@ -72,7 +72,7 @@ task('proxy:updateConfig', 'Find and update Proxy config. Can get required param
             )
         }
 
-        const [provider] = setupAnchor()
+        const [provider] = setupAnchor('local')
 
         const proxyConfigPda = getProxyConfigPda(new PublicKey(config.proxyProgramId))
         config.proxyConfigPda = proxyConfigPda.toBase58()

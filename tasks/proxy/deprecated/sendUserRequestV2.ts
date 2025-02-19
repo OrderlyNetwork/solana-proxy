@@ -21,11 +21,11 @@ import {
     getOrderlyEid,
     printTxLinks,
     setupAnchor,
-    getPayloadDataType,
+    getPayloadType,
     createComposeMsgForUserRequest,
-    PayloadDataType,
+    PayloadType,
     getRequestOpts,
-} from './utils'
+} from '../utils'
 import { AnchorProvider, Wallet, web3 } from '@coral-xyz/anchor'
 
 interface SendUserRequestTaskArgs {
@@ -38,7 +38,7 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
     .addParam('amount', 'amount or request id depending on request type ', '0', devtoolsTypes.string)
     .addParam('payloadType', 'payload type', undefined, devtoolsTypes.string)
     .setAction(async ({ amount, payloadType }: SendUserRequestTaskArgs) => {
-        const payloadDataType = getPayloadDataType(payloadType)
+        const payloadDataType = getPayloadType(payloadType)
         console.log('Payload data type:', payloadDataType)
 
         const config = getConfig()
@@ -57,8 +57,8 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
 
         const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
         const dstEid = getOrderlyEid()
-        const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
-        const amountToSend = (payloadDataType === PayloadDataType.Stake) ? amount : '0'
+        const options = Options.newOptions().addExecutorComposeOption(0, 1000000, 0).toBytes()
+        const amountToSend = payloadDataType === PayloadType.Stake ? amount : '0'
         const minAmountLd = (BigInt(amountToSend) * BigInt(9)) / BigInt(10)
 
         const nativeFee = await getNativeFee(
@@ -96,7 +96,7 @@ task('proxy:send-user-request-v2', 'Send user request to the OmnichainLedger con
             lookupTable
         )
 
-        if (payloadDataType === PayloadDataType.Stake) {
+        if (payloadDataType === PayloadType.Stake) {
             console.log(`✅ Sent ${amountToSend} token(s) to Orderly chain!`)
         }
 
