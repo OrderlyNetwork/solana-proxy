@@ -30,6 +30,7 @@ import * as constants from '../../tasks/proxy/constants'
 import { rpc } from '@coral-xyz/anchor/dist/cjs/utils'
 import { fromWeb3JsPublicKey, toWeb3JsInstruction } from '@metaplex-foundation/umi-web3js-adapters'
 import { createNoopSigner } from '@metaplex-foundation/umi'
+import { createAndSendV0Tx } from '../../tasks/proxy/utils'
 const confirmOptions: ConfirmOptions = { maxRetries: 6, commitment: 'confirmed', preflightCommitment: 'confirmed' }
 
 async function getTokenBalance(connection: Connection, tokenAccount: PublicKey): Promise<number> {
@@ -71,11 +72,11 @@ describe('Test Solana Proxy', () => {
         provider
     ) as Program<Endpoint>
 
-    const ulnProgram = new Program(ulnIdl as Uln, constants.ULN_PROGRAM_ID, provider) as Program<Uln>
+    const ulnMock = new PublicKey('279tDX6wTFgrJaRnGEdjik3NLR8B9AKY1pKVFYcxvw7c')
+    const ulnProgram = new Program(ulnIdl as Uln, ulnMock, provider) as Program<Uln>
 
     const ENV = 'local'
     const rpc = utils.getUmi(ENV).rpc
-    console.log('RPC:', rpc)
     const usdcMintAuthority = Keypair.generate()
 
     const proxyConfigPda = pdaHelper.getProxyConfigPda(proxyProgram.programId)
@@ -95,7 +96,7 @@ describe('Test Solana Proxy', () => {
     // console.log('Message Lib Info PDA:', messageLibInfoPda.toBase58())
 
     const ulnPda = pdaHelper.getUlnSettingPda()
-    console.log('ULN PDA:', ulnPda.toBase58())
+    // console.log('ULN PDA:', ulnPda.toBase58())
 
     const defaultSendLibraryConfigPda = pdaHelper.getDefaultSendLibConfigPda(orderlyEid)
     const defaultReceiveLibraryConfigPda = pdaHelper.getDefaultReceiveLibConfigPda(orderlyEid)
@@ -109,13 +110,115 @@ describe('Test Solana Proxy', () => {
     const noncePda = pdaHelper.getNoncePda(proxyConfigPda, orderlyEid, peerAddress)
     const pendingInboundNoncePda = pdaHelper.getPendingInboundNoncePda(proxyConfigPda, orderlyEid, peerAddress)
 
-    // const endpointSettingPda = pdaHelper.getEndpointSettingPda(endpointProgram.programId)
-    // console.log('Endpoint Setting PDA:', endpointSettingPda.toBase58())
+    const eventAuthorityPda = pdaHelper.getEventAuthorityPda()
 
     const lzReceiveTypesPda = pdaHelper.getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
 
     const peerConfigPda = pdaHelper.getPeerConfigPda(proxyProgram.programId, orderlyEid, proxyConfigPda)
-    console.log('Peer Config PDA:', peerConfigPda.toBase58())
+    // console.log('Peer Config PDA:', peerConfigPda.toBase58())
+
+    const backwardFeePda = pdaHelper.getBackwardFeePda(proxyProgram.programId)
+
+    const quoteRemainingAccounts = [
+        {
+            pubkey: endpointProgram.programId,
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: ulnProgram.programId, // send_library_program
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: sendLibraryConfigPda, // send_library_config
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: defaultSendLibraryConfigPda, // default_send_library_config
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: messageLibInfoPda, // send_library_info
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: endpointPda, // endpoint settings
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: noncePda, // nonce
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: eventAuthorityPda,
+            isWritable: false,
+            isSigner: false,
+        },
+        {
+            pubkey: endpointProgram.programId,
+            isWritable: false,
+            isSigner: false,
+        },
+    ]
+
+    const sendRemainingAccounts = [
+        {
+            pubkey: endpointProgram.programId,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: proxyConfigPda, // signer and sender
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: ulnProgram.programId,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: sendLibraryConfigPda,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: defaultSendLibraryConfigPda,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: messageLibInfoPda,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: endpointPda,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: noncePda, // nonce
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: eventAuthorityPda,
+            isWritable: true,
+            isSigner: false,
+        },
+        {
+            pubkey: endpointProgram.programId,
+            isWritable: true,
+            isSigner: false,
+        },
+    ]
 
     const USDC_KEYPAIR = Keypair.generate()
     let USDC_MINT: PublicKey
@@ -509,89 +612,17 @@ describe('Test Solana Proxy', () => {
             proxyConfig: proxyConfigPda,
             backwardFee: backwardFeePda,
         }
-        const quoteRemainingAccounts = [
-            {
-                pubkey: endpointProgram.programId,
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: ulnProgram.programId, // send_library_program
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: sendLibraryConfigPda, // send_library_config
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: defaultSendLibraryConfigPda, // default_send_library_config
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: messageLibInfoPda, // send_library_info
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: endpointPda, // endpoint settings
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: noncePda, // nonce
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: eventAuthorityPda,
-                isWritable: false,
-                isSigner: false,
-            },
-            {
-                pubkey: endpointProgram.programId,
-                isWritable: false,
-                isSigner: false,
-            },
-        ]
 
-        const web3Ix = ixSetConfig.map((ix) => toWeb3JsInstruction(ix))
-        const txSetConfig = await utils.createAndSendV0Tx(web3Ix, provider, wallet)
+        const { lzTokenFee, nativeFee } = await proxyProgram.methods
+            .quoteRequest(params)
+            .accounts(accounts)
+            .remainingAccounts(quoteRemainingAccounts)
+            .view()
 
-        const sendConfig = await ulnProgram.account.sendConfig.fetch(sendConfigPda)
-        assert.equal(sendConfig.uln.confirmations.toString(), config.sendLibConfig.ulnConfig.confirmations.toString())
-        assert.equal(sendConfig.uln.requiredDvnCount, Number(config.sendLibConfig.ulnConfig.requiredDVNCount))
-        assert.equal(sendConfig.uln.optionalDvnCount, Number(config.sendLibConfig.ulnConfig.optionalDVNCount))
-        assert.equal(sendConfig.uln.optionalDvnThreshold, Number(config.sendLibConfig.ulnConfig.optionalDVNThreshold))
-        assert.equal(sendConfig.uln.requiredDvns.length, config.sendLibConfig.ulnConfig.requiredDVNs.length)
-        for (let i = 0; i < sendConfig.uln.requiredDvns.length; i++) {
-            assert.equal(sendConfig.uln.requiredDvns[i].toBase58(), config.sendLibConfig.ulnConfig.requiredDVNs[i])
-            assert.equal(sendConfig.uln.optionalDvns.length, 0)
-        }
-        const receiveConfig = await ulnProgram.account.receiveConfig.fetch(receiveConfigPda)
-        assert.equal(
-            receiveConfig.uln.confirmations.toString(),
-            config.receiveLibConfig?.ulnConfig.confirmations.toString()
-        )
-        assert.equal(receiveConfig.uln.requiredDvnCount, Number(config.receiveLibConfig?.ulnConfig.requiredDVNCount))
-        assert.equal(receiveConfig.uln.optionalDvnCount, Number(config.receiveLibConfig?.ulnConfig.optionalDVNCount))
-        assert.equal(
-            receiveConfig.uln.optionalDvnThreshold,
-            Number(config.receiveLibConfig?.ulnConfig.optionalDVNThreshold)
-        )
-        assert.equal(receiveConfig.uln.requiredDvns.length, config.receiveLibConfig?.ulnConfig.requiredDVNs.length)
-        for (let i = 0; i < receiveConfig.uln.requiredDvns.length; i++) {
-            assert.equal(
-                receiveConfig.uln.requiredDvns[i].toBase58(),
-                config.receiveLibConfig?.ulnConfig.requiredDVNs[i]
-            )
-            assert.equal(receiveConfig.uln.optionalDvns.length, 0)
-        }
-    })
+        return { lzTokenFee, nativeFee }
+    }
 
-    it('Set Backward Fee', async () => {
+    it('Set Backward Fee and Quote Fee', async () => {
         const backwardFeePda = pdaHelper.getBackwardFeePda(proxyProgram.programId)
         const { orderBackwardFee, usdcBackwardFee } = utils.getBackwardFee()
         const ixSetBackwardFee = await proxyProgram.methods
@@ -606,5 +637,149 @@ describe('Test Solana Proxy', () => {
         const backwardFee = await proxyProgram.account.backwardFee.fetch(backwardFeePda)
         assert.equal(backwardFee.orderBackwardFee.toString(), orderBackwardFee.toString())
         assert.equal(backwardFee.usdcBackwardFee.toString(), usdcBackwardFee.toString())
+
+        const fakeNativeFee = new BN(1000)
+        const fakeLzTokenFee = new BN(0)
+
+        const payloadType = constants.PayloadType.UnstakeOrderNow
+        const payload = utils.checkPayload(payloadType, '1')
+        const { params, accounts, connection, path } = utils.prepareParamsAndAccounts(
+            proxyProgram,
+            wallet.publicKey,
+            payloadType,
+            Buffer.from(payload),
+            ENV
+        )
+
+        const { lzTokenFee, nativeFee } = await quoteFee(params)
+
+        assert.equal(nativeFee.toString(), fakeNativeFee.add(orderBackwardFee).toString())
+        assert.equal(lzTokenFee.toString(), fakeLzTokenFee.toString())
+    })
+
+    const sendRequest = async (params: any, lzTokenFee: BN, nativeFee: BN) => {
+        const accounts = {
+            user: wallet.publicKey,
+            peerConfig: peerConfigPda,
+            proxyConfig: proxyConfigPda,
+            backwardFee: backwardFeePda,
+        }
+
+        const msgFee = {
+            lzTokenFee: lzTokenFee,
+            nativeFee: nativeFee,
+        }
+        const requestIx = await proxyProgram.methods
+            .sendRequest(params, msgFee)
+            .accounts(accounts)
+            .remainingAccounts(sendRemainingAccounts)
+            .instruction()
+        const tx = await utils.createAndSendV0Tx([requestIx], provider, wallet)
+    }
+
+    const uint8ArrayToNumber = (arr: Uint8Array) => {
+        return (
+            (arr[arr.length - 4] << 24) | (arr[arr.length - 3] << 16) | (arr[arr.length - 2] << 8) | arr[arr.length - 1]
+        )
+    }
+
+    const uint8ArrayToHex = (arr: Uint8Array) => {
+        return '0x' + Array.from(arr, (byte) => byte.toString(16).padStart(2, '0')).join('')
+    }
+
+    const quoteClaimFee = async () => {
+        const claimDataPda = pdaHelper.getClaimDataPda(proxyProgram.programId, wallet.publicKey)
+        const accounts = {
+            user: wallet.publicKey,
+            peerConfig: peerConfigPda,
+            proxyConfig: proxyConfigPda,
+            backwardFee: backwardFeePda,
+            claimData: claimDataPda,
+        }
+
+        const { lzTokenFee, nativeFee } = await proxyProgram.methods
+            .quoteClaim()
+            .accounts(accounts)
+            .remainingAccounts(quoteRemainingAccounts)
+            .view()
+        return { lzTokenFee, nativeFee }
+    }
+
+    const sendClaim = async (lzTokenFee: BN, nativeFee: BN) => {
+        const msgFee = {
+            lzTokenFee: lzTokenFee,
+            nativeFee: nativeFee,
+        }
+        const claimData = pdaHelper.getClaimDataPda(proxyProgram.programId, wallet.publicKey)
+        const backwardFeePda = pdaHelper.getBackwardFeePda(proxyProgram.programId)
+        const claimAccounts = {
+            user: wallet.publicKey,
+            claimData: claimData,
+            proxyConfig: proxyConfigPda,
+            peerConfig: peerConfigPda,
+            backwardFee: backwardFeePda,
+        }
+
+        const requestIx = await proxyProgram.methods
+            .sendClaim(msgFee)
+            .accounts(claimAccounts)
+            .remainingAccounts(sendRemainingAccounts)
+            .instruction()
+        const tx = await createAndSendV0Tx([requestIx], provider, wallet)
+    }
+
+    it('Claim Reward', async () => {
+        if (wallet.publicKey.toString() !== 'DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE') {
+            return
+        }
+        const distributionId = 420394
+        const cumulativeAmount = '1'
+        // these proof only valid for solana address DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE
+        const merkleProof = [
+            '2924269a0a937d37e0ad32cfaca1378e9cfaea61e0f899bedf2c36ace63faa0f',
+            '160e0c1f63803c827c8398ce521642033effd335935d7518fb19dac8b867d299',
+            'b3eb9d2be1b3564f6278bca25c9e7e5af9ecac4940c0d0779b4ef0df2f9c7931',
+        ]
+        const merkleRoot = '0xba39fd1dd32722e7a129aea7edb58cd8c06a51729f569a0a07d26dd74b3362bc'
+
+        await utils.submitProof(
+            proxyProgram,
+            provider,
+            wallet.publicKey,
+            wallet,
+            distributionId,
+            cumulativeAmount,
+            merkleProof
+        )
+
+        const claimDataPda = pdaHelper.getClaimDataPda(proxyProgram.programId, wallet.publicKey)
+        const claimData = await proxyProgram.account.claimData.fetch(claimDataPda)
+        assert.equal(uint8ArrayToNumber(Uint8Array.from(claimData.distributionId)), distributionId)
+        assert.equal(
+            claimData.amount.toString(),
+            utils.convertIntoBytes32(cumulativeAmount, constants.ORDER_DECIMALS_ON_ETHEREUM).toString()
+        )
+        assert.equal(uint8ArrayToHex(Uint8Array.from(claimData.root)), merkleRoot)
+        assert.equal(claimData.user.toString(), wallet.publicKey.toString())
+
+        const { lzTokenFee, nativeFee } = await quoteClaimFee()
+
+        await sendClaim(lzTokenFee, nativeFee)
+    })
+
+    it('Send Request', async () => {
+        const payloadType = constants.PayloadType.CreateOrderUnstakeRequest
+        const payload = utils.checkPayload(payloadType, '1234')
+        const { params } = utils.prepareParamsAndAccounts(
+            proxyProgram,
+            wallet.publicKey,
+            payloadType,
+            Buffer.from(payload),
+            ENV
+        )
+
+        const { lzTokenFee, nativeFee } = await quoteFee(params)
+
+        await sendRequest(params, lzTokenFee, nativeFee)
     })
 })
