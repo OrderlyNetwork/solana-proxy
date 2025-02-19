@@ -1,5 +1,6 @@
 import * as anchor from '@coral-xyz/anchor'
 import { BN, Program, Idl } from '@coral-xyz/anchor'
+import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
 import { SolanaProxy } from '../../target/types/solana_proxy'
 import { Endpoint } from './types/endpoint'
 import {
@@ -27,6 +28,8 @@ import * as pdaHelper from '../../tasks/proxy/pdaHelper'
 import { MainnetV2EndpointId } from '@layerzerolabs/lz-definitions'
 import * as constants from '../../tasks/proxy/constants'
 import { rpc } from '@coral-xyz/anchor/dist/cjs/utils'
+import { fromWeb3JsPublicKey, toWeb3JsInstruction } from '@metaplex-foundation/umi-web3js-adapters'
+import { createNoopSigner } from '@metaplex-foundation/umi'
 const confirmOptions: ConfirmOptions = { maxRetries: 6, commitment: 'confirmed', preflightCommitment: 'confirmed' }
 
 async function getTokenBalance(connection: Connection, tokenAccount: PublicKey): Promise<number> {
@@ -56,7 +59,6 @@ async function delay(seconds: number) {
 }
 
 describe('Test Solana Proxy', () => {
-    console.log('Hello')
     const provider = anchor.AnchorProvider.env()
     const wallet = provider.wallet as anchor.Wallet
 
@@ -72,7 +74,8 @@ describe('Test Solana Proxy', () => {
     const ulnProgram = new Program(ulnIdl as Uln, constants.ULN_PROGRAM_ID, provider) as Program<Uln>
 
     const ENV = 'local'
-    const delayTime = 2
+    const rpc = utils.getUmi(ENV).rpc
+    console.log('RPC:', rpc)
     const usdcMintAuthority = Keypair.generate()
 
     const proxyConfigPda = pdaHelper.getProxyConfigPda(proxyProgram.programId)
@@ -80,12 +83,19 @@ describe('Test Solana Proxy', () => {
     const solChainId = utils.getSolanaChainId(ENV)
     const solEid = utils.getSolanaEid(ENV)
     const oappRegistryPda = pdaHelper.getOAppRegistryPda(proxyConfigPda)
+    // console.log('OAPP Registry PDA:', oappRegistryPda.toBase58())
     const admin = wallet
     const peerAddress = utils.getPeerAddress(ENV)
 
     const endpointPda = pdaHelper.getEndpointSettingPda(endpointProgram.programId)
+    // console.log('Endpoint PDA:', endpointPda.toBase58())
     const messageLibPda = pdaHelper.getMessageLibPda(ulnProgram.programId)
+    // console.log('Message Lib PDA:', messageLibPda.toBase58())
     const messageLibInfoPda = pdaHelper.getMessageLibInfoPda(messageLibPda)
+    // console.log('Message Lib Info PDA:', messageLibInfoPda.toBase58())
+
+    const ulnPda = pdaHelper.getUlnSettingPda()
+    console.log('ULN PDA:', ulnPda.toBase58())
 
     const defaultSendLibraryConfigPda = pdaHelper.getDefaultSendLibConfigPda(orderlyEid)
     const defaultReceiveLibraryConfigPda = pdaHelper.getDefaultReceiveLibConfigPda(orderlyEid)
@@ -93,15 +103,21 @@ describe('Test Solana Proxy', () => {
     const sendLibraryConfigPda = pdaHelper.getSendLibConfigPda(proxyConfigPda, orderlyEid)
     const receiveLibraryConfigPda = pdaHelper.getReceiveLibConfigPda(proxyConfigPda, orderlyEid)
 
+    const sendConfigPda = pdaHelper.getSendConfigPda(proxyConfigPda, orderlyEid)
+    const receiveConfigPda = pdaHelper.getReceiveConfigPda(proxyConfigPda, orderlyEid)
+
     const noncePda = pdaHelper.getNoncePda(proxyConfigPda, orderlyEid, peerAddress)
     const pendingInboundNoncePda = pdaHelper.getPendingInboundNoncePda(proxyConfigPda, orderlyEid, peerAddress)
 
-    const endpointSettingPda = pdaHelper.getEndpointSettingPda(endpointProgram.programId)
+    // const endpointSettingPda = pdaHelper.getEndpointSettingPda(endpointProgram.programId)
+    // console.log('Endpoint Setting PDA:', endpointSettingPda.toBase58())
 
     const lzReceiveTypesPda = pdaHelper.getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
 
+    const peerConfigPda = pdaHelper.getPeerConfigPda(proxyProgram.programId, orderlyEid, proxyConfigPda)
+    console.log('Peer Config PDA:', peerConfigPda.toBase58())
+
     const USDC_KEYPAIR = Keypair.generate()
-    console.log('USDC_KEYPAIR', USDC_KEYPAIR.publicKey.toBase58())
     let USDC_MINT: PublicKey
     const proxyTokenAccount = utils.getTokenATA(USDC_KEYPAIR.publicKey, proxyConfigPda)
     USDC_KEYPAIR
@@ -115,9 +131,8 @@ describe('Test Solana Proxy', () => {
             USDC_KEYPAIR,
             confirmOptions
         )
-        console.log('✅ Deploy USDC coin')
-        console.log('USDC_MINT', USDC_MINT.toBase58())
 
+        // Initialize Endpoint
         await endpointProgram.methods
             .initEndpoint({
                 eid: solEid,
@@ -130,6 +145,7 @@ describe('Test Solana Proxy', () => {
             })
             .rpc(confirmOptions)
 
+        // Register Library for ULN program
         await endpointProgram.methods
             .registerLibrary({
                 libProgram: ulnProgram.programId,
@@ -143,6 +159,7 @@ describe('Test Solana Proxy', () => {
             })
             .rpc(confirmOptions)
 
+        // Initialize Default Send Library
         await endpointProgram.methods
             .initDefaultSendLibrary({
                 eid: orderlyEid,
@@ -156,8 +173,8 @@ describe('Test Solana Proxy', () => {
                 systemProgram: SystemProgram.programId,
             })
             .rpc(confirmOptions)
-        console.log('✅ Init Default Send Library')
 
+        // Initialize Default Receive Library
         await endpointProgram.methods
             .initDefaultReceiveLibrary({
                 eid: orderlyEid,
@@ -172,10 +189,11 @@ describe('Test Solana Proxy', () => {
             })
             .rpc(confirmOptions)
 
+        // Initialize ULN program
         await ulnProgram.methods
             .initUln({
                 eid: solEid,
-                endpoint: endpointSettingPda,
+                endpoint: messageLibInfoPda, // the pda signer of the endpoint program
                 endpointProgram: endpointProgram.programId,
                 admin: admin.publicKey,
             })
@@ -185,28 +203,68 @@ describe('Test Solana Proxy', () => {
                 systemProgram: SystemProgram.programId,
             })
             .rpc(confirmOptions)
+
+        // Initialize Send and Receive Config for ULN
+        const config = utils.getLzConfig(orderlyEid)
+
+        const sendUlnConfig = {
+            confirmations: new BN(config.sendLibConfig.ulnConfig.confirmations),
+            requiredDvnCount: Number(config.sendLibConfig.ulnConfig.requiredDVNCount),
+            optionalDvnCount: Number(config.sendLibConfig.ulnConfig.optionalDVNCount),
+            optionalDvnThreshold: Number(config.sendLibConfig.ulnConfig.optionalDVNThreshold),
+            requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map((address) => new PublicKey(address)),
+            optionalDvns: [],
+        }
+        const receiveUlnConfig = {
+            confirmations: new BN(config.receiveLibConfig?.ulnConfig.confirmations),
+            requiredDvnCount: Number(config.receiveLibConfig?.ulnConfig.requiredDVNCount),
+            optionalDvnCount: Number(config.receiveLibConfig?.ulnConfig.optionalDVNCount),
+            optionalDvnThreshold: Number(config.receiveLibConfig?.ulnConfig.optionalDVNThreshold),
+            requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map((address) => new PublicKey(address)),
+            optionalDvns: [],
+        }
+        const executorConfig = {
+            maxMessageSize: Number(config.sendLibConfig.executorConfig.maxMessageSize),
+            executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
+        }
+        const ulnSendConfigPda = pdaHelper.getUlnSendConfigPda(orderlyEid)
+        const ulnReceiveConfigPda = pdaHelper.getUlnReceiveConfigPda(orderlyEid)
+
+        await ulnProgram.methods
+            .initDefaultConfig({
+                eid: orderlyEid,
+                sendUlnConfig: sendUlnConfig,
+                receiveUlnConfig: receiveUlnConfig,
+                executorConfig: executorConfig,
+            })
+            .accounts({
+                admin: admin.publicKey,
+                uln: ulnPda,
+                sendConfig: ulnSendConfigPda,
+                receiveConfig: ulnReceiveConfigPda,
+                systemProgram: SystemProgram.programId,
+            })
+            .rpc(confirmOptions)
     })
 
     it('Initialize Solana Proxy', async () => {
-        const initProxyParams = {
-            endpointProgram: endpointProgram.programId,
-            usdcTokenAccount: USDC_MINT,
-            admin: admin.publicKey,
-            orderlyEid: orderlyEid,
-            solChainId: solChainId,
-        }
-        const initProxyAccounts = {
-            payer: wallet.publicKey,
-            proxyConfig: proxyConfigPda,
-            lzReceiveTypesAccounts: lzReceiveTypesPda,
-            proxyTokenAccount: proxyTokenAccount,
-            tokenMint: USDC_MINT,
-        }
         const initRemainingAccounts = utils.getInitOAppRemainingAccounts(wallet, proxyConfigPda)
 
         await proxyProgram.methods
-            .initProxy(initProxyParams)
-            .accounts(initProxyAccounts)
+            .initProxy({
+                endpointProgram: endpointProgram.programId,
+                usdcTokenAccount: USDC_MINT,
+                admin: admin.publicKey,
+                orderlyEid: orderlyEid,
+                solChainId: solChainId,
+            })
+            .accounts({
+                payer: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                lzReceiveTypesAccounts: lzReceiveTypesPda,
+                proxyTokenAccount: proxyTokenAccount,
+                tokenMint: USDC_MINT,
+            })
             .remainingAccounts(initRemainingAccounts)
             .rpc(confirmOptions)
 
@@ -219,6 +277,7 @@ describe('Test Solana Proxy', () => {
         assert.equal(proxyConfig.solChainId, solChainId)
         assert.equal(proxyConfig.paused, false)
 
+        // Initialize Nonce for Solana Proxy
         await endpointProgram.methods
             .initNonce({
                 localOapp: proxyConfigPda,
@@ -235,6 +294,7 @@ describe('Test Solana Proxy', () => {
             .signers([admin.payer])
             .rpc(confirmOptions)
 
+        // Initialize Send Library for Solana Proxy
         await endpointProgram.methods
             .initSendLibrary({
                 sender: proxyConfigPda,
@@ -247,8 +307,8 @@ describe('Test Solana Proxy', () => {
                 systemProgram: SystemProgram.programId,
             })
             .rpc(confirmOptions)
-        console.log('✅ Init Send Library')
 
+        // Initialize Receive Library for Solana Proxy
         await endpointProgram.methods
             .initReceiveLibrary({
                 receiver: proxyConfigPda,
@@ -261,13 +321,217 @@ describe('Test Solana Proxy', () => {
                 systemProgram: SystemProgram.programId,
             })
             .rpc(confirmOptions)
-        console.log('✅ Initialized Receive Library')
+
+        // Set Send Library for Solana Proxy
+        await endpointProgram.methods
+            .setSendLibrary({
+                sender: proxyConfigPda,
+                eid: orderlyEid,
+                newLib: messageLibPda,
+            })
+            .accounts({
+                signer: admin.publicKey,
+                oappRegistry: oappRegistryPda,
+                sendLibraryConfig: sendLibraryConfigPda,
+                messageLibInfo: messageLibInfoPda,
+            })
+            .rpc(confirmOptions)
+
+        await endpointProgram.methods
+            .setReceiveLibrary({
+                receiver: proxyConfigPda,
+                eid: orderlyEid,
+                newLib: messageLibPda,
+                gracePeriod: new BN(0),
+            })
+            .accounts({
+                signer: admin.publicKey,
+                oappRegistry: oappRegistryPda,
+                receiveLibraryConfig: receiveLibraryConfigPda,
+                messageLibInfo: messageLibInfoPda,
+            })
+            .rpc(confirmOptions)
     })
 
     it('Set Peer Config', async () => {
-        // const proxyConfigPda = pdaHelper.getProxyConfigPda(proxyProgram.programId)
-        // const peerPda = pdaHelper.getPeerPda(proxyProgram.programId, proxyConfigPda, 1)
-        // const peerConfig = await proxyProgram.account.peer.fetch(peerPda)
-        // console.log('Peer Config:', peerConfig)
+        const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
+        const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
+        const options = utils.getOptions(ENV)
+        const [optionSend, optionSendAndCall] = utils.getEncodedOptions(options)
+        const programId = fromWeb3JsPublicKey(proxyProgram.programId)
+
+        const wrappedIx = [
+            oft.setPeerConfig(
+                {
+                    oftStore: oftStore,
+                    admin: admin,
+                },
+                {
+                    __kind: 'PeerAddress',
+                    peer: Buffer.from(peerAddress!),
+                    remote: orderlyEid,
+                },
+                programId
+            ),
+            oft.setPeerConfig(
+                { oftStore: oftStore, admin: admin },
+                {
+                    __kind: 'EnforcedOptions',
+                    send: optionSend,
+                    sendAndCall: optionSendAndCall,
+                    remote: orderlyEid,
+                },
+                programId
+            ),
+            oft.setPeerConfig(
+                {
+                    oftStore: oftStore,
+                    admin: admin,
+                },
+                {
+                    __kind: 'FeeBps',
+                    feeBps: 0,
+                    remote: orderlyEid,
+                },
+                programId
+            ),
+        ]
+
+        const ix = utils.intoIx(wrappedIx)
+        const tx = await utils.createAndSendV0Tx(ix, provider, wallet)
+
+        const peerConfig = await proxyProgram.account.peerConfig.fetch(peerConfigPda)
+        assert.equal(peerConfig.peerAddress.toString(), peerAddress.toString())
+
+        assert.equal(
+            Buffer.from(peerConfig.enforcedOptions.send).toString('hex'),
+            Buffer.from(optionSend).toString('hex')
+        )
+        assert.equal(
+            Buffer.from(peerConfig.enforcedOptions.sendAndCall).toString('hex'),
+            Buffer.from(optionSendAndCall).toString('hex')
+        )
+
+        assert.equal(peerConfig.feeBps, 0)
+    })
+
+    it('Set OAPP Config', async () => {
+        const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
+        const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
+
+        const ulnData = await ulnProgram.account.ulnSettings.fetch(ulnPda)
+        console.log('ULN PDA:', ulnPda.toBase58())
+        console.log('ULN Data:', ulnData)
+
+        const initIx = [
+            oft.initConfig(
+                {
+                    admin: admin,
+                    oftStore: oftStore,
+                    payer: admin,
+                },
+                orderlyEid
+            ),
+        ]
+        const ixInitConfig = utils.intoIx(initIx)
+        const txInitConfig = await utils.createAndSendV0Tx(ixInitConfig, provider, wallet)
+
+        const endpointData = await endpointProgram.account.endpointSettings.fetch(endpointPda)
+        console.log('Endpoint Data:', endpointData)
+
+        const config = utils.getLzConfig(orderlyEid)
+        const ixSetConfig = [
+            await oft.setConfig(
+                provider.connection,
+                {
+                    signer: admin.publicKey,
+                    oftStore: oftStore,
+                },
+                {
+                    remoteEid: orderlyEid,
+                    configType: 1, // EXECUTOR
+                    config: {
+                        maxMessageSize: config.sendLibConfig.executorConfig.maxMessageSize,
+                        executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
+                    },
+                }
+            ),
+            await oft.setConfig(
+                provider.connection,
+                {
+                    signer: admin.publicKey,
+                    oftStore: oftStore,
+                },
+                {
+                    remoteEid: orderlyEid,
+                    configType: 2, // SEND ULN
+                    config: {
+                        confirmations: config.sendLibConfig.ulnConfig.confirmations,
+                        requiredDvnCount: config.sendLibConfig.ulnConfig.requiredDVNCount,
+                        optionalDvnCount: config.sendLibConfig.ulnConfig.optionalDVNCount,
+                        optionalDvnThreshold: config.sendLibConfig.ulnConfig.optionalDVNThreshold,
+                        requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map(
+                            (address) => new PublicKey(address)
+                        ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
+                        optionalDvns: [],
+                    },
+                }
+            ),
+
+            await oft.setConfig(
+                provider.connection,
+                {
+                    signer: admin.publicKey,
+                    oftStore: oftStore,
+                },
+                {
+                    remoteEid: orderlyEid,
+                    configType: 3, // RECEIVE ULN
+                    config: {
+                        confirmations: config.receiveLibConfig?.ulnConfig.confirmations,
+                        requiredDvnCount: config.receiveLibConfig?.ulnConfig.requiredDVNCount,
+                        optionalDvnCount: config.receiveLibConfig?.ulnConfig.optionalDVNCount,
+                        optionalDvnThreshold: config.receiveLibConfig?.ulnConfig.optionalDVNThreshold,
+                        requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map(
+                            (address) => new PublicKey(address)
+                        ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
+                        optionalDvns: [],
+                    },
+                }
+            ),
+        ]
+
+        const web3Ix = ixSetConfig.map((ix) => toWeb3JsInstruction(ix))
+        const txSetConfig = await utils.createAndSendV0Tx(web3Ix, provider, wallet)
+
+        const sendConfig = await ulnProgram.account.sendConfig.fetch(sendConfigPda)
+        assert.equal(sendConfig.uln.confirmations.toString(), config.sendLibConfig.ulnConfig.confirmations.toString())
+        assert.equal(sendConfig.uln.requiredDvnCount, Number(config.sendLibConfig.ulnConfig.requiredDVNCount))
+        assert.equal(sendConfig.uln.optionalDvnCount, Number(config.sendLibConfig.ulnConfig.optionalDVNCount))
+        assert.equal(sendConfig.uln.optionalDvnThreshold, Number(config.sendLibConfig.ulnConfig.optionalDVNThreshold))
+        assert.equal(sendConfig.uln.requiredDvns.length, config.sendLibConfig.ulnConfig.requiredDVNs.length)
+        for (let i = 0; i < sendConfig.uln.requiredDvns.length; i++) {
+            assert.equal(sendConfig.uln.requiredDvns[i].toBase58(), config.sendLibConfig.ulnConfig.requiredDVNs[i])
+            assert.equal(sendConfig.uln.optionalDvns.length, 0)
+        }
+        const receiveConfig = await ulnProgram.account.receiveConfig.fetch(receiveConfigPda)
+        assert.equal(
+            receiveConfig.uln.confirmations.toString(),
+            config.receiveLibConfig?.ulnConfig.confirmations.toString()
+        )
+        assert.equal(receiveConfig.uln.requiredDvnCount, Number(config.receiveLibConfig?.ulnConfig.requiredDVNCount))
+        assert.equal(receiveConfig.uln.optionalDvnCount, Number(config.receiveLibConfig?.ulnConfig.optionalDVNCount))
+        assert.equal(
+            receiveConfig.uln.optionalDvnThreshold,
+            Number(config.receiveLibConfig?.ulnConfig.optionalDVNThreshold)
+        )
+        assert.equal(receiveConfig.uln.requiredDvns.length, config.receiveLibConfig?.ulnConfig.requiredDVNs.length)
+        for (let i = 0; i < receiveConfig.uln.requiredDvns.length; i++) {
+            assert.equal(
+                receiveConfig.uln.requiredDvns[i].toBase58(),
+                config.receiveLibConfig?.ulnConfig.requiredDVNs[i]
+            )
+            assert.equal(receiveConfig.uln.optionalDvns.length, 0)
+        }
     })
 })
