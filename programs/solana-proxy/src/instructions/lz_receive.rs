@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
+// use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 use oapp::endpoint::{cpi::accounts::Clear, instructions::ClearParams, ConstructCPIContext};
 use crate::instructions::LzReceiveParams;
 
 use crate::errors::ProxyError;
-use crate::instructions::msg_codec::{SolanaLedgerOCCMessage, TokenType};
+use crate::instructions::msg_codec::SolanaLedgerOCCMessage;
 use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
 
 #[event_cpi]

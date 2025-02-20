@@ -3,7 +3,7 @@ use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use oapp::endpoint::instructions::RegisterOAppParams;
 
-use crate::state::{AccountList, LzReceiveTypesAccounts, ProxyConfig, ACCOUNT_LIST_SEED, LZ_RECEIVE_TYPES_SEED, PROXY_CONFIG_SEED};
+use crate::state::{LzReceiveTypesAccounts, ProxyConfig, LZ_RECEIVE_TYPES_SEED, PROXY_CONFIG_SEED};
 
 #[derive(Accounts)]
 #[instruction(params: InitProxyParams)]
