@@ -848,8 +848,6 @@ export function getEndpoint() {
 export function getInitOAppRemainingAccounts(wallet: Wallet, oapp: PublicKey) {
     const endpoint = getEndpoint()
     const accounts = endpoint.getRegisterOappIxAccountMetaForCPI(wallet.publicKey, oapp)
-    // console.log('accounts:', accounts)
-    // console.log('account len', accounts.length)
     return accounts
 }
 
