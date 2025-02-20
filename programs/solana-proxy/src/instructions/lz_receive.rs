@@ -95,6 +95,7 @@ impl<'info> LzReceive<'info> {
 
         let message = SolanaLedgerOCCMessage::decode(&params.message)?;
         require!(message.payload_type.check_ledger_payload_type(), ProxyError::InvalidLedgerPayloadType);
+        require!(message.token.check_ledger_token_type(), ProxyError::InvalidLedgerTokenType);
         // convert Vec<u8> to [u8; 32]
         let mut amount_bytes = [0u8; 32];
         amount_bytes.copy_from_slice(&message.payload[0..32]);
