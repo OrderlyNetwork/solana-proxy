@@ -1,6 +1,6 @@
 import * as anchor from '@coral-xyz/anchor'
 import { BN, Program, Idl } from '@coral-xyz/anchor'
-import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
+import { accounts, oft } from '@layerzerolabs/oft-v2-solana-sdk'
 import { SolanaProxy } from '../../target/types/solana_proxy'
 import { Endpoint } from './types/endpoint'
 import {
@@ -380,6 +380,8 @@ describe('Test Solana Proxy', () => {
         assert.equal(proxyConfig.solChainId, solChainId)
         assert.equal(proxyConfig.paused, false)
 
+        console.log('here init nonce')
+        console.log(noncePda.toBase58())
         // Initialize Nonce for Solana Proxy
         await endpointProgram.methods
             .initNonce({
@@ -730,6 +732,7 @@ describe('Test Solana Proxy', () => {
 
     it('Claim Reward', async () => {
         if (wallet.publicKey.toString() !== 'DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE') {
+            console.log('Please contact Zion or Dmitry to generate merkle proof for your address')
             return
         }
         const distributionId = 420394
@@ -781,5 +784,217 @@ describe('Test Solana Proxy', () => {
         const { lzTokenFee, nativeFee } = await quoteFee(params)
 
         await sendRequest(params, lzTokenFee, nativeFee)
+    })
+
+    const guid = Array.from(Keypair.generate().publicKey.toBuffer())
+    const initVerify = async (nonce: number) => {
+        const peerAddress = utils.getPeerAddress(ENV)
+        console.log('peerAddress:', peerAddress)
+        console.log(typeof peerAddress)
+        const payloadHashPda = pdaHelper.getPayloadHashPda(proxyConfigPda, orderlyEid, peerAddress, BigInt(nonce))
+        await endpointProgram.methods
+            .initVerify({
+                srcEid: orderlyEid,
+                sender: peerAddress,
+                receiver: proxyConfigPda,
+                nonce: new BN(nonce),
+            })
+            .accounts({
+                payer: wallet.publicKey,
+                nonce: noncePda,
+                payloadHash: payloadHashPda,
+                systemProgram: SystemProgram.programId,
+            })
+            .signers([admin.payer])
+            .rpc(confirmOptions)
+    }
+
+    const commitVerify = async (nonce: number, msg: any) => {
+        const peerAddress = utils.getPeerAddress(ENV)
+        const payloadHashPda = pdaHelper.getPayloadHashPda(proxyConfigPda, orderlyEid, peerAddress, BigInt(nonce))
+
+        await ulnProgram.methods
+            .commitVerification({
+                nonce: new BN(nonce), // lz msg nonce from orderly chain to solana
+                srcEid: orderlyEid,
+                sender: new PublicKey(peerAddress), // on mock uln the sender is defined as PublicKey type, not the [u8;32]
+                dstEid: solEid,
+                receiver: Array.from(proxyConfigPda.toBytes()), // on mock uln the receiver is defined as[u8;32], not the PublicKey type
+                guid: guid,
+                message: Buffer.from(msg),
+            })
+            .accounts({
+                uln: messageLibPda,
+            })
+            .remainingAccounts([
+                {
+                    pubkey: endpointProgram.programId,
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: messageLibPda, // receiver library
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: receiveLibraryConfigPda, // receive library config
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: defaultReceiveLibraryConfigPda, // default receive libary config
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: noncePda, // nonce
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: pendingInboundNoncePda, // pending inbound nonce
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: payloadHashPda, // payload hash
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: eventAuthorityPda,
+                    isWritable: true,
+                    isSigner: false,
+                },
+                {
+                    pubkey: endpointProgram.programId,
+                    isWritable: true,
+                    isSigner: false,
+                },
+            ])
+            .rpc(confirmOptions)
+    }
+
+    const lzReceive = async (signer: Keypair, params: any, accounts: any, nonce: number) => {
+        const peerAddress = utils.getPeerAddress(ENV)
+        const payloadHashPda = pdaHelper.getPayloadHashPda(proxyConfigPda, orderlyEid, peerAddress, BigInt(nonce))
+        const lzReceiveRemainingAccounts = [
+            {
+                pubkey: endpointProgram.programId,
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: proxyConfigPda, // signer and receiver
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: oappRegistryPda,
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: noncePda,
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: payloadHashPda,
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: endpointPda,
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: eventAuthorityPda,
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: endpointProgram.programId,
+                isWritable: true,
+                isSigner: false,
+            },
+        ]
+
+        await proxyProgram.methods
+            .lzReceive(params)
+            .accounts(accounts)
+            .remainingAccounts(lzReceiveRemainingAccounts)
+            .signers([signer])
+            .rpc(confirmOptions)
+    }
+
+    it('Withdraw USDC revenue', async () => {
+        const proxyUsdcBalance = 1_000_000_000_000
+        await mintTo(
+            provider.connection,
+            wallet.payer,
+            USDC_MINT,
+            proxyTokenAccount,
+            usdcMintAuthority,
+            proxyUsdcBalance
+        )
+
+        let prevProxyUSDCBalance = await getTokenBalance(provider.connection, proxyTokenAccount)
+        assert.equal(prevProxyUSDCBalance, proxyUsdcBalance)
+
+        let nonce = 1
+
+        await initVerify(nonce)
+        const payloadType = constants.PayloadType.ClaimUsdcRevenueBackward
+        const tokenType = constants.LedgerToken.USDC
+        const usdcAmount = 1234567890
+        const payload = utils.convertIntoBytes32(usdcAmount.toString())
+        const receiver = Keypair.generate()
+        const receiverTokenAccount = await getOrCreateAssociatedTokenAccount(
+            provider.connection,
+            wallet.payer,
+            USDC_MINT,
+            receiver.publicKey
+        )
+        let prevReceiverUSDCBalance = await getTokenBalance(provider.connection, receiverTokenAccount.address)
+        assert.equal(prevReceiverUSDCBalance, 0)
+        let msg = Buffer.concat([
+            Buffer.from([tokenType]),
+            Buffer.from(receiver.publicKey.toBuffer()),
+            Buffer.from([payloadType]),
+            Buffer.from(payload),
+        ])
+
+        await commitVerify(nonce, msg)
+
+        const params = {
+            srcEid: orderlyEid,
+            sender: peerAddress,
+            nonce: new BN(nonce),
+            guid: guid,
+            message: Buffer.from(msg),
+            extraData: Buffer.from(''),
+        }
+
+        const accounts = {
+            payer: wallet.publicKey,
+            proxyConfig: proxyConfigPda,
+            peerConfig: peerConfigPda,
+            tokenMint: USDC_MINT,
+            proxyTokenAccount: proxyTokenAccount,
+            receiver: receiver.publicKey,
+            receiverTokenAccount: receiverTokenAccount.address,
+            tokenProgram: TOKEN_PROGRAM_ID,
+        }
+
+        await lzReceive(wallet.payer, params, accounts, nonce)
+
+        let curProxyUSDCBalance = await getTokenBalance(provider.connection, proxyTokenAccount)
+        assert.equal(curProxyUSDCBalance, prevProxyUSDCBalance - usdcAmount)
+
+        let curReceiverUSDCBalance = await getTokenBalance(provider.connection, receiverTokenAccount.address)
+        assert.equal(curReceiverUSDCBalance, prevReceiverUSDCBalance + usdcAmount)
     })
 })
