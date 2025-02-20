@@ -88,9 +88,12 @@ contract LedgerOApp is OAppUpgradeable {
         address /*_executor*/,
         bytes calldata /*_extraData*/
     ) internal override {
+        require(solanaEid != 0, "LedgerOApp: Solana eid not set");
+
         if (_origin.srcEid == solanaEid) {
             SolanaVaultMessage memory solanaVaultMessage = _message.decodeSolanaVaultMessage();
             require(solanaVaultMessage.payloadType.checkVaultPayloadType(), "LedgerOApp: invalid vault payload type");
+            require(eid2ChainId[solanaEid] != 0, "LedgerOApp: Solana chain id not set");
             OCCVaultMessage memory occVaultMessage = OCCVaultMessage({
                 chainedEventId: 0, // @dev: chainEventId will be updated in OCCManager for solana proxy
                 srcChainId: eid2ChainId[solanaEid],
