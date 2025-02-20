@@ -72,7 +72,7 @@ export const ACCOUNT_LIST_SEED = 'AccountList'
 export const BACKWARD_FEE_SEED = 'BackwardFee'
 export const PROXY_ACCOUNTS: { [key: string]: any } = {
     local: {
-        programId: new PublicKey('5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ'),
+        programId: new PublicKey('6sH1YKAatvQqMCQcQoh3feMzXipuaYkHKGeDLUHpatrz'),
         usdcMint: new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
         peerAddress: addressToBytes32('0xF2BC568E4bD0F7437C77FA982F4b51786086872a'),
         multisig: new PublicKey('AbQgW1N8JAZxQFdh3VTx3ukGdGCN1vQYADktp3d2HDYw'),

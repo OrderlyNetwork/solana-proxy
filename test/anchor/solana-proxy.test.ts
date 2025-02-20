@@ -112,6 +112,8 @@ describe('Test Solana Proxy', () => {
 
     const eventAuthorityPda = pdaHelper.getEventAuthorityPda()
 
+    const accountListPda = pdaHelper.getAccountListPda(proxyProgram.programId, proxyConfigPda)
+
     const lzReceiveTypesPda = pdaHelper.getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
 
     const peerConfigPda = pdaHelper.getPeerConfigPda(proxyProgram.programId, orderlyEid, proxyConfigPda)
@@ -365,6 +367,7 @@ describe('Test Solana Proxy', () => {
                 payer: wallet.publicKey,
                 proxyConfig: proxyConfigPda,
                 lzReceiveTypesAccounts: lzReceiveTypesPda,
+                // accountList: accountListPda,
                 proxyTokenAccount: proxyTokenAccount,
                 tokenMint: USDC_MINT,
             })
@@ -380,8 +383,6 @@ describe('Test Solana Proxy', () => {
         assert.equal(proxyConfig.solChainId, solChainId)
         assert.equal(proxyConfig.paused, false)
 
-        console.log('here init nonce')
-        console.log(noncePda.toBase58())
         // Initialize Nonce for Solana Proxy
         await endpointProgram.methods
             .initNonce({
@@ -789,8 +790,6 @@ describe('Test Solana Proxy', () => {
     const guid = Array.from(Keypair.generate().publicKey.toBuffer())
     const initVerify = async (nonce: number) => {
         const peerAddress = utils.getPeerAddress(ENV)
-        console.log('peerAddress:', peerAddress)
-        console.log(typeof peerAddress)
         const payloadHashPda = pdaHelper.getPayloadHashPda(proxyConfigPda, orderlyEid, peerAddress, BigInt(nonce))
         await endpointProgram.methods
             .initVerify({

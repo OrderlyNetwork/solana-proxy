@@ -16,7 +16,7 @@ pub struct ProxyConfig {
 #[derive(InitSpace)]
 pub struct LzReceiveTypesAccounts {
     pub proxy_config: Pubkey,
-    // pub account_list: Pubkey, // point to the AccountList pda, should be updated if a new type of AccountList applied
+    pub account_list: Pubkey, // point to the AccountList pda, should be updated if a new type of AccountList applied
 }
 
 #[account]

@@ -13,11 +13,11 @@ pub struct LzReceiveTypes<'info> {
         bump = proxy_config.bump,
     )]
     pub proxy_config: Account<'info, ProxyConfig>,
-    // #[account(
-    //     seeds = [ACCOUNT_LIST_SEED, &proxy_config.key().as_ref()],
-    //     bump = account_list.bump
-    // )]
-    // pub account_list: Account<'info, AccountList>,
+    #[account(
+        seeds = [ACCOUNT_LIST_SEED, &proxy_config.key().as_ref()],
+        bump = account_list.bump
+    )]
+    pub account_list: Account<'info, AccountList>,
 }
 
 impl LzReceiveTypes<'_> {
