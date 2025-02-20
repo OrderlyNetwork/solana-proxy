@@ -444,49 +444,6 @@ export async function printQuoteSendRemainAccounts(ENV: string, provider: Anchor
     console.log('Quote send remaining accounts:', quoteSendRemainAccounts)
 }
 
-export function getAccountsForEndpointV2QuoteSend(): AccountMeta[] {
-    const config = getConfig()
-    return [
-        // ----------- Endpoint V2 quote send addresses -----------
-        accountMeta(config.endpointV2ProgramId, false, false),
-        accountMeta(config.sendLibProgramId, false, false),
-        accountMeta(config.sendLibConfigPda, false, false),
-        accountMeta(config.defaultSendLibConfigPda, false, false),
-        accountMeta(config.sendLibInfoPda, false, false),
-        accountMeta(config.endpointSettingsPda, false, false),
-        accountMeta(config.noncePda, false, false),
-        // ----------- Unknown part -----------
-        accountMeta(config.ulnSettingsPda, false, false),
-        accountMeta(config.sendConfigPda, false, false),
-        accountMeta(config.defaultSendConfigPda, false, false),
-        // ----------- Send (Message) Library send addresses -----------
-        accountMeta(config.executorProgramId, false, false),
-        accountMeta(config.executorConfigPda, false, false),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
-        accountMeta(config.dvnProgramId, false, false),
-        accountMeta(config.dvnConfigPda, false, false),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
-    ]
-}
-
-export function getAccountsForOftSend(signer: string | PublicKey, signerSigns: boolean): AccountMeta[] {
-    const config = getConfig()
-    return [
-        // ----------- Oft send addresses -----------
-        accountMeta(config.oftProgramId, false, false),
-        accountMeta(signer, signerSigns, false),
-        accountMeta(config.peerPda, false, true),
-        accountMeta(config.oftStorePda, false, true),
-        accountMeta(config.proxyEscrowAta, false, true),
-        accountMeta(config.oftEscrowAta, false, true),
-        accountMeta(config.mintPda, false, true),
-        accountMeta(TOKEN_PROGRAM_ID, false, false),
-        accountMeta(config.unknownPda, false, false),
-    ]
-}
-
 export function encodeUserRequestPayload(amountArray: number[]): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(['tuple(uint256)'], [[amountArray]])
     // console.log('Encoded user request payload:', encodedStr)
@@ -703,7 +660,7 @@ export async function submitProof(
         .instruction()
     // const addComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
     const txSig = await createAndSendV0Tx([ixSubmitProof], provider, wallet)
-    console.log('Tx to submit claim proof to Solana Proxy:', txSig)
+    // console.log('Tx to submit claim proof to Solana Proxy:', txSig)
     return txSig
 }
 
@@ -810,7 +767,7 @@ export async function sendRequest(
     return tx
 }
 
-function prepareParamsAndAccounts(
+export function prepareParamsAndAccounts(
     program: Program<SolanaProxy>,
     payer: PublicKey,
     payloadType: constants.PayloadType,

@@ -264,14 +264,14 @@ export function getMessageLibInfoPda(msgLibPda: PublicKey, programId?: PublicKey
     )[0]
 }
 
-export function getPayloadHashPda(sender: PublicKey, srcEid: number, receiver: PublicKey, nonce: bigint): PublicKey {
+export function getPayloadHashPda(receiver: PublicKey, srcEid: number, sender: any, nonce: bigint): PublicKey {
     const bufferSrcEid = Buffer.alloc(4)
     bufferSrcEid.writeUInt32BE(srcEid)
     const bufferNonce = Buffer.alloc(8)
     bufferNonce.writeBigUInt64BE(nonce)
 
     return PublicKey.findProgramAddressSync(
-        [Buffer.from('PayloadHash'), sender.toBuffer(), bufferSrcEid, receiver.toBuffer(), bufferNonce],
+        [Buffer.from('PayloadHash'), receiver.toBuffer(), bufferSrcEid, sender, bufferNonce],
         constants.ENDPOINT_PROGRAM_ID
     )[0]
 }
