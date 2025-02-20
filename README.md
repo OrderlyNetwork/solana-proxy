@@ -112,7 +112,7 @@ A peer is the counterpart `LedgerOApp` for the Solana Proxy program on the Order
 
 You have to deploy the `LedgerOApp` contract on the Orderly Network before setting up the peer for Solana Proxy. And copy the address of the deployed `LedgerOApp` contract into the the `PROXY_ACCOUNTS.env.peerAddress` in the [file](./tasks/proxy/constants.ts).
 
-Please note: I didn't include the `LedgerOApp` deployment/configuration tasks in this repo, you have to refer to [a similar repo]() for that.
+Please note: I didn't include the `LedgerOApp` deployment/configuration tasks in this repo, you have to refer to [a similar repo](https://github.com/OrderlyNetwork/sol-cc/tree/dev) for that.
 
 ```bash
 npx hardhat proxy:setPeer --env <env>
