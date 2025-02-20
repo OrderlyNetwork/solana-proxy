@@ -3,7 +3,7 @@ use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use oapp::endpoint::instructions::RegisterOAppParams;
 
-use crate::state::{AccountList, LzReceiveTypesAccounts, ProxyConfig, ACCOUNT_LIST_SEED, LZ_RECEIVE_TYPES_SEED, PROXY_CONFIG_SEED};
+use crate::state::{LzReceiveTypesAccounts, ProxyConfig, LZ_RECEIVE_TYPES_SEED, PROXY_CONFIG_SEED};
 
 #[derive(Accounts)]
 #[instruction(params: InitProxyParams)]
@@ -29,14 +29,6 @@ pub struct InitProxy<'info> {
     )]
     pub lz_receive_types_accounts: Account<'info, LzReceiveTypesAccounts>,
 
-    // #[account(
-    //     init,
-    //     payer = payer,
-    //     space = 8 + AccountList::INIT_SPACE,
-    //     seeds = [ACCOUNT_LIST_SEED, &proxy_config.key().as_ref()],
-    //     bump
-    // )]
-    // pub account_list: Account<'info, AccountList>,
     #[account(
         init_if_needed,
         payer = payer,
@@ -66,11 +58,6 @@ impl InitProxy<'_> {
 
         // Initialize the lz_receive_types_accounts
         ctx.accounts.lz_receive_types_accounts.proxy_config = ctx.accounts.proxy_config.key();
-        // ctx.accounts.lz_receive_types_accounts.account_list = ctx.accounts.account_list.key();
-
-        // Initialize the account_list
-        // ctx.accounts.account_list.bump = ctx.bumps.account_list;
-        // ctx.accounts.account_list.usdc_token_account = params.usdc_token_account;
 
         // Register the oapp
         oapp::endpoint_cpi::register_oapp(

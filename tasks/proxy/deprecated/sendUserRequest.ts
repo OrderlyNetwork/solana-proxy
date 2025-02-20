@@ -13,12 +13,12 @@ import {
     getConfig,
     getDeployedOftProgram,
     getOrderlyEid,
-    getPayloadDataType,
+    getPayloadType,
     getRequestOpts,
     printTxLinks,
     setupAnchor,
-    PayloadDataType,
-} from './utils'
+    PayloadType,
+} from '../utils'
 
 interface SendUserRequestTaskArgs {
     amount: string
@@ -30,20 +30,20 @@ task('proxy:send-user-request', 'Send user request to the OmnichainLedger contra
     .addParam('amount', 'amount or request id depending on request type ', '0', devtoolsTypes.string)
     .addParam('payloadType', 'payload type', undefined, devtoolsTypes.string)
     .setAction(async ({ amount, payloadType }: SendUserRequestTaskArgs) => {
-        const payloadDataType = getPayloadDataType(payloadType)
+        const payloadDataType = getPayloadType(payloadType)
         console.log('Payload data type:', payloadDataType)
 
-        const [provider, wallet] = setupAnchor()
+        const [provider, wallet] = setupAnchor('local')
 
-        const requestOpts = await getRequestOpts(provider, payloadDataType, wallet)
+        // const requestOpts = await getRequestOpts(provider, payloadDataType, wallet)
 
-        const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, requestOpts.nonce, wallet.publicKey)
+        const composeMsg = createComposeMsgForUserRequest(payloadDataType, amount, new BN(0), wallet.publicKey)
 
-        const amountToSend = payloadDataType === PayloadDataType.Stake ? amount : '0'
+        const amountToSend = payloadDataType === PayloadType.Stake ? amount : '0'
         const nativeFee = await getNativeFee(provider, amountToSend, composeMsg, wallet)
         const txSig = await sendTransaction(provider, amountToSend, composeMsg, wallet, nativeFee)
 
-        if (payloadDataType === PayloadDataType.Stake) {
+        if (payloadDataType === PayloadType.Stake) {
             console.log(`✅ Sent ${amountToSend} token(s) to Orderly chain!`)
         }
 
@@ -54,8 +54,8 @@ async function getNativeFee(provider: AnchorProvider, amount: string, composeMsg
     const config = getConfig()
     const oftProgram = getDeployedOftProgram(provider)
     const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
-    const toEid = getOrderlyEid()
-    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
+    const toEid = getOrderlyEid('local')
+    const options = Options.newOptions().addExecutorComposeOption(0, 500000, 0).toBytes()
 
     const oftQuoteSendParams = {
         dstEid: toEid,
@@ -111,7 +111,7 @@ async function sendTransaction(
     const signerAta = getAssociatedTokenAddressSync(new PublicKey(config.mintPda), wallet.publicKey)
     const recipientAddressBytes32 = addressToBytes32(config.occManagerAddress)
     const toEid = getOrderlyEid()
-    const options = Options.newOptions().addExecutorComposeOption(0, 300000, 0).toBytes()
+    const options = Options.newOptions().addExecutorComposeOption(0, 500000, 0).toBytes()
     const ixAddComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
 
     const oftSendParams = {

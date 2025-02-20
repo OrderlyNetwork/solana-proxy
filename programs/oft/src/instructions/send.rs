@@ -3,10 +3,9 @@ use anchor_spl::token_interface::{
     self, Burn, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 use oapp::endpoint::{instructions::SendParams as EndpointSendParams, MessagingReceipt};
-use cpi_helper::CpiContext;
 
 #[event_cpi]
-#[derive(CpiContext, Accounts)]
+#[derive(Accounts)]
 #[instruction(params: SendParams)]
 pub struct Send<'info> {
     pub signer: Signer<'info>,
@@ -63,7 +62,10 @@ impl Send<'_> {
             &ctx.accounts.token_mint,
             ctx.accounts.peer.fee_bps,
         )?;
-        require!(amount_received_ld >= params.min_amount_ld, OFTError::SlippageExceeded);
+        require!(
+            amount_received_ld >= params.min_amount_ld,
+            OFTError::SlippageExceeded
+        );
 
         if let Some(rate_limiter) = ctx.accounts.peer.outbound_rate_limiter.as_mut() {
             rate_limiter.try_consume(amount_received_ld)?;
@@ -131,7 +133,11 @@ impl Send<'_> {
             ctx.accounts.oft_store.endpoint_program,
             ctx.accounts.oft_store.key(),
             ctx.remaining_accounts,
-            &[OFT_SEED, ctx.accounts.token_escrow.key().as_ref(), &[ctx.accounts.oft_store.bump]],
+            &[
+                OFT_SEED,
+                ctx.accounts.token_escrow.key().as_ref(),
+                &[ctx.accounts.oft_store.bump],
+            ],
             EndpointSendParams {
                 dst_eid: params.dst_eid,
                 receiver: ctx.accounts.peer.peer_address,
@@ -159,7 +165,13 @@ impl Send<'_> {
             amount_received_ld
         });
 
-        Ok((msg_receipt, OFTReceipt { amount_sent_ld, amount_received_ld }))
+        Ok((
+            msg_receipt,
+            OFTReceipt {
+                amount_sent_ld,
+                amount_received_ld,
+            },
+        ))
     }
 }
 

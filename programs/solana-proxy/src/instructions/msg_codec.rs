@@ -8,6 +8,22 @@ pub enum TokenType {
     PLACEHOLDER,
 }
 
+impl TokenType {
+    pub fn check_vault_token_type(&self) -> bool {
+        match self {
+            TokenType::PLACEHOLDER => true,
+            _ => false,
+        }
+    }
+
+    pub fn check_ledger_token_type(&self) -> bool {
+        match self {
+            TokenType::USDC => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct SolanaVaultOCCMessage {
     pub token: u8,

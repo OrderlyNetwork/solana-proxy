@@ -8,7 +8,7 @@ import {
     createAndSendV0Tx,
     getConfigPath,
     updateConfig,
-} from './utils'
+} from '../utils'
 import { toWeb3JsPublicKey } from '@metaplex-foundation/umi-web3js-adapters'
 import { AddressLookupTableProgram, PublicKey, SystemProgram } from '@solana/web3.js'
 import fs from 'fs'

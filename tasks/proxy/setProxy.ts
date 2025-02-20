@@ -50,8 +50,9 @@ import {
     getDefaultSendLibConfigPda,
     getClaimDataPda,
     getBackwardFeePda,
+    getAccountListPda,
 } from './pdaHelper'
-import { PublicKey, AccountMeta, Connection, ComputeBudgetProgram } from '@solana/web3.js'
+import { PublicKey, AccountMeta, Connection, ComputeBudgetProgram, SystemProgram } from '@solana/web3.js'
 import {
     fromWeb3JsInstruction,
     fromWeb3JsPublicKey,
@@ -73,7 +74,7 @@ import { EventPDADeriver, SendHelper, EndpointProgram, EndpointPDADeriver } from
 import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM } from './constants'
 import { config } from 'process'
 import { setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox'
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import { bigint } from 'hardhat/internal/core/params/argumentTypes'
 
 task('sol:proxy:init', 'Create and init Proxy Config PDA')
@@ -90,6 +91,7 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
         const solChainId = getSolanaChainId(taskArgs.env)
         const proxyTokenAccount = getTokenATA(usdcMint, proxyConfigPda)
         const oappRegistryPda = getOAppRegistryPda(proxyConfigPda)
+        const accountListPda = getAccountListPda(proxyProgram.programId, proxyConfigPda)
         const admin = wallet
         const peerAddress = getPeerAddress(taskArgs.env)
         console.log('proxy config pda', proxyConfigPda.toBase58())
@@ -353,6 +355,28 @@ task('sol:proxy:setfee', 'Set backwar fee for Solana Proxy')
         console.log('Tx to set Backward Fee for Solana Proxy:', tx)
     })
 
+task('sol:proxy:setaccountlist', 'Set Account List for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const accountListPda = getAccountListPda(proxyProgram.programId, proxyConfigPda)
+        const lzReceiveTypesPda = getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
+        const usdcMint = getUsdcMint(taskArgs.env)
+        const ixSetAccountList = await proxyProgram.methods
+            .setAccountList({ usdcTokenAccount: usdcMint })
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                lzReceiveTypes: lzReceiveTypesPda,
+                accountList: accountListPda,
+            })
+            .instruction()
+        const tx = await createAndSendV0Tx([ixSetAccountList], provider, wallet)
+        console.log('Tx to set Account List for Solana Proxy:', tx)
+    })
+
 task('sol:proxy:withdrawfee', 'Withdraw fee for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     // .addParam('amount', 'The amount to withdraw', undefined, devtoolsTypes.string)
@@ -454,7 +478,6 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         const programId = fromWeb3JsPublicKey(proxyProgram.programId)
         const orderlyEid = getOrderlyEid(taskArgs.env)
         const rpc = getUmi(taskArgs.env).rpc
-
         console.log('=============== Proxy Config ===============')
         const proxyConfigData = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
         printProxyConfig(proxyConfigData)
@@ -582,11 +605,11 @@ task('sol:proxy:submitproof', 'Send request for Solana Proxy')
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
 
-        console.log('Claiming reward from the Solana network...')
-        console.log('Distribution ID:', taskArgs.distributionId)
-        console.log('cumulative amount:', taskArgs.cumulativeAmount)
-        console.log('Merkle proof:', taskArgs.merkleProof, taskArgs.merkleProof.length)
-        console.log('Proxy program ID:', proxyProgram.programId.toBase58())
+        // console.log('Claiming reward from the Solana network...')
+        // console.log('Distribution ID:', taskArgs.distributionId)
+        // console.log('cumulative amount:', taskArgs.cumulativeAmount)
+        // console.log('Merkle proof:', taskArgs.merkleProof, taskArgs.merkleProof.length)
+        // console.log('Proxy program ID:', proxyProgram.programId.toBase58())
 
         const tx = await submitProof(
             proxyProgram,
@@ -609,10 +632,10 @@ task('sol:proxy:quoteclaim', 'Quote claim for Solana Proxy')
         let claimData
         try {
             claimData = await proxyProgram.account.claimData.fetch(claimDataPda)
-            console.log('Distribution ID:', claimData.distributionId)
-            console.log('Cumulative amount:', claimData.amount)
-            console.log('Root:', claimData.root)
-            console.log('User:', claimData.user.toBase58())
+            // console.log('Distribution ID:', claimData.distributionId)
+            // console.log('Cumulative amount:', claimData.amount)
+            // console.log('Root:', claimData.root)
+            // console.log('User:', claimData.user.toBase58())
         } catch (e) {
             // console.log(e)
             throw new Error('Claim data not found, please submit proof first')
@@ -630,10 +653,10 @@ task('sol:proxy:claim', 'Claim reward from Solana Proxy')
         let claimData
         try {
             claimData = await proxyProgram.account.claimData.fetch(claimDataPda)
-            console.log('Distribution ID:', claimData.distributionId)
-            console.log('Cumulative amount:', claimData.amount)
-            console.log('Root:', claimData.root)
-            console.log('User:', claimData.user.toBase58())
+            // console.log('Distribution ID:', claimData.distributionId)
+            // console.log('Cumulative amount:', claimData.amount)
+            // console.log('Root:', claimData.root)
+            // console.log('User:', claimData.user.toBase58())
         } catch (e) {
             // console.log(e)
             throw new Error('Claim data not found, please submit proof first')

@@ -29,4 +29,6 @@ pub enum ProxyError {
     InsufficientMessagingFee,
     #[msg("Insufficient balance")]
     InsufficientBalance,
+    #[msg("Invalid Ledger token type")]
+    InvalidLedgerTokenType,
 }

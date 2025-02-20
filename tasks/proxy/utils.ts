@@ -40,6 +40,7 @@ import {
     simulateTransaction,
     SendHelper,
 } from '@layerzerolabs/lz-solana-sdk-v2'
+
 import { arrayify, hexlify } from '@layerzerolabs/lz-utilities'
 import { ethers } from 'ethers'
 import { defaultAbiCoder } from '@ethersproject/abi'
@@ -54,7 +55,7 @@ import { assert } from '@layerzerolabs/lz-utilities'
 import * as borsh from 'borsh'
 
 import * as constants from './constants'
-import { getClaimDataPda, getPeerPda, getProxyConfigPda } from './pdaHelper'
+import { getBackwardFeePda, getClaimDataPda, getPeerPda, getProxyConfigPda } from './pdaHelper'
 
 export function setUpEnv(ENV: string) {
     const [provider, wallet, rpc] = setupAnchor(ENV)
@@ -87,6 +88,10 @@ export function getUmi(ENV: string) {
 
 export function getOftAccounts(ENV: string) {
     return constants.OFT_ACCOUNTS[ENV]
+}
+
+export function getProxyAccounts(ENV: string) {
+    return constants.PROXY_ACCOUNTS[ENV]
 }
 
 export function getSolanaEid(ENV: string): number {
@@ -135,15 +140,87 @@ export function printTxLinks(ENV: string, txid: string) {
 }
 
 export function printProxyConfig(proxyConfig: any) {
-    console.log(`Print Proxy Config:`)
-    // console.log('  bump:             ', proxyConfig.bump.toString())
-    console.log('  endpointProgram:  ', proxyConfig.endpointProgram.toBase58())
-    console.log('  usdcTokenAccount: ', proxyConfig.usdcTokenAccount.toBase58())
+    console.log('Admin:', proxyConfig.admin.toString())
+    console.log('Endpoint Program:', proxyConfig.endpointProgram.toString())
+    console.log('Orderly EID:', proxyConfig.orderlyEid)
+    console.log('Solana Chain ID:', proxyConfig.solChainId)
+    console.log('USDC Token Account:', proxyConfig.usdcTokenAccount.toString())
+    console.log('Paused:', proxyConfig.paused)
+}
 
-    console.log('  admin:            ', proxyConfig.admin.toBase58())
-    console.log('  orderlyEid:       ', proxyConfig.orderlyEid.toString())
-    console.log('  solChainId:       ', proxyConfig.solChainId.toString())
-    console.log('  paused:           ', proxyConfig.paused.toString())
+export function printOptions(options: any, enforcedOptions: any) {
+    const [optionSend, optionSendAndCall] = getEncodedOptions(options)
+    console.log(
+        `The option config for send: receive gas = ${options.LZ_RECEIVE_GAS}, receive value = ${options.LZ_RECEIVE_VALUE}`
+    )
+    console.log(`The option config into bytes:    `, Buffer.from(optionSend).toString('hex'))
+    console.log(`The option set onchain for send: `, Buffer.from(enforcedOptions.send).toString('hex'))
+    console.log(
+        `The option config for sendAndCall: receive gas = ${options.LZ_RECEIVE_GAS}, receive value = ${options.LZ_RECEIVE_VALUE}, compose gas = ${options.LZ_COMPOSE_GAS}, compose value = ${options.LZ_COMPOSE_VALUE}`
+    )
+    console.log(`The option config into bytes:           `, Buffer.from(optionSendAndCall).toString('hex'))
+    console.log(`The option set onchain for sendAndCall: `, Buffer.from(enforcedOptions.sendAndCall).toString('hex'))
+}
+
+export function printEndpointConfig(endpointConfig: any) {
+    console.log(`Endpoint config - send lib config: `) // , endpointConfig.sendLibraryConfig
+    console.log(`    - messageLib: `, endpointConfig.sendLibraryConfig.messageLib.toString())
+    console.log(`    - uln sendConfig: `)
+    console.log(`        - uln: `)
+    console.log(
+        `           - confirmation: `,
+        endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.confirmations.toString()
+    )
+    console.log(
+        `           - requiredDvns:: `,
+        endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.requiredDvns.toString()
+    )
+    console.log(`           - requiredDvnCount: `, endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.requiredDvnCount)
+    console.log(
+        `           - optionalDvns: `,
+        endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.optionalDvns.toLocaleString()
+    )
+    console.log(`           - optionalDvnCount: `, endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.optionalDvnCount)
+    console.log(
+        `           - optionalDvnThreshold: `,
+        endpointConfig.sendLibraryConfig.ulnSendConfig?.uln.optionalDvnThreshold
+    )
+    console.log(`        - executor: `)
+    console.log(
+        `           - maxMessageSize: `,
+        endpointConfig.sendLibraryConfig.ulnSendConfig?.executor.maxMessageSize
+    )
+    console.log(`           - executor: `, endpointConfig.sendLibraryConfig.ulnSendConfig?.executor.executor.toString())
+
+    console.log(`Endpoint config - receive lib config: `) // , endpointConfig.receiveLibraryConfig
+    console.log(`    - messageLib: `, endpointConfig.receiveLibraryConfig.messageLib.toString())
+    console.log(`    - timeout: `, endpointConfig.receiveLibraryConfig.timeout)
+    console.log(`    - uln receiveConfig: `)
+    console.log(`        - uln: `)
+    console.log(
+        `           - confirmation: `,
+        endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.confirmations.toString()
+    )
+    console.log(
+        `           - requiredDvns:: `,
+        endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.requiredDvns.toString()
+    )
+    console.log(
+        `           - requiredDvnCount: `,
+        endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.requiredDvnCount
+    )
+    console.log(
+        `           - optionalDvns: `,
+        endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.optionalDvns.toLocaleString()
+    )
+    console.log(
+        `           - optionalDvnCount: `,
+        endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.optionalDvnCount
+    )
+    console.log(
+        `           - optionalDvnThreshold: `,
+        endpointConfig.receiveLibraryConfig.ulnReceiveConfig?.uln.optionalDvnThreshold
+    )
 }
 
 export async function createAndSendV0Tx(
@@ -166,7 +243,12 @@ export async function createAndSendV0Tx(
     transaction.sign([wallet.payer])
 
     // Step 4 - Send our v0 transaction to the cluster
-    const txid = await provider.connection.sendTransaction(transaction, { maxRetries: 5 })
+    const sendOptions = {
+        skipPreflight: true,
+        maxRetries: 5,
+        commitment: 'confirmed',
+    }
+    const txid = await provider.sendAndConfirm(transaction, [wallet.payer])
     // console.log('   ✅ - Transaction sent to network', txid)
 
     // await new Promise((r) => setTimeout(r, 2000))
@@ -362,49 +444,6 @@ export async function printQuoteSendRemainAccounts(ENV: string, provider: Anchor
     console.log('Quote send remaining accounts:', quoteSendRemainAccounts)
 }
 
-export function getAccountsForEndpointV2QuoteSend(): AccountMeta[] {
-    const config = getConfig()
-    return [
-        // ----------- Endpoint V2 quote send addresses -----------
-        accountMeta(config.endpointV2ProgramId, false, false),
-        accountMeta(config.sendLibProgramId, false, false),
-        accountMeta(config.sendLibConfigPda, false, false),
-        accountMeta(config.defaultSendLibConfigPda, false, false),
-        accountMeta(config.sendLibInfoPda, false, false),
-        accountMeta(config.endpointSettingsPda, false, false),
-        accountMeta(config.noncePda, false, false),
-        // ----------- Unknown part -----------
-        accountMeta(config.ulnSettingsPda, false, false),
-        accountMeta(config.sendConfigPda, false, false),
-        accountMeta(config.defaultSendConfigPda, false, false),
-        // ----------- Send (Message) Library send addresses -----------
-        accountMeta(config.executorProgramId, false, false),
-        accountMeta(config.executorConfigPda, false, false),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
-        accountMeta(config.dvnProgramId, false, false),
-        accountMeta(config.dvnConfigPda, false, false),
-        accountMeta(config.priceFeedProgramId, false, false),
-        accountMeta(config.priceFeedConfigPda, false, false),
-    ]
-}
-
-export function getAccountsForOftSend(signer: string | PublicKey, signerSigns: boolean): AccountMeta[] {
-    const config = getConfig()
-    return [
-        // ----------- Oft send addresses -----------
-        accountMeta(config.oftProgramId, false, false),
-        accountMeta(signer, signerSigns, false),
-        accountMeta(config.peerPda, false, true),
-        accountMeta(config.oftStorePda, false, true),
-        accountMeta(config.proxyEscrowAta, false, true),
-        accountMeta(config.oftEscrowAta, false, true),
-        accountMeta(config.mintPda, false, true),
-        accountMeta(TOKEN_PROGRAM_ID, false, false),
-        accountMeta(config.unknownPda, false, false),
-    ]
-}
-
 export function encodeUserRequestPayload(amountArray: number[]): Uint8Array {
     const encodedStr = defaultAbiCoder.encode(['tuple(uint256)'], [[amountArray]])
     // console.log('Encoded user request payload:', encodedStr)
@@ -573,6 +612,7 @@ export async function quoteClaimFee(program: Program<SolanaProxy>, payer: Public
         ENV
     )
     const claimData = getClaimDataPda(program.programId, payer)
+    const backwardFeePda = getBackwardFeePda(program.programId)
     const remainingAccounts = await getQuoteRemainingAccounts(connection, payer, path)
     const { lzTokenFee, nativeFee } = await program.methods
         .quoteClaim()
@@ -581,6 +621,7 @@ export async function quoteClaimFee(program: Program<SolanaProxy>, payer: Public
             claimData: claimData,
             proxyConfig: accounts.proxyConfig,
             peerConfig: accounts.peerConfig,
+            backwardFee: backwardFeePda,
         })
         .remainingAccounts(remainingAccounts)
         .view()
@@ -619,7 +660,7 @@ export async function submitProof(
         .instruction()
     // const addComputeBudget = ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 })
     const txSig = await createAndSendV0Tx([ixSubmitProof], provider, wallet)
-    console.log('Tx to submit claim proof to Solana Proxy:', txSig)
+    // console.log('Tx to submit claim proof to Solana Proxy:', txSig)
     return txSig
 }
 
@@ -645,11 +686,13 @@ export async function sendClaimRequest(
         nativeFee: nativeFee,
     }
     const claimData = getClaimDataPda(program.programId, payer.publicKey)
+    const backwardFeePda = getBackwardFeePda(program.programId)
     const claimAccounts = {
         user: payer.publicKey,
         claimData: claimData,
         proxyConfig: accounts.proxyConfig,
         peerConfig: accounts.peerConfig,
+        backwardFee: backwardFeePda,
     }
 
     const requestIx = await program.methods
@@ -724,7 +767,7 @@ export async function sendRequest(
     return tx
 }
 
-function prepareParamsAndAccounts(
+export function prepareParamsAndAccounts(
     program: Program<SolanaProxy>,
     payer: PublicKey,
     payloadType: constants.PayloadType,
@@ -738,11 +781,13 @@ function prepareParamsAndAccounts(
     const proxyConfigPda = getProxyConfigPda(program.programId)
     const orderlyEid = getOrderlyEid(ENV)
     const peerConfigPda = getPeerPda(program.programId, proxyConfigPda, orderlyEid)
+    const backwardFeePda = getBackwardFeePda(program.programId)
 
     const accounts = {
         user: payer,
         peerConfig: peerConfigPda,
         proxyConfig: proxyConfigPda,
+        backwardFee: backwardFeePda,
     }
     const rpc = getUmi(ENV).rpc
     const connection = new Connection(rpc.getEndpoint(), 'confirmed')
@@ -803,8 +848,6 @@ export function getEndpoint() {
 export function getInitOAppRemainingAccounts(wallet: Wallet, oapp: PublicKey) {
     const endpoint = getEndpoint()
     const accounts = endpoint.getRegisterOappIxAccountMetaForCPI(wallet.publicKey, oapp)
-    // console.log('accounts:', accounts)
-    // console.log('account len', accounts.length)
     return accounts
 }
 
@@ -864,6 +907,13 @@ export function getChainEventId() {
 
 export function getSrcChainId(ENV: string): number {
     return constants.SOLANA_INFO[ENV].solChainId
+}
+
+export function getBackwardFee() {
+    return {
+        orderBackwardFee: constants.ORDER_BACKWARD_FEE,
+        usdcBackwardFee: constants.USDC_BACKWARD_FEE,
+    }
 }
 
 export function getPeerAddress(ENV: string) {
@@ -965,15 +1015,16 @@ export function checkPayload(payloadType: constants.PayloadType, payload: string
         payloadType === getPayloadType().CancelOrderUnstakeRequest ||
         payloadType === getPayloadType().WithdrawOrder ||
         payloadType === getPayloadType().EsOrderUnstakeAndVest ||
-        payloadType === getPayloadType().RedeemValor ||
-        payloadType === getPayloadType().ClaimUsdcRevenue || // TODO: check USDC and Valor decimal
+        // TODO: check USDC and Valor decimal
         payloadType === getPayloadType().UnstakeOrderNow
     ) {
         encodedPayload = convertIntoBytes32(payload, constants.ORDER_DECIMALS_ON_ETHEREUM)
     } else if (
         payloadType === getPayloadType().CancelVestingRequest ||
         payloadType === getPayloadType().CancelAllVestingRequests || // Not supported anymore. Do not remove for backward compatibility
-        payloadType === getPayloadType().ClaimVestingRequest
+        payloadType === getPayloadType().ClaimVestingRequest ||
+        payloadType === getPayloadType().RedeemValor ||
+        payloadType === getPayloadType().ClaimUsdcRevenue
     ) {
         encodedPayload = convertIntoBytes32(payload)
     } else {

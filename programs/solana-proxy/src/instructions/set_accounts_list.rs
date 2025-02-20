@@ -28,16 +28,16 @@ pub struct SetAccountList<'info> {
         seeds = [ACCOUNT_LIST_SEED, &proxy_config.key().as_ref()],
         bump
     )]
-    pub accounts_list: Account<'info, AccountList>,
+    pub account_list: Account<'info, AccountList>,
 
     pub system_program: Program<'info, System>,
 }
 
 impl SetAccountList<'_> {
     pub fn apply(ctx: &mut Context<SetAccountList>, params: &SetAccountListParams) -> Result<()> {
-        // ctx.accounts.lz_receive_types.account_list = ctx.accounts.accounts_list.key();
-        ctx.accounts.accounts_list.bump = ctx.bumps.accounts_list;
-        ctx.accounts.accounts_list.usdc_token_account = params.usdc_token_account;
+        ctx.accounts.lz_receive_types.account_list = ctx.accounts.account_list.key();
+        ctx.accounts.account_list.bump = ctx.bumps.account_list;
+        ctx.accounts.account_list.usdc_token_account = params.usdc_token_account;
         Ok(())
     }
 }

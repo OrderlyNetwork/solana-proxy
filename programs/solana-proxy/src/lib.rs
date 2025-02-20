@@ -12,7 +12,7 @@ use instructions::*;
 // use oapp::endpoint::MessagingReceipt;
 // use oft::instructions::OFTReceipt;
 
-declare_id!("5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ");
+declare_id!("6sH1YKAatvQqMCQcQoh3feMzXipuaYkHKGeDLUHpatrz");
 
 #[program]
 pub mod solana_proxy {
@@ -64,7 +64,7 @@ pub mod solana_proxy {
         SetPause::apply(&mut ctx, &params)
     }
 
-    pub fn set_accounts_list(mut ctx: Context<SetAccountList>, params: SetAccountListParams) -> Result<()> {
+    pub fn set_account_list(mut ctx: Context<SetAccountList>, params: SetAccountListParams) -> Result<()> {
         SetAccountList::apply(&mut ctx, &params)
     }
 

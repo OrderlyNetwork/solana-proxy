@@ -57,19 +57,17 @@ impl QuoteRequest<'_> {
         };
         // calling endpoint cpi
         let messaging_fee = oapp::endpoint_cpi::quote(ctx.accounts.proxy_config.endpoint_program, ctx.remaining_accounts, endpoint_quote_params)?;
-
         let backward_fee: u64;
-        if payload_type == PayloadType::WithdrawOrder
-            || payload_type == PayloadType::ClaimVestingRequest
-            || payload_type == PayloadType::UnstakeOrderNow
+        if params.payload_type == PayloadType::WithdrawOrder as u8
+            || params.payload_type == PayloadType::ClaimVestingRequest as u8
+            || params.payload_type == PayloadType::UnstakeOrderNow as u8
         {
             backward_fee = ctx.accounts.backward_fee.order_backward_fee;
-        } else if payload_type == PayloadType::ClaimUsdcRevenue {
+        } else if params.payload_type == PayloadType::ClaimUsdcRevenue as u8 {
             backward_fee = ctx.accounts.backward_fee.usdc_backward_fee;
         } else {
             backward_fee = 0;
         }
-
         return Ok(MessagingFee { native_fee: messaging_fee.native_fee + backward_fee, lz_token_fee: messaging_fee.lz_token_fee });
     }
 }

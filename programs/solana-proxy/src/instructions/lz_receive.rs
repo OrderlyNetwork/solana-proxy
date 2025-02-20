@@ -1,11 +1,11 @@
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
+// use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 use oapp::endpoint::{cpi::accounts::Clear, instructions::ClearParams, ConstructCPIContext};
 use crate::instructions::LzReceiveParams;
 
 use crate::errors::ProxyError;
-use crate::instructions::msg_codec::{SolanaLedgerOCCMessage, TokenType};
+use crate::instructions::msg_codec::SolanaLedgerOCCMessage;
 use crate::state::{PeerConfig, ProxyConfig, PEER_SEED, PROXY_CONFIG_SEED};
 
 #[event_cpi]
@@ -95,6 +95,7 @@ impl<'info> LzReceive<'info> {
 
         let message = SolanaLedgerOCCMessage::decode(&params.message)?;
         require!(message.payload_type.check_ledger_payload_type(), ProxyError::InvalidLedgerPayloadType);
+        require!(message.token.check_ledger_token_type(), ProxyError::InvalidLedgerTokenType);
         // convert Vec<u8> to [u8; 32]
         let mut amount_bytes = [0u8; 32];
         amount_bytes.copy_from_slice(&message.payload[0..32]);

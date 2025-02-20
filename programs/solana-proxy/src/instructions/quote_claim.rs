@@ -1,5 +1,5 @@
 use crate::errors::ProxyError;
-use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage, TokenType};
+use crate::instructions::msg_codec::{PayloadType, SolanaVaultOCCMessage};
 use crate::instructions::quote_request::MessagingFee;
 use crate::state::{BackwardFee, ClaimData, PeerConfig, ProxyConfig, BACKWARD_FEE_SEED, CLAIM_DATA_SEED, PEER_SEED, PROXY_CONFIG_SEED};
 use anchor_lang::prelude::*;

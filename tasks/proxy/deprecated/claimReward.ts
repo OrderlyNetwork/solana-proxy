@@ -11,7 +11,7 @@ import {
     getAccountsForOftSend,
     getAccountsForEndpointV2Send,
     printTxLinks,
-} from './utils'
+} from '../utils'
 import { ComputeBudgetProgram, PublicKey } from '@solana/web3.js'
 
 interface ClaimRewardTaskArgs {
