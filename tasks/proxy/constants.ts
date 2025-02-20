@@ -105,27 +105,27 @@ export const PROXY_ACCOUNTS: { [key: string]: any } = {
 
 export const OFT_ACCOUNTS: { [key: string]: any } = {
     local: {
-        programId: new PublicKey('rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa'),
-        mint: new PublicKey('8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN'),
-        mintAuthority: new PublicKey('EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm'),
-        escrow: new PublicKey('2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i'),
-        oftStore: new PublicKey('AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg'),
-        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
-        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+        programId: new PublicKey('Cz7PQf471Pg3MiHKbKSTTZD5am2ZjJ93bon3gPThyH6v'),
+        mint: new PublicKey('DW7MkwAmEUV72vQNi8dCu9rzeqaBrR8AtxyVaj2rXBxT'),
+        mintAuthority: new PublicKey('6oRZ8usrt5gfARp2HB8yq2A1qUZft9UkGaP3kWRvj77F'),
+        escrow: new PublicKey('BsePJupeGSfvi919fg5pvvxGY5Y1uZS7x7uFyzMaYJuP'),
+        oftStore: new PublicKey('6oRZ8usrt5gfARp2HB8yq2A1qUZft9UkGaP3kWRvj77F'),
+        ledgerOccManger: addressToBytes32('0xb846DF606b592B9646db03aE2568951651D9D5BC'),
+        evmOftAddress: addressToBytes32('0xe2eB2df1CA9D90c8501049bAEEEf57f111782903'),
         // alt: address lookup table account for oft
-        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'), // TODO: placeholder
         //
     },
     dev: {
-        programId: new PublicKey('rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa'),
-        mint: new PublicKey('8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN'),
-        mintAuthority: new PublicKey('EkRmM92atmaeWdunUb9pYuNs27Nvnx11ktj1xSN8BPjm'),
-        escrow: new PublicKey('2rFLj7sGaYxSdh52XBgc6GSdeCH8GgaKcSevsbcVwn4i'),
-        oftStore: new PublicKey('AHSXYVVQ9xmzZ45UxURcxjLCPqCVGn2qLnk6E7dwF4Dg'),
+        rogramId: new PublicKey('Cz7PQf471Pg3MiHKbKSTTZD5am2ZjJ93bon3gPThyH6v'),
+        mint: new PublicKey('DW7MkwAmEUV72vQNi8dCu9rzeqaBrR8AtxyVaj2rXBxT'),
+        mintAuthority: new PublicKey('6oRZ8usrt5gfARp2HB8yq2A1qUZft9UkGaP3kWRvj77F'),
+        escrow: new PublicKey('BsePJupeGSfvi919fg5pvvxGY5Y1uZS7x7uFyzMaYJuP'),
+        oftStore: new PublicKey('6oRZ8usrt5gfARp2HB8yq2A1qUZft9UkGaP3kWRvj77F'),
+        ledgerOccManger: addressToBytes32('0xb846DF606b592B9646db03aE2568951651D9D5BC'),
+        evmOftAddress: addressToBytes32('0xe2eB2df1CA9D90c8501049bAEEEf57f111782903'),
         // alt: address lookup table account for oft
-        alt: new PublicKey('EfroxiuFHmrdq4B9Le59vgMTUKZm2dYP2GNYtK9WcRJQ'),
-        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
-        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'), // TODO: placeholder
     },
     qa: {
         programId: new PublicKey('B2BBh7JdvdsmzuG7b4dedeBjSMfmiS91z6gQS3DhRLns'),
@@ -134,8 +134,8 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         escrow: new PublicKey('85FsyjiLqfyZciG1s3ERzsc47LuxQiEnoUfcnV9urAYZ'),
         // alt: address lookup table account for oft
         alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
-        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
-        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+        ledgerOccManger: addressToBytes32('0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53'),
+        evmOftAddress: addressToBytes32('0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18'),
     },
     staging: {
         programId: new PublicKey('3LftFSsxKksyiPYZyJ68Y6VuWcRkVce3Zg5TxwLC6D1o'),
@@ -146,8 +146,8 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         multisig: new PublicKey('48usEusxMDBxpjLkyrarHupqodAfxXyoaLDVNDJFvkME'),
         // alt: address lookup table account for oft
         alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
-        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
-        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+        ledgerOccManger: addressToBytes32('0x45f3039A9A0eefcC8997e030d9F3cCBb1A7AC6C1'),
+        evmOftAddress: addressToBytes32('0x5f11B4510BC50EfB82Fb55D7839a46e9b621f8C2'),
     },
     mainnet: {
         programId: new PublicKey('GZGX6QfUo62VbPyYqPZS6t27Uke1dJmoAP6V3rw6ntTH'),
@@ -157,8 +157,8 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         oftStore: new PublicKey('Efvf2QfcPAJc8XCd1MV1MN1JLNDZRKj2ZbJ3xg6pAf7'),
         // alt: address lookup table account for oft
         alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
-        ledgerOccManger: addressToBytes32('0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc'),
-        evmOftAddress: addressToBytes32('0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2'),
+        ledgerOccManger: addressToBytes32('0x68835941c7C300bFEF44D1D68b83798791901eB8'),
+        evmOftAddress: addressToBytes32('0x4E200fE2f3eFb977d5fd9c430A41531FB04d97B8'),
     },
 }
 
