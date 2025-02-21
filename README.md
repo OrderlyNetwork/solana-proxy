@@ -288,3 +288,17 @@ npx hardhat sol:proxy:request --env dev --payload-type ClaimUsdcRevenue
 This command will trigger a backward message type (`ClaimUsdcRevenueBackward`) to be sent through the OApp channel: Orderly LedgerOApp -> Solana Proxy. User will receive the USDC in their USDC token account.
 
 More details related to the user requests can be found in the [document](https://orderly.network/docs/introduction/tokenomics/order-staking/staking).
+
+## Run Tests
+
+To run the tests for the Solana Proxy program, you should set the `cluster = "Localnet"` in the [Anchor config file](./Anchor.toml).
+
+```bash
+anchor test
+```
+
+To run the tests for the LedgerOApp, you can use the following command:
+
+```bash
+forge test
+```
