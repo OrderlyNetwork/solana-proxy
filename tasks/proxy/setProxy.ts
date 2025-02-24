@@ -301,7 +301,7 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
                         optionalDvnCount: config.sendLibConfig.ulnConfig.optionalDVNCount,
                         optionalDvnThreshold: config.sendLibConfig.ulnConfig.optionalDVNThreshold,
                         requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map(
-                            (address) => new PublicKey(address)
+                            (address: string) => new PublicKey(address)
                         ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
                         optionalDvns: [],
                     },
@@ -323,7 +323,7 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
                         optionalDvnCount: config.receiveLibConfig?.ulnConfig.optionalDVNCount,
                         optionalDvnThreshold: config.receiveLibConfig?.ulnConfig.optionalDVNThreshold,
                         requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map(
-                            (address) => new PublicKey(address)
+                            (address: string) => new PublicKey(address)
                         ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
                         optionalDvns: [],
                     },
