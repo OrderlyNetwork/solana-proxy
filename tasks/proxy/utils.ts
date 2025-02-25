@@ -481,7 +481,7 @@ export function createStakingMsg(amount: string, sender: PublicKey, ENV: string)
         [
             [
                 getChainEventId(),
-                getSrcChainId(ENV),
+                getSolChainId(ENV),
                 token,
                 amountInBytese32,
                 sender.toBytes(),
@@ -501,31 +501,36 @@ export function getStakingOptions() {
 export async function quoteStakingFee(wallet: Wallet, amount: string, ENV: string) {
     const orderlyEid = getOrderlyEid(ENV)
     const amountInBigInt = getOrderAmountInBigInt(amount)
-
+    console.log('amountInBigInt:', amountInBigInt)
+    console.log(orderlyEid)
     const stakingMsg = createStakingMsg(amount, wallet.publicKey, ENV)
+    console.log('stakingMsg:', stakingMsg)
     const rpc = getUmi(ENV).rpc
     const oftAccounts = getOftAccounts(ENV)
     const stakingOptions = getStakingOptions()
-    const { lzTokenFee, nativeFee } = await oft.quote(
-        rpc,
-        {
-            payer: fromWeb3JsPublicKey(wallet.publicKey),
-            tokenMint: oftAccounts.mint,
-            tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
-        },
-        {
-            dstEid: orderlyEid,
-            to: oftAccounts.ledgerOccManger,
-            amountLd: amountInBigInt,
-            minAmountLd: 0n, // TODO: should be the same as amount for deployed oft
-            options: stakingOptions,
-            composeMsg: stakingMsg,
-            payInLzToken: false,
-        },
-        {
-            oft: oftAccounts.programId,
-        }
-    )
+    console.log('stakingOptions:', stakingOptions)
+
+    const accounts = {
+        payer: fromWeb3JsPublicKey(wallet.publicKey),
+        tokenMint: oftAccounts.mint,
+        tokenEscrow: fromWeb3JsPublicKey(oftAccounts.escrow),
+    }
+    const quoteParams = {
+        dstEid: orderlyEid,
+        to: oftAccounts.ledgerOccManger,
+        amountLd: amountInBigInt,
+        minAmountLd: 0n, // TODO: should be the same as amount for deployed oft
+        options: stakingOptions,
+        composeMsg: Buffer.from(stakingMsg),
+        payInLzToken: false,
+    }
+    const quoteProgram = {
+        oft: oftAccounts.programId,
+    }
+    console.log('accounts:', accounts)
+    console.log('quoteParams:', quoteParams)
+    console.log('quoteProgram:', quoteProgram)
+    const { lzTokenFee, nativeFee } = await oft.quote(rpc, accounts, quoteParams, quoteProgram)
 
     console.log('✅ Quoted staking fee')
     return { lzTokenFee, nativeFee }
@@ -791,7 +796,7 @@ export function prepareParamsAndAccounts(
     }
     const rpc = getUmi(ENV).rpc
     const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-    const oappReceiver = bytes32ToEthAddress(getPeerAddress(ENV)!)
+    const oappReceiver = getLedgerOAppAddress(ENV)
     const oappSender = publicKeyIntoHex(proxyConfigPda)
     const path = {
         sender: oappSender,
@@ -887,7 +892,7 @@ export function getTokenATA(tokenAccount: PublicKey, owner: PublicKey) {
 }
 
 export function getOrderlyEid(ENV: string) {
-    if (ENV === 'mainnet') {
+    if (ENV === constants.ENV[4]) {
         return EndpointId.ORDERLY_V2_MAINNET
     } else {
         return EndpointId.ORDERLY_V2_TESTNET
@@ -905,7 +910,7 @@ export function getChainEventId() {
     return constants.CHAIN_EVENT_ID_PLACEHOLDER
 }
 
-export function getSrcChainId(ENV: string): number {
+export function getSolChainId(ENV: string): number {
     return constants.SOLANA_INFO[ENV].solChainId
 }
 
@@ -920,9 +925,19 @@ export function getPeerAddress(ENV: string) {
     return constants.PROXY_ACCOUNTS[ENV].peerAddress
 }
 
-export function getOptions(ENV: string) {
+// export function getLedgerOAppAddress(ENV: string) {
+//     return constants.LEDGER_OAPP_ACCOUNTS[ENV].proxy
+// }
+
+export function getOptions(ENV: string, localNetwork: string) {
     checkENV(ENV)
-    return constants.OPTIONS[ENV]
+    if (localNetwork === 'soldev' || localNetwork === 'solana') {
+        return constants.OPTIONS_TO_ORDERLY[ENV]
+    } else if (localNetwork === 'orderlysepolia' || localNetwork === 'orderly') {
+        return constants.OPTIONS_TO_ORDERLY[ENV]
+    } else {
+        throw new Error(`Invalid local network: ${localNetwork}`)
+    }
 }
 
 export function getLzConfig(orderlyEid: number) {
@@ -930,6 +945,20 @@ export function getLzConfig(orderlyEid: number) {
         return constants.LZ_CONFIG[orderlyEid]
     }
     throw new Error('Invalid orderly eid')
+}
+
+export function getLocalLzConfig(localNetwork: string) {
+    if (localNetwork === 'soldev') {
+        return constants.LZ_CONFIG.soldev
+    } else if (localNetwork === 'solana') {
+        return constants.LZ_CONFIG.solana
+    } else if (localNetwork === 'orderlysepolia') {
+        return constants.LZ_CONFIG.orderlysepolia
+    } else if (localNetwork === 'orderly') {
+        return constants.LZ_CONFIG.orderly
+    } else {
+        throw new Error(`Invalid local network: ${localNetwork}`)
+    }
 }
 
 export function getEncodedOptions(options: any) {
@@ -1046,8 +1075,53 @@ export function getOrderAmountInBigInt(amount: string) {
     return bigNumber.toBigInt()
 }
 
-function checkENV(ENV: string) {
+export function checkENV(ENV: string) {
     if (!constants.ENV.includes(ENV)) {
         throw new Error(`Invalid environment: ${ENV}`)
     }
+}
+
+export function getSolanaNetwork(ENV: string) {
+    if (ENV === constants.ENV[4]) {
+        return 'solana'
+    }
+    return 'soldev'
+}
+
+// ================================ Utility functions for LedgerOApp ================================
+
+export function checkOrderlyNetwork(network: string) {
+    if (network !== 'orderlysepolia' && network !== 'orderlymainnet') {
+        throw new Error(`LedgerOApp is only supported on Orderly chain`)
+    }
+}
+
+export function getOrderlyNetwork(ENV: string) {
+    if (ENV === constants.ENV[4]) {
+        return 'orderly'
+    }
+    return 'orderlysepolia'
+}
+
+export function getLedgerOAppAddress(ENV: string) {
+    return constants.LEDGER_OAPP_ACCOUNTS[ENV].proxy
+}
+
+export function equalDVNs<T>(dvn1: T[], dvn2: T[]): boolean {
+    if (dvn1.length !== dvn2.length) {
+        return false
+    }
+
+    // Sort both arrays
+    const sortedDvn1 = dvn1.slice().sort()
+    const sortedDvn2 = dvn2.slice().sort()
+
+    // Compare each element
+    for (let i = 0; i < sortedDvn1.length; i++) {
+        if (sortedDvn1[i] !== sortedDvn2[i]) {
+            return false
+        }
+    }
+
+    return true
 }

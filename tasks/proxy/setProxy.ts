@@ -36,6 +36,9 @@ import {
     printEndpointConfig,
     printOptions,
     getBackwardFee,
+    getLocalLzConfig,
+    getSolanaNetwork,
+    getLedgerOAppAddress,
 } from './utils'
 import * as constants from './constants'
 import {
@@ -68,7 +71,7 @@ import {
     Transaction,
     TransactionBuilder,
 } from '@metaplex-foundation/umi'
-import { bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
+import { addressToBytes32, bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
 import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
 import { EventPDADeriver, SendHelper, EndpointProgram, EndpointPDADeriver } from '@layerzerolabs/lz-solana-sdk-v2'
 import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM } from './constants'
@@ -93,7 +96,7 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
         const oappRegistryPda = getOAppRegistryPda(proxyConfigPda)
         const accountListPda = getAccountListPda(proxyProgram.programId, proxyConfigPda)
         const admin = wallet
-        const peerAddress = getPeerAddress(taskArgs.env)
+        const peerAddress = addressToBytes32(getLedgerOAppAddress(taskArgs.env))
         console.log('proxy config pda', proxyConfigPda.toBase58())
         console.log('OApp Registry PDA:', oappRegistryPda.toBase58())
         try {
@@ -187,11 +190,12 @@ task('sol:proxy:setpeer', 'Set Peer Config for Solana Proxy')
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const orderlyEid = getOrderlyEid(taskArgs.env)
-        const peerAddress = getPeerAddress(taskArgs.env)
+        const peerAddress = addressToBytes32(getLedgerOAppAddress(taskArgs.env))
 
         const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
-        const options = getOptions(taskArgs.env)
+        const solanaNetwork = getSolanaNetwork(taskArgs.env)
+        const options = getOptions(taskArgs.env, solanaNetwork)
         const [optionSend, optionSendAndCall] = getEncodedOptions(options)
         const programId = fromWeb3JsPublicKey(proxyProgram.programId)
 
@@ -269,7 +273,8 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         }
 
         const connection = new Connection(rpc.getEndpoint(), 'confirmed')
-        const config = getLzConfig(orderlyEid)
+        const localNetwork = getSolanaNetwork(taskArgs.env)
+        const config = getLocalLzConfig(localNetwork)
         const ix = [
             await oft.setConfig(
                 connection,
@@ -486,7 +491,8 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         const peerAddress = await oft.getPeerAddress(rpc, oftStore, orderlyEid, programId)
         console.log('Peer Address:', '0x' + peerAddress.slice(26).toString())
         const enforcedOptions = await oft.getEnforcedOptions(rpc, oftStore, orderlyEid, programId)
-        const options = getOptions(taskArgs.env)
+        const localNetwork = taskArgs.env === 'mainnet' ? 'soldev' : 'solana'
+        const options = getOptions(taskArgs.env, localNetwork)
         printOptions(options, enforcedOptions)
 
         try {
