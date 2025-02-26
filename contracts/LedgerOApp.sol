@@ -77,6 +77,14 @@ contract LedgerOApp is OAppUpgradeable {
         solanaEid = _solanaEid;
     }
 
+    /**
+     * @notice withdraw eth to
+     * @param to the address to withdraw
+     */
+    function withdrawTo(address to) external onlyOwner {
+        payable(to).transfer(address(this).balance);
+    }
+
     /* ========== Oapp functions ========== */
     /**
      * @notice Receive Oapp message from Solana Proxy and send to OCCManagervm.parseAddress
@@ -113,7 +121,7 @@ contract LedgerOApp is OAppUpgradeable {
      * @notice Send message to Solana Proxy
      * @dev Only OCCManager can call this function
      */
-    function ledgerOappSend(OCCLedgerMessage calldata _message) external onlyOCCManager {
+    function ledgerOappSend(OCCLedgerMessage calldata _message) external payable onlyOCCManager {
         require(_message.payloadType.checkLedgerPayloadType(), "LedgerOApp: invalid ledger payload type");
         require(_message.dstChainId == eid2ChainId[solanaEid], "LedgerOApp: only send to solana");
         require(_message.token == LedgerToken.USDC, "LedgerOApp: Only USDC is supported");
@@ -131,8 +139,26 @@ contract LedgerOApp is OAppUpgradeable {
             typeOptions.value
         );
         MessagingFee memory msgFee = _quote(solanaEid, message, options, false);
+        require(msg.value >= msgFee.nativeFee, "LedgerOApp: insufficient native fee");
+        _lzSend(solanaEid, message, options, msgFee, payable(msg.sender));
+    }
 
-        _lzSend(solanaEid, message, options, msgFee, payable(this));
+    function ledgerOappSendQuote(OCCLedgerMessage calldata _message) public view returns (MessagingFee memory) {
+        SolanaLedgerMessage memory solanaLedgerMessage = SolanaLedgerMessage({
+            token: _message.token,
+            receiver: _message.receiver,
+            payloadType: _message.payloadType,
+            payload: abi.encode(_message.tokenAmount)
+        });
+        bytes memory message = SolanaProxyMsgCodec.encodeSolanaLedgerMessage(solanaLedgerMessage);
+
+        LzOptions memory typeOptions = payloadType2LzOptions[_message.payloadType];
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            typeOptions.gas,
+            typeOptions.value
+        );
+        MessagingFee memory msgFee = _quote(solanaEid, message, options, false);
+        return msgFee;
     }
 
     fallback() external payable {}
