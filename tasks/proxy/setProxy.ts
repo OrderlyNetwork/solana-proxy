@@ -508,6 +508,33 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         }
     })
 
+task('sol:proxy:pda', 'Get PDA for Solana Proxy and Solana OFT')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addFlag('extendAlt', 'Extend ALT for Solana OFT')
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet, rpc] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+        console.log('Proxy program ID:', proxyProgram.programId)
+        const usdcMint = getUsdcMint(taskArgs.env)
+        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        console.log('Proxy Config PDA:', proxyConfigPda.toBase58())
+
+        const proxyTokenAccount = getTokenATA(usdcMint, proxyConfigPda)
+        console.log('Proxy Token Account:', proxyTokenAccount.toBase58())
+
+        const lzReceiveTypesPda = getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
+        console.log('LZ Receive Types PDA:', lzReceiveTypesPda.toBase58())
+    })
+
+task('sol:proxy:lzReceiveTypes', 'Get LZ Receive Types for Solana Proxy')
+    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .setAction(async (taskArgs, hre) => {
+        const [provider, wallet] = setupAnchor(taskArgs.env)
+        const proxyProgram = getProxyProgram(taskArgs.env, provider)
+    })
+
+// ================================ Tasks for Interactions ================================
+
 task('sol:proxy:quote', 'Get quote for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .addParam('payloadType', 'The payload type to quote', undefined, devtoolsTypes.string)
@@ -551,31 +578,6 @@ task('sol:proxy:request', 'Send request for Solana Proxy')
             taskArgs.env
         )
         printTxLinks(taskArgs.env, tx)
-    })
-
-task('sol:proxy:pda', 'Get PDA for Solana Proxy and Solana OFT')
-    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
-    .addFlag('extendAlt', 'Extend ALT for Solana OFT')
-    .setAction(async (taskArgs, hre) => {
-        const [provider, wallet, rpc] = setupAnchor(taskArgs.env)
-        const proxyProgram = getProxyProgram(taskArgs.env, provider)
-        console.log('Proxy program ID:', proxyProgram.programId)
-        const usdcMint = getUsdcMint(taskArgs.env)
-        const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
-        console.log('Proxy Config PDA:', proxyConfigPda.toBase58())
-
-        const proxyTokenAccount = getTokenATA(usdcMint, proxyConfigPda)
-        console.log('Proxy Token Account:', proxyTokenAccount.toBase58())
-
-        const lzReceiveTypesPda = getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
-        console.log('LZ Receive Types PDA:', lzReceiveTypesPda.toBase58())
-    })
-
-task('sol:proxy:lzReceiveTypes', 'Get LZ Receive Types for Solana Proxy')
-    .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
-    .setAction(async (taskArgs, hre) => {
-        const [provider, wallet] = setupAnchor(taskArgs.env)
-        const proxyProgram = getProxyProgram(taskArgs.env, provider)
     })
 
 task('sol:proxy:stake', 'Stake from Solana through Solana OFT')
