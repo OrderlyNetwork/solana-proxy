@@ -22,9 +22,9 @@ pub struct TransferAdmin<'info> {
 
 impl TransferAdmin<'_> {
     pub fn apply(ctx: Context<TransferAdmin>, params: &TransferAdminParams) -> Result<()> {
-        ctx.accounts.proxy_config.admin = params.new_admin;
-        // msg!("Proxy Admin Role transferred to {}", params.new_admin);
+        require!(ctx.accounts.proxy_config.admin != params.new_admin, ProxyError::SameAdmin);
         emit!(AdminRoleTransferred { old_admin: ctx.accounts.proxy_config.admin, new_admin: params.new_admin });
+        ctx.accounts.proxy_config.admin = params.new_admin;
         Ok(())
     }
 }

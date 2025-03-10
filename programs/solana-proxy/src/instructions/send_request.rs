@@ -33,7 +33,6 @@ pub struct SendRequest<'info> {
     #[account(
         seeds = [BACKWARD_FEE_SEED],
         bump = backward_fee.bump,
-        // constraint = backward_fee.order_backward_fee < msg_fee.native_fee @ProxyError::InsufficientMessagingFee
     )]
     pub backward_fee: Account<'info, BackwardFee>,
 }
@@ -55,7 +54,9 @@ impl SendRequest<'_> {
             backward_fee = 0;
         }
 
-        require!(payload_type.check_vault_payload_type(), ProxyError::InvalidPayloadType);
+        require!(backward_fee < msg_fee.native_fee, ProxyError::InsufficientMessagingFee);
+
+        require!(payload_type.check_request_payload_type(), ProxyError::InvalidPayloadType);
 
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
 
@@ -72,7 +73,7 @@ impl SendRequest<'_> {
             message: vault_occ_message.encode(),
             options,
             native_fee: msg_fee.native_fee - backward_fee,
-            lz_token_fee: msg_fee.lz_token_fee,
+            lz_token_fee: 0,
         };
 
         let receipt = oapp::endpoint_cpi::send(

@@ -6,6 +6,7 @@ import { ILedgerOCCManager } from "./lib/ILedgerOCCManager.sol";
 import { SolanaProxyMsgCodec } from "./lib/MsgCodec.sol";
 import { OAppUpgradeable, MessagingFee, Origin } from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppUpgradeable.sol";
 import { OptionsBuilder } from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
+
 /**
  * @title LedgerOApp for handle OApp message (claimReward) between ledger and Solana
  * @dev This contract also used to send OApp message from ledger to Solana to transfer USDC to user
@@ -43,6 +44,7 @@ contract LedgerOApp is OAppUpgradeable {
      */
     function initialize(address _endpoint, address _delegate) public initializer {
         __initializeOApp(_endpoint, _delegate);
+        // OAppUpgradeable already called __Pausable_init() in __initializeOApp
     }
 
     /* ========== Owner functions ========== */
@@ -62,6 +64,8 @@ contract LedgerOApp is OAppUpgradeable {
     function withdrawTo(address to) external onlyOwner {
         payable(to).transfer(address(this).balance);
     }
+    
+    // OAppUpgradeable already has pause() & unpause()
 
     /* ========== Oapp functions ========== */
     /**
@@ -73,7 +77,7 @@ contract LedgerOApp is OAppUpgradeable {
         bytes calldata _message,
         address /*_executor*/,
         bytes calldata /*_extraData*/
-    ) internal override {
+    ) internal override whenNotPaused {  // add whenNotPaused modifier
         uint32 solanaEid = ILedgerOCCManager(occManagerAddr).solanaEid();
         uint256 solanaChainId = ILedgerOCCManager(occManagerAddr).eid2ChainId(solanaEid);
         if (_origin.srcEid == solanaEid) {
@@ -101,9 +105,9 @@ contract LedgerOApp is OAppUpgradeable {
      */
     function ledgerOappSend(OCCLedgerMessage calldata _message) external payable onlyOCCManager {
         uint32 solanaEid = ILedgerOCCManager(occManagerAddr).solanaEid();
-        require(solanaEid != 0, "LedgerOApp: Solana eid not set");
+        require(solanaEid != 0, "LedgerOApp: Solana eid not set on LedgerOCCManager");
         uint256 solanaChainId = ILedgerOCCManager(occManagerAddr).eid2ChainId(solanaEid);
-        require(solanaChainId != 0, "LedgerOApp: Solana chain id not set");
+        require(solanaChainId != 0, "LedgerOApp: Solana chain id not set on LedgerOCCManager");
 
         require(_message.payloadType.checkLedgerPayloadType(), "LedgerOApp: invalid ledger payload type");
         require(_message.dstChainId == solanaChainId, "LedgerOApp: only send to solana");
@@ -117,13 +121,16 @@ contract LedgerOApp is OAppUpgradeable {
         bytes memory message = SolanaProxyMsgCodec.encodeSolanaLedgerMessage(solanaLedgerMessage);
 
         LzOptions memory typeOptions = payloadType2LzOptions[_message.payloadType];
+        if (typeOptions.gas == 0) {
+            typeOptions.gas = 500000;
+        }
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             typeOptions.gas,
             typeOptions.value
         );
         MessagingFee memory msgFee = _quote(solanaEid, message, options, false);
         require(msg.value >= msgFee.nativeFee, "LedgerOApp: insufficient native fee");
-        _lzSend(solanaEid, message, options, msgFee, payable(msg.sender));
+        _lzSend(solanaEid, message, options, MessagingFee(msg.value, 0), payable(msg.sender));
     }
 
     function ledgerOappSendQuote(OCCLedgerMessage calldata _message) public view returns (MessagingFee memory) {
@@ -144,8 +151,4 @@ contract LedgerOApp is OAppUpgradeable {
         MessagingFee memory msgFee = _quote(solanaEid, message, options, false);
         return msgFee;
     }
-
-    fallback() external payable {}
-
-    receive() external payable {}
 }

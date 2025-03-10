@@ -44,9 +44,9 @@ impl QuoteClaim<'_> {
         require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
 
         let payload_type = PayloadType::ClaimRewardSolana;
+        require!(payload_type.check_claim_payload_type(), ProxyError::InvalidPayloadType);
 
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
-
         let vault_occ_message = SolanaVaultOCCMessage {
             token: payload_type.get_token_type() as u8,
             sender: ctx.accounts.user.key(),

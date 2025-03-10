@@ -17,6 +17,12 @@ pub struct SubmitProof<'info> {
     pub user: Signer<'info>,
 
     #[account(
+        seeds = [PROXY_CONFIG_SEED],
+        bump = proxy_config.bump,
+    )]
+    pub proxy_config: Account<'info, ProxyConfig>,
+
+    #[account(
         init_if_needed,
         payer = user,
         space = 8 + ClaimData::INIT_SPACE,
@@ -30,6 +36,8 @@ pub struct SubmitProof<'info> {
 
 impl SubmitProof<'_> {
     pub fn apply(ctx: &mut Context<SubmitProof>, submit_proof_params: &SubmitProofParams) -> Result<()> {
+        require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
+
         let evm_address = solana_to_evm_address(&ctx.accounts.user.key());
 
         let leaf = calculate_leaf(evm_address, &submit_proof_params.cumulative_amount);
@@ -108,7 +116,6 @@ pub struct SendClaim<'info> {
     #[account(
         seeds = [BACKWARD_FEE_SEED],
         bump = backward_fee.bump,
-        constraint = backward_fee.order_backward_fee < msg_fee.native_fee @ProxyError::InsufficientMessagingFee
     )]
     pub backward_fee: Account<'info, BackwardFee>,
 
@@ -120,7 +127,7 @@ impl SendClaim<'_> {
         require!(!ctx.accounts.proxy_config.paused, ProxyError::ProxyPaused);
 
         let payload_type = PayloadType::ClaimRewardSolana;
-        require!(payload_type.check_vault_payload_type(), ProxyError::InvalidPayloadType);
+        require!(payload_type.check_claim_payload_type(), ProxyError::InvalidPayloadType);
 
         let options = ctx.accounts.peer_config.enforced_options.get_enforced_options(&None);
 
@@ -140,13 +147,15 @@ impl SendClaim<'_> {
             )?;
         }
 
+        require!(backward_fee < msg_fee.native_fee, ProxyError::InsufficientMessagingFee);
+
         let send_params = SendParams {
             dst_eid: ctx.accounts.proxy_config.orderly_eid,
             receiver: ctx.accounts.peer_config.peer_address,
             message: vault_occ_message.encode(),
             options,
             native_fee: msg_fee.native_fee - backward_fee,
-            lz_token_fee: msg_fee.lz_token_fee,
+            lz_token_fee: 0,
         };
 
         let receipt = oapp::endpoint_cpi::send(

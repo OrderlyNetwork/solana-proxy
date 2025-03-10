@@ -6,14 +6,13 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-solana_proxy = "6sH1YKAatvQqMCQcQoh3feMzXipuaYkHKGeDLUHpatrz"
+solana_proxy = "DATLWKEWMR3weq4VxN28e16T31aDL5ENvR49w3unjahv"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
-# path to your wallet file
 wallet = "/Users/zion/.config/solana/id.json"
 
 [scripts]
@@ -29,7 +28,6 @@ address = "76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6"
 program = "test/anchor/bin/endpoint.so"
 
 [[test.genesis]]
-# mock uln build on https://github.com/OrderlyNetwork/solana-vault/blob/main/packages/solana/contracts/programs/uln/src/lib.rs
 address = "279tDX6wTFgrJaRnGEdjik3NLR8B9AKY1pKVFYcxvw7c"
 program = "test/anchor/bin/uln.so"
 
@@ -38,4 +36,3 @@ bind_address = "127.0.0.1"
 url = "https://api.devnet.solana.com"
 ledger = ".anchor/test-ledger"
 rpc_port = 8899
-
