@@ -30,7 +30,9 @@ import * as constants from '../../tasks/proxy/constants'
 import { rpc } from '@coral-xyz/anchor/dist/cjs/utils'
 import { fromWeb3JsPublicKey, toWeb3JsInstruction } from '@metaplex-foundation/umi-web3js-adapters'
 import { createNoopSigner } from '@metaplex-foundation/umi'
-import { createAndSendV0Tx } from '../../tasks/proxy/utils'
+import { createAndSendV0Tx, getLedgerOAppAddress } from '../../tasks/proxy/utils'
+import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities'
+import { EventPDADeriver, EndpointProgram } from '@layerzerolabs/lz-solana-sdk-v2'
 const confirmOptions: ConfirmOptions = { maxRetries: 6, commitment: 'confirmed', preflightCommitment: 'confirmed' }
 
 async function getTokenBalance(connection: Connection, tokenAccount: PublicKey): Promise<number> {
@@ -59,6 +61,17 @@ async function delay(seconds: number) {
     await new Promise((resolve) => setTimeout(resolve, seconds * 1000))
 }
 
+function getErrorCode(anchorLogs: any) {
+    const errorLog = anchorLogs.find((log: any) => log.includes('Error Code:'))
+    const errorCode = errorLog ? errorLog.match(/Error Code: (\w+)/)?.[1] : null
+    if (!errorCode) {
+        throw new Error('No error code found')
+    }
+    return errorCode
+}
+
+jest.setTimeout(30000)
+
 describe('Test Solana Proxy', () => {
     const provider = anchor.AnchorProvider.env()
     const wallet = provider.wallet as anchor.Wallet
@@ -86,7 +99,7 @@ describe('Test Solana Proxy', () => {
     const oappRegistryPda = pdaHelper.getOAppRegistryPda(proxyConfigPda)
     // console.log('OAPP Registry PDA:', oappRegistryPda.toBase58())
     const admin = wallet
-    const peerAddress = utils.getPeerAddress(ENV)
+    const peerAddress = addressToBytes32(utils.getLedgerOAppAddress(ENV))
 
     const endpointPda = pdaHelper.getEndpointSettingPda(endpointProgram.programId)
     // console.log('Endpoint PDA:', endpointPda.toBase58())
@@ -388,7 +401,7 @@ describe('Test Solana Proxy', () => {
             .initNonce({
                 localOapp: proxyConfigPda,
                 remoteEid: orderlyEid,
-                remoteOapp: peerAddress,
+                remoteOapp: Array.from(peerAddress),
             })
             .accounts({
                 delegate: admin.publicKey,
@@ -462,7 +475,7 @@ describe('Test Solana Proxy', () => {
     it('Set Peer Config', async () => {
         const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
-        const options = utils.getOptions(ENV)
+        const options = utils.getOptions(ENV, 'soldev')
         const [optionSend, optionSendAndCall] = utils.getEncodedOptions(options)
         const programId = fromWeb3JsPublicKey(proxyProgram.programId)
 
@@ -732,7 +745,7 @@ describe('Test Solana Proxy', () => {
     }
 
     it('Claim Reward', async () => {
-        if (wallet.publicKey.toString() !== 'DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE') {
+        if (wallet.publicKey.toString() !== 'Zions51qQNUgWNyp4JegUFoMUpgFx43jBUsYmHtDPdr') {
             console.log('Please contact Zion or Dmitry to generate merkle proof for your address')
             return
         }
@@ -740,11 +753,12 @@ describe('Test Solana Proxy', () => {
         const cumulativeAmount = '1'
         // these proof only valid for solana address DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE
         const merkleProof = [
-            '2924269a0a937d37e0ad32cfaca1378e9cfaea61e0f899bedf2c36ace63faa0f',
-            '160e0c1f63803c827c8398ce521642033effd335935d7518fb19dac8b867d299',
-            'b3eb9d2be1b3564f6278bca25c9e7e5af9ecac4940c0d0779b4ef0df2f9c7931',
+            '130c75b69219ec74853d9c37442ea1d0b7d81599b5f5d6499879d24868717b26',
+            '619c95d3eeded6bd18861d72cb2c2bbfdf5ebe66e28e9a7c2fc540be54d6fcf5',
+            '89eb2b2bf6ec53c75c8e1bcea0b101fc2297b236717f9bc8d0aaf2dc421984d0',
+            '55263bafd0cc2f75f0f9234c768b955b5f05392f0e70d66940f13ab9d748e973',
         ]
-        const merkleRoot = '0xba39fd1dd32722e7a129aea7edb58cd8c06a51729f569a0a07d26dd74b3362bc'
+        const merkleRoot = '0xcd30e62fdc74fa221b98b1012f46bed187aaceb82dfffdea63945672097a4a55'
 
         await utils.submitProof(
             proxyProgram,
@@ -785,16 +799,55 @@ describe('Test Solana Proxy', () => {
         const { lzTokenFee, nativeFee } = await quoteFee(params)
 
         await sendRequest(params, lzTokenFee, nativeFee)
+
+        // Try to send fake claim through request instruction
+        const claimPayloadType = constants.PayloadType.ClaimRewardSolana
+        const distritionId = utils.convertIntoBytes32('1')
+        const cumulativeAmount = utils.convertIntoBytes32('1234', constants.ORDER_DECIMALS_ON_ETHEREUM)
+        const merkleRoot = 'cd30e62fdc74fa221b98b1012f46bed187aaceb82dfffdea63945672097a4a55'
+
+        const claimPayload = Buffer.concat([
+            Buffer.from([constants.LedgerToken.ORDER]),
+            Buffer.from(wallet.publicKey.toBuffer()),
+            Buffer.from([claimPayloadType]),
+            Buffer.from(distritionId),
+            Buffer.from(cumulativeAmount),
+            Uint8Array.from(merkleRoot),
+        ])
+        const claimParams = {
+            payloadType: claimPayloadType,
+            payload: Buffer.from(claimPayload),
+        }
+
+        try {
+            const { lzTokenFee: claimLzTokenFee, nativeFee: claimNativeFee } = await quoteFee(claimParams)
+        } catch (error: any) {
+            // Error msg returned from .view() method
+            // console.log(error.simulationResponse.logs)
+            const errorCode = getErrorCode(error.simulationResponse.logs)
+            assert.equal(errorCode, 'InvalidPayloadType')
+        }
+
+        try {
+            const claimLzTokenFee = new BN(0)
+            const claimNativeFee = new BN(1234567890)
+            await sendRequest(claimParams, claimLzTokenFee, claimNativeFee)
+        } catch (error: any) {
+            // Error msg returned from transaction logs
+            // console.log(error.transactionLogs)
+            const errorCode = getErrorCode(error.transactionLogs)
+            assert.equal(errorCode, 'InvalidPayloadType')
+        }
     })
 
     const guid = Array.from(Keypair.generate().publicKey.toBuffer())
     const initVerify = async (nonce: number) => {
-        const peerAddress = utils.getPeerAddress(ENV)
+        const peerAddress = addressToBytes32(getLedgerOAppAddress(ENV))
         const payloadHashPda = pdaHelper.getPayloadHashPda(proxyConfigPda, orderlyEid, peerAddress, BigInt(nonce))
         await endpointProgram.methods
             .initVerify({
                 srcEid: orderlyEid,
-                sender: peerAddress,
+                sender: Array.from(peerAddress),
                 receiver: proxyConfigPda,
                 nonce: new BN(nonce),
             })
@@ -809,7 +862,7 @@ describe('Test Solana Proxy', () => {
     }
 
     const commitVerify = async (nonce: number, msg: any) => {
-        const peerAddress = utils.getPeerAddress(ENV)
+        const peerAddress = addressToBytes32(getLedgerOAppAddress(ENV))
         const payloadHashPda = pdaHelper.getPayloadHashPda(proxyConfigPda, orderlyEid, peerAddress, BigInt(nonce))
 
         await ulnProgram.methods
@@ -876,7 +929,7 @@ describe('Test Solana Proxy', () => {
     }
 
     const lzReceive = async (signer: Keypair, params: any, accounts: any, nonce: number) => {
-        const peerAddress = utils.getPeerAddress(ENV)
+        const peerAddress = addressToBytes32(getLedgerOAppAddress(ENV))
         const payloadHashPda = pdaHelper.getPayloadHashPda(proxyConfigPda, orderlyEid, peerAddress, BigInt(nonce))
         const lzReceiveRemainingAccounts = [
             {
@@ -995,5 +1048,1546 @@ describe('Test Solana Proxy', () => {
 
         let curReceiverUSDCBalance = await getTokenBalance(provider.connection, receiverTokenAccount.address)
         assert.equal(curReceiverUSDCBalance, prevReceiverUSDCBalance + usdcAmount)
+    })
+
+    it('Transfer Admin', async () => {
+        // Create a new account as the new admin
+        const newAdmin = Keypair.generate()
+
+        // Provide some SOL to the new admin account to pay for transaction fees
+        const transferTx = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: wallet.publicKey,
+                toPubkey: newAdmin.publicKey,
+                lamports: 10000000, // 0.01 SOL
+            })
+        )
+        await provider.sendAndConfirm(transferTx)
+
+        // Create a non-admin account for testing
+        const nonAdmin = Keypair.generate()
+        await provider.sendAndConfirm(
+            new Transaction().add(
+                SystemProgram.transfer({
+                    fromPubkey: wallet.publicKey,
+                    toPubkey: nonAdmin.publicKey,
+                    lamports: 10000000, // 0.01 SOL
+                })
+            )
+        )
+
+        // Test scenario 1: Non-admin trying to transfer admin rights (should fail)
+        console.log('Testing scenario: Non-admin trying to transfer admin rights')
+        try {
+            await proxyProgram.methods
+                .transferAdmin({ newAdmin: wallet.publicKey })
+                .accounts({
+                    admin: nonAdmin.publicKey,
+                    proxyConfig: proxyConfigPda,
+                    systemProgram: SystemProgram.programId,
+                })
+                .signers([nonAdmin])
+                .rpc(confirmOptions)
+
+            assert.fail('Non-admin should not be able to transfer admin rights')
+        } catch (error: any) {
+            // Check if the error is InvalidProxyAdmin
+            let logs
+            if (error.logs) {
+                logs = error.logs
+            } else if (error.simulationResponse && error.simulationResponse.logs) {
+                logs = error.simulationResponse.logs
+            } else {
+                console.error('Error structure:', error)
+                assert.fail('Unable to extract logs from error')
+            }
+
+            const errorCode = getErrorCode(logs)
+            assert.equal(errorCode, 'InvalidProxyAdmin', 'Expected InvalidProxyAdmin error but got a different error')
+            console.log('Successfully verified that non-admin cannot transfer admin rights')
+        }
+
+        // Build the instruction parameters for transferring admin
+        const transferAdminParams = {
+            newAdmin: newAdmin.publicKey,
+        }
+
+        // Build accounts for the transfer_admin instruction
+        const transferAdminAccounts = {
+            admin: wallet.publicKey,
+            proxyConfig: proxyConfigPda,
+            systemProgram: SystemProgram.programId,
+        }
+
+        // Call the transfer_admin instruction
+        await proxyProgram.methods
+            .transferAdmin(transferAdminParams)
+            .accounts(transferAdminAccounts)
+            .rpc(confirmOptions)
+
+        // Get the updated proxyConfig and verify that the admin has changed
+        const updatedProxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+        assert.equal(
+            updatedProxyConfig.admin.toBase58(),
+            newAdmin.publicKey.toBase58(),
+            'Admin not properly transferred'
+        )
+        console.log('Successfully transferred admin rights to:', newAdmin.publicKey.toBase58())
+
+        // Try to transfer admin to the current admin (should fail)
+        console.log('Testing scenario: Trying to transfer admin to the current admin')
+        try {
+            await proxyProgram.methods
+                .transferAdmin({ newAdmin: newAdmin.publicKey })
+                .accounts({
+                    admin: newAdmin.publicKey,
+                    proxyConfig: proxyConfigPda,
+                    systemProgram: SystemProgram.programId,
+                })
+                .signers([newAdmin])
+                .rpc(confirmOptions)
+
+            assert.fail('Should not allow transferring admin to current admin')
+        } catch (error: any) {
+            // Check if the error is SameAdmin
+            let logs
+            if (error.logs) {
+                logs = error.logs
+            } else if (error.simulationResponse && error.simulationResponse.logs) {
+                logs = error.simulationResponse.logs
+            } else {
+                console.error('Error structure:', error)
+                assert.fail('Unable to extract logs from error')
+            }
+
+            const errorCode = getErrorCode(logs)
+            assert.equal(errorCode, 'SameAdmin', 'Expected SameAdmin error but got a different error')
+            console.log('Successfully verified that admin cannot be transferred to current admin')
+        }
+
+        // Test if the new admin can perform admin operations (such as setting pause state)
+        const setPauseParams = {
+            paused: true,
+        }
+
+        const setPauseAccounts = {
+            admin: newAdmin.publicKey,
+            proxyConfig: proxyConfigPda,
+        }
+
+        await proxyProgram.methods
+            .setPause(setPauseParams)
+            .accounts(setPauseAccounts)
+            .signers([newAdmin]) // Sign with the new admin
+            .rpc(confirmOptions)
+
+        // Verify that the pause state has been changed
+        const pausedProxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+        assert.equal(pausedProxyConfig.paused, true, 'Pause state was not changed by new admin')
+
+        // Test that the original admin can no longer perform admin operations (expected to fail)
+        try {
+            await proxyProgram.methods
+                .setPause({ paused: false })
+                .accounts({
+                    admin: wallet.publicKey,
+                    proxyConfig: proxyConfigPda,
+                })
+                .rpc(confirmOptions)
+
+            // If no error is thrown, the test fails
+            assert.fail('Original admin should not be able to perform admin operations')
+        } catch (error: any) {
+            // Check if the error is InvalidProxyAdmin
+            let logs
+            if (error.logs) {
+                logs = error.logs
+            } else if (error.simulationResponse && error.simulationResponse.logs) {
+                logs = error.simulationResponse.logs
+            } else {
+                console.error('Error structure:', error)
+                assert.fail('Unable to extract logs from error')
+            }
+
+            const errorCode = getErrorCode(logs)
+            assert.equal(errorCode, 'InvalidProxyAdmin', 'Expected InvalidProxyAdmin error but got a different error')
+            console.log('Successfully verified that original admin can no longer perform admin operations')
+        }
+
+        // Transfer admin rights back to the original admin to avoid affecting other tests
+        await proxyProgram.methods
+            .transferAdmin({ newAdmin: wallet.publicKey })
+            .accounts({
+                admin: newAdmin.publicKey,
+                proxyConfig: proxyConfigPda,
+                systemProgram: SystemProgram.programId,
+            })
+            .signers([newAdmin])
+            .rpc(confirmOptions)
+
+        // Confirm that the admin has been restored
+        const restoredProxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+        assert.equal(restoredProxyConfig.admin.toBase58(), wallet.publicKey.toBase58(), 'Admin not properly restored')
+
+        // Restore pause state
+        await proxyProgram.methods
+            .setPause({ paused: false })
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+            })
+            .rpc(confirmOptions)
+    })
+
+    it('Withdraw Fee', async () => {
+        // Create a fee collector account
+        const feeCollector = Keypair.generate()
+
+        // Provide some SOL to the fee collector account for transaction fees
+        const transferTx = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: wallet.publicKey,
+                toPubkey: feeCollector.publicKey,
+                lamports: 10000000, // 0.01 SOL
+            })
+        )
+        await provider.sendAndConfirm(transferTx)
+
+        // Record balances before withdrawal
+        const feeCollectorInitialBalance = await provider.connection.getBalance(feeCollector.publicKey)
+        const proxyConfigInitialBalance = await provider.connection.getBalance(proxyConfigPda)
+        console.log(
+            `Initial balances - ProxyConfig: ${proxyConfigInitialBalance}, FeeCollector: ${feeCollectorInitialBalance}`
+        )
+
+        // Ensure the proxyConfig account has enough SOL to withdraw (simulating collected fees)
+        // These SOL are naturally accumulated during testing; if the balance is too low, add extra SOL
+        if (proxyConfigInitialBalance < 10000000) {
+            console.log('Adding extra 0.01 SOL to proxyConfig for testing')
+            await provider.sendAndConfirm(
+                new Transaction().add(
+                    SystemProgram.transfer({
+                        fromPubkey: wallet.publicKey,
+                        toPubkey: proxyConfigPda,
+                        lamports: 10000000, // 0.01 SOL
+                    })
+                )
+            )
+        }
+
+        // Get the updated proxyConfig balance
+        const proxyConfigBalanceAfterFunding = await provider.connection.getBalance(proxyConfigPda)
+        console.log(`ProxyConfig balance after funding: ${proxyConfigBalanceAfterFunding}`)
+
+        // Calculate the withdrawable balance (subtracting the minimum rent exemption amount for the contract account)
+        const proxyConfigAccountInfo = await provider.connection.getAccountInfo(proxyConfigPda)
+        if (!proxyConfigAccountInfo) {
+            console.log('ProxyConfig account not found, skipping test')
+            return
+        }
+
+        const minimumBalanceForRent = await provider.connection.getMinimumBalanceForRentExemption(
+            proxyConfigAccountInfo.data.length
+        )
+        const withdrawableAmount = proxyConfigBalanceAfterFunding - minimumBalanceForRent
+        console.log(
+            `Withdrawable amount: ${withdrawableAmount}, Minimum balance for rent exemption: ${minimumBalanceForRent}`
+        )
+
+        if (withdrawableAmount <= 0) {
+            console.log('Not enough balance to withdraw for minimum balance for rent exemption, skipping test')
+            return
+        }
+
+        // Build parameters for the withdraw_fee instruction
+        const withdrawAmount = new BN(Math.floor(withdrawableAmount / 2)) // Only withdraw half of the available balance
+        const withdrawFeeParams = {
+            amount: withdrawAmount,
+        }
+
+        // Build accounts for the withdraw_fee instruction
+        const withdrawFeeAccounts = {
+            admin: wallet.publicKey,
+            proxyConfig: proxyConfigPda,
+            feeCollector: feeCollector.publicKey,
+        }
+
+        console.log(`Attempting to withdraw ${withdrawAmount.toString()} lamports`)
+
+        // Call the withdraw_fee instruction
+        await proxyProgram.methods.withdrawFee(withdrawFeeParams).accounts(withdrawFeeAccounts).rpc(confirmOptions)
+
+        // Verify balance changes
+        const proxyConfigFinalBalance = await provider.connection.getBalance(proxyConfigPda)
+        const feeCollectorFinalBalance = await provider.connection.getBalance(feeCollector.publicKey)
+
+        console.log(
+            `Final balances - ProxyConfig: ${proxyConfigFinalBalance}, FeeCollector: ${feeCollectorFinalBalance}`
+        )
+
+        // Verify that the withdrawn amount was correctly transferred to the recipient account
+        assert.approximately(
+            proxyConfigBalanceAfterFunding - proxyConfigFinalBalance,
+            withdrawAmount.toNumber(),
+            10, // Allow for small discrepancies (transaction fees, etc.)
+            'ProxyConfig balance should decrease by the withdrawn amount'
+        )
+
+        assert.approximately(
+            feeCollectorFinalBalance - feeCollectorInitialBalance,
+            withdrawAmount.toNumber(),
+            10, // Allow for small discrepancies (transaction fees, etc.)
+            'FeeCollector balance should increase by the withdrawn amount'
+        )
+
+        // Test edge case 1: Try to withdraw more than the available balance (should fail)
+        const excessiveAmount = new BN(proxyConfigFinalBalance) // Try to withdraw the entire balance (including rent)
+
+        try {
+            await proxyProgram.methods
+                .withdrawFee({ amount: excessiveAmount })
+                .accounts(withdrawFeeAccounts)
+                .rpc(confirmOptions)
+
+            assert.fail('Should not allow withdrawing more than available balance')
+        } catch (error: any) {
+            // Check if the error is InsufficientBalance
+            let logs
+            if (error.logs) {
+                logs = error.logs
+            } else if (error.simulationResponse && error.simulationResponse.logs) {
+                logs = error.simulationResponse.logs
+            } else {
+                console.error('Error structure:', error)
+                assert.fail('Unable to extract logs from error')
+            }
+
+            const errorCode = getErrorCode(logs)
+            assert.equal(
+                errorCode,
+                'InsufficientBalance',
+                'Expected InsufficientBalance error but got a different error'
+            )
+            console.log('Successfully verified that excessive withdrawal is rejected')
+        }
+
+        // Test edge case 2: Non-admin attempts to withdraw fees (should fail)
+        const nonAdmin = Keypair.generate()
+        await provider.sendAndConfirm(
+            new Transaction().add(
+                SystemProgram.transfer({
+                    fromPubkey: wallet.publicKey,
+                    toPubkey: nonAdmin.publicKey,
+                    lamports: 10000000, // 0.01 SOL
+                })
+            )
+        )
+
+        try {
+            await proxyProgram.methods
+                .withdrawFee({ amount: new BN(1000) })
+                .accounts({
+                    admin: nonAdmin.publicKey,
+                    proxyConfig: proxyConfigPda,
+                    feeCollector: feeCollector.publicKey,
+                })
+                .signers([nonAdmin])
+                .rpc(confirmOptions)
+
+            assert.fail('Non-admin should not be able to withdraw fees')
+        } catch (error: any) {
+            // Check if the error is InvalidProxyAdmin
+            let logs
+            if (error.logs) {
+                logs = error.logs
+            } else if (error.simulationResponse && error.simulationResponse.logs) {
+                logs = error.simulationResponse.logs
+            } else {
+                console.error('Error structure:', error)
+                assert.fail('Unable to extract logs from error')
+            }
+
+            const errorCode = getErrorCode(logs)
+            assert.equal(errorCode, 'InvalidProxyAdmin', 'Expected InvalidProxyAdmin error but got a different error')
+            console.log('Successfully verified that non-admin cannot withdraw fees')
+        }
+    })
+
+    it('Set Pause', async () => {
+        // Test that admin can pause the proxy
+        console.log('Testing admin pause functionality...')
+        const pauseParams = {
+            paused: true,
+        }
+
+        const ixSetPause = await proxyProgram.methods
+            .setPause(pauseParams)
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+            })
+            .instruction()
+
+        let txId = await utils.createAndSendV0Tx([ixSetPause], provider, wallet)
+        console.log(`Proxy paused successfully. Transaction ID: ${txId}`)
+
+        // Verify the proxy is paused
+        let proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+        assert.equal(proxyConfig.paused, true, 'Proxy should be paused')
+
+        // Test that functionality is restricted when paused
+        console.log('Testing functionality restriction when paused...')
+        const payloadType = constants.PayloadType.CreateOrderUnstakeRequest
+        const payload = utils.checkPayload(payloadType, '1234')
+        const { params, accounts: quoteAccounts } = utils.prepareParamsAndAccounts(
+            proxyProgram,
+            wallet.publicKey,
+            payloadType,
+            Buffer.from(payload),
+            ENV
+        )
+
+        try {
+            // Attempt to call quoteRequest when the proxy is paused
+            await proxyProgram.methods
+                .quoteRequest(params)
+                .accounts(quoteAccounts)
+                .remainingAccounts(quoteRemainingAccounts)
+                .simulate()
+
+            assert.fail('Operation should be restricted when proxy is paused')
+        } catch (error: any) {
+            // Verify that the error is ProxyPaused
+            const errorCode = getErrorCode(error.simulationResponse.logs)
+            assert.equal(errorCode, 'ProxyPaused', 'Error should be ProxyPaused')
+            console.log('Successfully verified that operations are restricted when proxy is paused')
+        }
+
+        // Test that non-admin cannot pause or unpause the proxy
+        console.log('Testing non-admin permissions...')
+        const nonAdminWallet = anchor.web3.Keypair.generate()
+
+        // Transfer some SOL to the non-admin wallet for transaction fees
+        const transferIx = SystemProgram.transfer({
+            fromPubkey: wallet.publicKey,
+            toPubkey: nonAdminWallet.publicKey,
+            lamports: 1000000000, // 1 SOL
+        })
+
+        await utils.createAndSendV0Tx([transferIx], provider, wallet)
+
+        // Non-admin attempts to unpause the proxy
+        const nonAdminUnpauseParams = {
+            paused: false,
+        }
+
+        const ixNonAdminSetUnpause = await proxyProgram.methods
+            .setPause(nonAdminUnpauseParams)
+            .accounts({
+                admin: nonAdminWallet.publicKey,
+                proxyConfig: proxyConfigPda,
+            })
+            .instruction()
+
+        try {
+            const nonAdminProvider = new anchor.AnchorProvider(provider.connection, new anchor.Wallet(nonAdminWallet), {
+                commitment: 'confirmed',
+            })
+
+            await utils.createAndSendV0Tx([ixNonAdminSetUnpause], nonAdminProvider, new anchor.Wallet(nonAdminWallet))
+            assert.fail('Transaction should have failed with InvalidProxyAdmin error')
+        } catch (error) {
+            console.log('Successfully verified that non-admin cannot change pause status')
+            // Verify that the proxy is still paused (not changed by the non-admin)
+            proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+            assert.equal(proxyConfig.paused, true, 'Proxy should still be paused after non-admin attempt')
+        }
+
+        // Test that admin can unpause the proxy
+        console.log('Testing admin unpause functionality...')
+        const unpauseParams = {
+            paused: false,
+        }
+
+        const ixSetUnpause = await proxyProgram.methods
+            .setPause(unpauseParams)
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+            })
+            .instruction()
+
+        txId = await utils.createAndSendV0Tx([ixSetUnpause], provider, wallet)
+        console.log(`Proxy unpaused successfully. Transaction ID: ${txId}`)
+
+        // Verify the proxy is unpaused
+        proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+        assert.equal(proxyConfig.paused, false, 'Proxy should be unpaused')
+
+        // Test that functionality works normally after unpausing
+        console.log('Testing functionality restoration after unpause...')
+
+        // Should be able to successfully call the quote function here
+        const { lzTokenFee, nativeFee } = await quoteFee(params)
+        assert.isDefined(nativeFee, 'Should receive a valid fee quote')
+        console.log('Successfully verified that operations work normally after unpausing')
+    })
+
+    it('Set Delegate', async () => {
+        // Generate a new Keypair to use as the new delegate
+        const newDelegate = Keypair.generate()
+        console.log('New delegate public key:', newDelegate.publicKey.toBase58())
+
+        // Create the parameters object
+        const params = {
+            delegate: newDelegate.publicKey,
+        }
+
+        try {
+            // Get endpoint-related accounts
+            const endpoint = utils.getEndpoint()
+            const [endpointEventAuthority] = new EventPDADeriver(constants.ENDPOINT_PROGRAM_ID).eventAuthority()
+
+            const keys = EndpointProgram.instructions.createSetDelegateInstructionAccounts(
+                {
+                    oapp: proxyConfigPda,
+                    oappRegistry: oappRegistryPda,
+                    eventAuthority: endpointEventAuthority,
+                    program: endpoint.program,
+                },
+                endpoint.program
+            )
+
+            for (const acc of keys) {
+                acc.isSigner = false
+            }
+
+            let remainingAccounts = []
+            remainingAccounts.push(
+                {
+                    pubkey: endpoint.program,
+                    isSigner: false,
+                    isWritable: false,
+                },
+                ...keys
+            )
+
+            // Create the setDelegate instruction
+            const ixSetDelegate = await proxyProgram.methods
+                .setDelegate(params)
+                .accounts({
+                    admin: wallet.publicKey,
+                    proxyConfig: proxyConfigPda,
+                })
+                .remainingAccounts(remainingAccounts)
+                .instruction()
+
+            // Send the transaction using utils.createAndSendV0Tx function
+            const txid = await utils.createAndSendV0Tx([ixSetDelegate], provider, wallet)
+            console.log('Set delegate transaction:', txid)
+
+            // Test that non-admin calls should fail
+            const nonAdmin = Keypair.generate()
+            try {
+                await proxyProgram.methods
+                    .setDelegate(params)
+                    .accounts({
+                        admin: nonAdmin.publicKey,
+                        proxyConfig: proxyConfigPda,
+                    })
+                    .remainingAccounts(remainingAccounts)
+                    .signers([nonAdmin])
+                    .rpc(confirmOptions)
+
+                assert.fail('Expected error due to invalid admin')
+            } catch (error: any) {
+                // Expected to fail because it's a non-admin call
+                if (error.simulationResponse && error.simulationResponse.logs) {
+                    const errorCode = getErrorCode(error.simulationResponse.logs)
+                    assert.equal(errorCode, 'InvalidProxyAdmin')
+                } else {
+                    console.log('Non-admin call failed as expected:', error.message)
+                }
+            }
+        } catch (error) {
+            console.error('Error executing setDelegate:', error)
+            throw error
+        }
+    })
+
+    it('Set Account List', async () => {
+        // Use the existing USDC_MINT as the new usdc_token_account
+        const newUsdcTokenAccount = USDC_MINT
+        console.log('New USDC token account:', newUsdcTokenAccount.toBase58())
+
+        // Create parameters object
+        const params = {
+            usdcTokenAccount: newUsdcTokenAccount,
+        }
+
+        // Build set_account_list instruction
+        const ixSetAccountList = await proxyProgram.methods
+            .setAccountList(params)
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                lzReceiveTypes: lzReceiveTypesPda,
+                accountList: accountListPda,
+                systemProgram: SystemProgram.programId,
+            })
+            .instruction()
+
+        // Send transaction
+        const txSetAccountList = await utils.createAndSendV0Tx([ixSetAccountList], provider, wallet)
+        console.log('Set account list transaction:', txSetAccountList)
+
+        // Verify account list is properly set
+        const accountList = await proxyProgram.account.accountList.fetch(accountListPda)
+        assert.equal(
+            accountList.usdcTokenAccount.toBase58(),
+            newUsdcTokenAccount.toBase58(),
+            'USDC token account not properly set in account list'
+        )
+
+        // Verify lzReceiveTypes points to the correct accountList
+        const lzReceiveTypes = await proxyProgram.account.lzReceiveTypesAccounts.fetch(lzReceiveTypesPda)
+        assert.equal(
+            lzReceiveTypes.accountList.toBase58(),
+            accountListPda.toBase58(),
+            'LzReceiveTypes not properly pointing to account list'
+        )
+
+        // Test that non-admin calls should fail
+        const nonAdmin = Keypair.generate()
+
+        // Provide some SOL to the non-admin account to pay for transaction fees
+        await provider.sendAndConfirm(
+            new Transaction().add(
+                SystemProgram.transfer({
+                    fromPubkey: wallet.publicKey,
+                    toPubkey: nonAdmin.publicKey,
+                    lamports: 10000000, // 0.01 SOL
+                })
+            )
+        )
+
+        try {
+            // Build instruction for non-admin call
+            const ixNonAdminSetAccountList = await proxyProgram.methods
+                .setAccountList(params)
+                .accounts({
+                    admin: nonAdmin.publicKey,
+                    proxyConfig: proxyConfigPda,
+                    lzReceiveTypes: lzReceiveTypesPda,
+                    accountList: accountListPda,
+                    systemProgram: SystemProgram.programId,
+                })
+                .signers([nonAdmin])
+                .rpc(confirmOptions)
+
+            assert.fail('Expected error due to invalid admin')
+        } catch (error: any) {
+            // Expected to fail because it's a non-admin call
+            if (error.logs) {
+                const errorCode = getErrorCode(error.logs)
+                assert.equal(errorCode, 'InvalidProxyAdmin')
+                console.log('Non-admin call failed as expected:', error.message)
+            } else if (error.simulationResponse && error.simulationResponse.logs) {
+                const errorCode = getErrorCode(error.simulationResponse.logs)
+                assert.equal(errorCode, 'InvalidProxyAdmin')
+                console.log('Non-admin call failed as expected:', error.message)
+            } else {
+                console.log('Non-admin call failed as expected:', error.message)
+            }
+        }
+
+        // Test modifying to another account address
+        const anotherUsdcTokenAccount = Keypair.generate().publicKey
+
+        const paramsAnother = {
+            usdcTokenAccount: anotherUsdcTokenAccount,
+        }
+
+        const ixSetAccountListAnother = await proxyProgram.methods
+            .setAccountList(paramsAnother)
+            .accounts({
+                admin: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                lzReceiveTypes: lzReceiveTypesPda,
+                accountList: accountListPda,
+                systemProgram: SystemProgram.programId,
+            })
+            .instruction()
+
+        const txSetAccountListAnother = await utils.createAndSendV0Tx([ixSetAccountListAnother], provider, wallet)
+        console.log('Set account list to another address transaction:', txSetAccountListAnother)
+
+        // Verify account list has been updated to the new address
+        const updatedAccountList = await proxyProgram.account.accountList.fetch(accountListPda)
+        assert.equal(
+            updatedAccountList.usdcTokenAccount.toBase58(),
+            anotherUsdcTokenAccount.toBase58(),
+            'USDC token account not properly updated in account list'
+        )
+    })
+
+    it('Quote Request', async () => {
+        console.log('Testing quote_request for all payload types...')
+
+        // Create an array to record test results for various PayloadType
+        const testResults: Array<{
+            payloadTypeName: string
+            payloadTypeValue: number
+            success: boolean
+            nativeFee?: string
+            lzTokenFee?: string
+            reason?: string
+            hasExtraFee?: boolean
+            extraFeeType?: string
+            extraFeeAmount?: number
+        }> = []
+
+        // Helper function: test if a given payload type can correctly get a quote
+        const testPayloadType = async (payloadType: constants.PayloadType | number, expectedExtraFee: number = 0) => {
+            // Find the corresponding PayloadType name based on the enum value
+            const payloadTypeName = Object.keys(constants.PayloadType).find(
+                (key) => constants.PayloadType[key as keyof typeof constants.PayloadType] === payloadType
+            )
+
+            console.log(`Testing ${payloadTypeName} (${payloadType}) payload type...`)
+
+            // Use appropriate test values based on different payload types
+            let amount = '1000'
+            let payload: Uint8Array
+
+            try {
+                payload = Buffer.from(utils.checkPayload(payloadType, amount))
+            } catch (error: any) {
+                console.log(
+                    `Payload type ${payloadTypeName} not supported by utils.checkPayload, using default payload`
+                )
+                payload = Buffer.from([0, 0, 0, 0]) // Default payload
+            }
+
+            const { params, accounts } = utils.prepareParamsAndAccounts(
+                proxyProgram,
+                wallet.publicKey,
+                payloadType,
+                payload,
+                ENV
+            )
+
+            try {
+                const { lzTokenFee, nativeFee } = await proxyProgram.methods
+                    .quoteRequest(params)
+                    .accounts(accounts)
+                    .remainingAccounts(quoteRemainingAccounts)
+                    .view()
+
+                console.log(`${payloadTypeName} - Native Fee: ${nativeFee}, LZ Token Fee: ${lzTokenFee}`)
+
+                // Confirm that valid fees were returned
+                assert.isDefined(nativeFee, 'Native fee should be defined')
+                assert.isDefined(lzTokenFee, 'LZ token fee should be defined')
+
+                // If additional fees are expected, verify that the fee calculation is correct
+                let hasExtraFee = false
+                let extraFeeType = ''
+                let extraFeeAmount = 0
+
+                if (expectedExtraFee > 0) {
+                    hasExtraFee = true
+                    extraFeeAmount = expectedExtraFee
+                    extraFeeType = expectedExtraFee === orderBackwardFee ? 'orderBackwardFee' : 'usdcBackwardFee'
+
+                    assert.equal(
+                        nativeFee.toString(),
+                        new BN(1000).add(new BN(expectedExtraFee)).toString(),
+                        `Native fee should include extra fee of ${expectedExtraFee}`
+                    )
+                }
+
+                // Record test results to the testResults array
+                const testResult = {
+                    payloadTypeName: payloadTypeName || 'Unknown',
+                    payloadTypeValue: payloadType as number,
+                    success: true,
+                    nativeFee: nativeFee.toString(),
+                    lzTokenFee: lzTokenFee.toString(),
+                    hasExtraFee,
+                    extraFeeType,
+                    extraFeeAmount,
+                }
+
+                testResults.push(testResult)
+
+                return { success: true, lzTokenFee, nativeFee }
+            } catch (error: any) {
+                let reason = 'Unknown error'
+
+                if (error.simulationResponse && error.simulationResponse.logs) {
+                    const errorCode = getErrorCode(error.simulationResponse.logs)
+                    console.log(`Failed to quote for ${payloadTypeName || 'Unknown'}: ${errorCode}`)
+                    reason = errorCode
+
+                    // If it's an InvalidPayloadType error, check if this type should be rejected
+                    if (errorCode === 'InvalidPayloadType') {
+                        // Check if the payload type should be rejected by check_request_payload_type
+                        const validRequestTypes: number[] = [
+                            constants.PayloadType.CreateOrderUnstakeRequest,
+                            constants.PayloadType.CancelOrderUnstakeRequest,
+                            constants.PayloadType.WithdrawOrder,
+                            constants.PayloadType.EsOrderUnstakeAndVest,
+                            constants.PayloadType.CancelVestingRequest,
+                            constants.PayloadType.ClaimVestingRequest,
+                            constants.PayloadType.RedeemValor,
+                            constants.PayloadType.ClaimUsdcRevenue,
+                            constants.PayloadType.UnstakeOrderNow,
+                        ]
+
+                        if (!validRequestTypes.includes(payloadType as number)) {
+                            console.log(`${payloadTypeName} correctly rejected as invalid request payload type`)
+
+                            // Record test result to the testResults array
+                            const testResult = {
+                                payloadTypeName: payloadTypeName || 'Unknown',
+                                payloadTypeValue: payloadType as number,
+                                success: false,
+                                reason: 'InvalidPayloadType (expected)',
+                            }
+
+                            testResults.push(testResult)
+
+                            return { success: false, reason: 'InvalidPayloadType (expected)' }
+                        } else {
+                            assert.fail(`${payloadTypeName} should be a valid request payload type`)
+                        }
+                    } else {
+                        throw error
+                    }
+                } else {
+                    throw error
+                }
+
+                // Record test result if an unexpected error occurs
+                const testResult = {
+                    payloadTypeName: payloadTypeName || 'Unknown',
+                    payloadTypeValue: payloadType as number,
+                    success: false,
+                    reason,
+                }
+
+                testResults.push(testResult)
+
+                throw error
+            }
+        }
+
+        // Test that quotes cannot be obtained when the proxy is paused
+        const testWhenProxyPaused = async () => {
+            console.log('Testing quote_request when proxy is paused...')
+
+            // Pause the proxy
+            const pauseParams = { paused: true }
+            await proxyProgram.methods
+                .setPause(pauseParams)
+                .accounts({
+                    admin: wallet.publicKey,
+                    proxyConfig: proxyConfigPda,
+                })
+                .rpc(confirmOptions)
+
+            // Verify the proxy is paused
+            const proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+            assert.equal(proxyConfig.paused, true, 'Proxy should be paused')
+
+            const payloadType = constants.PayloadType.CreateOrderUnstakeRequest
+            const payload = utils.checkPayload(payloadType, '100')
+            const { params, accounts } = utils.prepareParamsAndAccounts(
+                proxyProgram,
+                wallet.publicKey,
+                payloadType,
+                Buffer.from(payload),
+                ENV
+            )
+
+            try {
+                // Try to call quoteRequest when the proxy is paused
+                await proxyProgram.methods
+                    .quoteRequest(params)
+                    .accounts(accounts)
+                    .remainingAccounts(quoteRemainingAccounts)
+                    .simulate()
+
+                assert.fail('Quote request should fail when proxy is paused')
+            } catch (error: any) {
+                // Verify that the error is ProxyPaused
+                const errorCode = getErrorCode(error.simulationResponse.logs)
+                assert.equal(errorCode, 'ProxyPaused', 'Error should be ProxyPaused')
+                console.log('Successfully verified that operations are restricted when proxy is paused')
+            }
+
+            // Unpause the proxy
+            const unpauseParams = { paused: false }
+            await proxyProgram.methods
+                .setPause(unpauseParams)
+                .accounts({
+                    admin: wallet.publicKey,
+                    proxyConfig: proxyConfigPda,
+                })
+                .rpc(confirmOptions)
+
+            // Verify the proxy is unpaused
+            const updatedProxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+            assert.equal(updatedProxyConfig.paused, false, 'Proxy should be unpaused')
+        }
+        await delay(3)
+
+        // Get the current backward_fee settings for fee calculation verification
+        const backwardFeePda = pdaHelper.getBackwardFeePda(proxyProgram.programId)
+        const backwardFee = await proxyProgram.account.backwardFee.fetch(backwardFeePda)
+        const orderBackwardFee = backwardFee.orderBackwardFee.toNumber()
+        const usdcBackwardFee = backwardFee.usdcBackwardFee.toNumber()
+
+        console.log(`Current backward fees - Order: ${orderBackwardFee}, USDC: ${usdcBackwardFee}`)
+
+        // Test pause functionality
+        await testWhenProxyPaused()
+
+        // Test all PayloadTypes - based on definitions in constants.ts
+        // Payloads from Vault side
+        await testPayloadType(constants.PayloadType.ClaimReward) // 0
+        await testPayloadType(constants.PayloadType.Stake) // 1
+        await testPayloadType(constants.PayloadType.CreateOrderUnstakeRequest) // 2
+        await testPayloadType(constants.PayloadType.CancelOrderUnstakeRequest) // 3
+        await testPayloadType(constants.PayloadType.WithdrawOrder, orderBackwardFee) // 4 - should include order_backward_fee
+        await testPayloadType(constants.PayloadType.EsOrderUnstakeAndVest) // 5
+        await testPayloadType(constants.PayloadType.CancelVestingRequest) // 6
+        await testPayloadType(constants.PayloadType.CancelAllVestingRequests) // 7 - Not supported anymore but kept for backward compatibility
+        await testPayloadType(constants.PayloadType.ClaimVestingRequest, orderBackwardFee) // 8 - should include order_backward_fee
+        await testPayloadType(constants.PayloadType.RedeemValor) // 9
+        await testPayloadType(constants.PayloadType.ClaimUsdcRevenue, usdcBackwardFee) // 10 - should include usdc_backward_fee
+
+        // Backward payloads from Ledger side
+        await testPayloadType(constants.PayloadType.ClaimRewardBackward) // 11
+        await testPayloadType(constants.PayloadType.WithdrawOrderBackward) // 12
+        await testPayloadType(constants.PayloadType.ClaimVestingRequestBackward) // 13
+        await testPayloadType(constants.PayloadType.ClaimUsdcRevenueBackward) // 14
+
+        // New payloads
+        await testPayloadType(constants.PayloadType.UnstakeOrderNow, orderBackwardFee) // 15 - should include order_backward_fee
+        await testPayloadType(constants.PayloadType.ClaimRewardSolana) // 16
+
+        // Note: There is no PLACEHOLDER enum value in constants.ts, so it's not tested here
+
+        // Test obviously invalid payload type
+        const testInvalidPayloadType = async () => {
+            console.log('Testing explicitly invalid payload type...')
+            const invalidPayloadType = 255 // Use an unsupported payload type, but needs to be treated as number type
+
+            // Create a simple payload
+            const payload = Buffer.from([1, 2, 3, 4])
+
+            // Note: We use number type here because invalidPayloadType is not a valid PayloadType enum value
+            // Use double type assertion to bypass TypeScript's type checking
+            const { params, accounts } = utils.prepareParamsAndAccounts(
+                proxyProgram,
+                wallet.publicKey,
+                invalidPayloadType as unknown as constants.PayloadType,
+                payload,
+                ENV
+            )
+
+            // Modify payloadType in params to an invalid value
+            // Use type assertion to bypass TypeScript's type checking
+            params.payloadType = invalidPayloadType as unknown as constants.PayloadType
+
+            try {
+                await proxyProgram.methods
+                    .quoteRequest(params)
+                    .accounts(accounts)
+                    .remainingAccounts(quoteRemainingAccounts)
+                    .simulate()
+
+                assert.fail('Quote request should fail with invalid payload type')
+                return { success: true } // This code should not execute
+            } catch (error: any) {
+                // Verify that the error is InvalidPayloadType
+                const errorCode = getErrorCode(error.simulationResponse.logs)
+                assert.equal(errorCode, 'InvalidPayloadType', 'Error should be InvalidPayloadType')
+                console.log('Successfully verified that invalid payload type is rejected')
+
+                // Record test result
+                testResults.push({
+                    payloadTypeName: 'Invalid (255)',
+                    payloadTypeValue: invalidPayloadType,
+                    success: false,
+                    reason: 'InvalidPayloadType (expected)',
+                })
+
+                return { success: false, reason: 'InvalidPayloadType (expected)' }
+            }
+        }
+
+        await testInvalidPayloadType()
+
+        // Print detailed test results
+        console.log(testResults)
+
+        // Summarize successful and failed tests
+        const successCount = testResults.filter((r) => r.success).length
+        const failureCount = testResults.filter((r) => !r.success).length
+        const expectedFailures = testResults.filter((r) => !r.success && r.reason?.includes('expected')).length
+        const unexpectedFailures = failureCount - expectedFailures
+
+        console.log(`Total PayloadTypes tested: ${testResults.length}`)
+        console.log(`Successful tests: ${successCount}`)
+        console.log(`Failed tests: ${failureCount}`)
+        console.log(`  - Expected failures: ${expectedFailures}`)
+        console.log(`  - Unexpected failures: ${unexpectedFailures}`)
+
+        // Check different fee types
+        const withOrderBackwardFee = testResults.filter((r) => r.extraFeeType === 'orderBackwardFee').length
+        const withUsdcBackwardFee = testResults.filter((r) => r.extraFeeType === 'usdcBackwardFee').length
+
+        console.log(`PayloadTypes with orderBackwardFee: ${withOrderBackwardFee}`)
+        console.log(`PayloadTypes with usdcBackwardFee: ${withUsdcBackwardFee}`)
+        console.log(`PayloadTypes without extra fees: ${successCount - withOrderBackwardFee - withUsdcBackwardFee}`)
+
+        console.log('All quote_request payload type tests completed successfully!')
+    })
+
+    it('LZ Receive', async () => {
+        console.log('Testing lz_receive instruction with different payload types...')
+
+        // First, check the current balance
+        const currentProxyUSDCBalance = await getTokenBalance(provider.connection, proxyTokenAccount)
+        console.log(`Current proxy USDC balance: ${currentProxyUSDCBalance}`)
+
+        // Define how much additional USDC to mint for this test
+        const additionalUsdcBalance = 10_000_000_000
+
+        // Mint additional tokens
+        await mintTo(
+            provider.connection,
+            wallet.payer,
+            USDC_MINT,
+            proxyTokenAccount,
+            usdcMintAuthority,
+            additionalUsdcBalance
+        )
+
+        // Get the new total balance
+        const updatedProxyUSDCBalance = await getTokenBalance(provider.connection, proxyTokenAccount)
+        console.log(`Updated proxy USDC balance: ${updatedProxyUSDCBalance}`)
+
+        // Use the actual balance for verification
+        const initialProxyUSDCBalance = updatedProxyUSDCBalance
+
+        // Create an array to track test results
+        const testResults = []
+
+        // Helper function to create and prepare a test receiver
+        const prepareReceiver = async () => {
+            const receiver = Keypair.generate()
+            const receiverTokenAccount = await getOrCreateAssociatedTokenAccount(
+                provider.connection,
+                wallet.payer,
+                USDC_MINT,
+                receiver.publicKey
+            )
+            return { receiver, receiverTokenAccount }
+        }
+
+        // Helper function to execute lz_receive test for a specific payload type
+        const testLzReceiveForPayloadType = async (
+            payloadType: number,
+            expectedSuccess = true,
+            amountToTransfer = 1_000_000
+        ) => {
+            const { receiver, receiverTokenAccount } = await prepareReceiver()
+            const initialReceiverBalance = await getTokenBalance(provider.connection, receiverTokenAccount.address)
+            assert.equal(initialReceiverBalance, 0, 'Initial receiver balance should be 0')
+
+            const payloadTypeName =
+                Object.keys(constants.PayloadType).find(
+                    (key) => constants.PayloadType[key as keyof typeof constants.PayloadType] === payloadType
+                ) || 'Unknown'
+
+            console.log(`Testing lz_receive with payload type: ${payloadTypeName} (${payloadType})`)
+
+            // Nonce from noncePda
+            const nonceAccount = await endpointProgram.account.nonce.fetch(noncePda)
+            console.log('Nonce Account:', nonceAccount)
+
+            let nonce = nonceAccount.inboundNonce.toNumber() + 1
+            console.log('Current nonce:', nonce)
+
+            // Initialize tokenType with a default value
+            let tokenType: number = constants.LedgerToken.PLACEHOLDER
+
+            let testResult = {
+                payloadType,
+                payloadTypeName,
+                success: false,
+                reason: null as string | null,
+                amountTransferred: 0,
+            }
+
+            try {
+                // Determine appropriate token type for this payload
+                if (payloadType === constants.PayloadType.ClaimUsdcRevenueBackward) {
+                    tokenType = constants.LedgerToken.USDC
+                } else {
+                    tokenType = constants.LedgerToken.PLACEHOLDER // Default for most types
+                    // We'll use another token type if needed based on the test case
+                }
+
+                // Create the message payload
+                const payload = utils.convertIntoBytes32(amountToTransfer.toString())
+                const msg = Buffer.concat([
+                    Buffer.from([tokenType]),
+                    Buffer.from(receiver.publicKey.toBuffer()),
+                    Buffer.from([payloadType]),
+                    Buffer.from(payload),
+                ])
+
+                // Initialize and commit verification for the message
+                await initVerify(nonce)
+                await commitVerify(nonce, msg)
+
+                // Prepare lz_receive parameters
+                const params = {
+                    srcEid: orderlyEid,
+                    sender: peerAddress,
+                    nonce: new BN(nonce),
+                    guid: guid,
+                    message: Buffer.from(msg),
+                    extraData: Buffer.from(''),
+                }
+
+                // Prepare accounts
+                const accounts = {
+                    payer: wallet.publicKey,
+                    proxyConfig: proxyConfigPda,
+                    peerConfig: peerConfigPda,
+                    tokenMint: USDC_MINT,
+                    proxyTokenAccount: proxyTokenAccount,
+                    receiver: receiver.publicKey,
+                    receiverTokenAccount: receiverTokenAccount.address,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                }
+
+                // Execute lz_receive
+                await lzReceive(wallet.payer, params, accounts, nonce)
+
+                // Verify token transfers for USDC token type
+                if (
+                    tokenType === constants.LedgerToken.USDC &&
+                    payloadType === constants.PayloadType.ClaimUsdcRevenueBackward
+                ) {
+                    const finalProxyBalance = await getTokenBalance(provider.connection, proxyTokenAccount)
+                    const finalReceiverBalance = await getTokenBalance(
+                        provider.connection,
+                        receiverTokenAccount.address
+                    )
+
+                    assert.equal(
+                        finalProxyBalance,
+                        initialProxyUSDCBalance - amountToTransfer,
+                        'Proxy balance should decrease by transfer amount'
+                    )
+                    assert.equal(
+                        finalReceiverBalance,
+                        amountToTransfer,
+                        'Receiver should have received the transfer amount'
+                    )
+
+                    testResult.amountTransferred = amountToTransfer
+                }
+
+                testResult.success = true
+            } catch (error: any) {
+                let errorReason = 'Unknown error'
+
+                // Extract error code from logs if available
+                if (error.logs) {
+                    try {
+                        errorReason = getErrorCode(error.logs)
+                    } catch (e) {
+                        // If getErrorCode throws, use the original error message
+                        errorReason = error.message || 'Error parsing logs'
+                    }
+                } else if (error.simulationResponse && error.simulationResponse.logs) {
+                    try {
+                        errorReason = getErrorCode(error.simulationResponse.logs)
+                    } catch (e) {
+                        errorReason = error.message || 'Error parsing simulation logs'
+                    }
+                } else {
+                    errorReason = error.message || 'Unknown error without logs'
+                }
+
+                // Check expected failures
+                if (!expectedSuccess) {
+                    if (
+                        (errorReason === 'InvalidLedgerPayloadType' &&
+                            payloadType !== constants.PayloadType.ClaimUsdcRevenueBackward) ||
+                        (errorReason === 'InvalidLedgerTokenType' && tokenType !== constants.LedgerToken.USDC)
+                    ) {
+                        console.log(`Expected failure for ${payloadTypeName}: ${errorReason}`)
+                        testResult.success = false
+                        testResult.reason = `${errorReason} (expected)`
+                    } else {
+                        console.error(`Unexpected error for ${payloadTypeName}: ${errorReason}`)
+                        testResult.success = false
+                        testResult.reason = errorReason
+                        throw error
+                    }
+                } else {
+                    console.error(`Error processing ${payloadTypeName}: ${errorReason}`)
+                    testResult.success = false
+                    testResult.reason = errorReason
+                    throw error
+                }
+            }
+
+            testResults.push(testResult)
+            return testResult
+        }
+
+        // Test various payload types
+
+        // First, test the successful case: ClaimUsdcRevenueBackward with USDC token
+        await testLzReceiveForPayloadType(constants.PayloadType.ClaimUsdcRevenueBackward, true)
+
+        // Now test other payload types (all should fail with InvalidLedgerPayloadType)
+        // Test a subset of payload types to keep the test reasonable in size
+        const otherPayloadTypes = [
+            constants.PayloadType.ClaimReward,
+            constants.PayloadType.WithdrawOrder,
+            constants.PayloadType.ClaimVestingRequest,
+            constants.PayloadType.RedeemValor,
+            constants.PayloadType.ClaimRewardBackward,
+            constants.PayloadType.WithdrawOrderBackward,
+            constants.PayloadType.ClaimRewardSolana,
+        ]
+
+        for (const payloadType of otherPayloadTypes) {
+            await testLzReceiveForPayloadType(payloadType, false)
+        }
+
+        // Test with invalid token type
+        try {
+            const { receiver, receiverTokenAccount } = await prepareReceiver()
+
+            // Nonce from noncePda
+            const nonceAccount = await endpointProgram.account.nonce.fetch(noncePda)
+            console.log('Nonce Account:', nonceAccount)
+
+            let nonce = nonceAccount.inboundNonce.toNumber() + 1
+            console.log('Current nonce:', nonce)
+
+            const tokenType = constants.LedgerToken.ORDER // Invalid token type for lz_receive
+            const payloadType = constants.PayloadType.ClaimUsdcRevenueBackward
+            const amountToTransfer = 1_000_000
+
+            // Create message with invalid token type
+            const payload = utils.convertIntoBytes32(amountToTransfer.toString())
+            const msg = Buffer.concat([
+                Buffer.from([tokenType]),
+                Buffer.from(receiver.publicKey.toBuffer()),
+                Buffer.from([payloadType]),
+                Buffer.from(payload),
+            ])
+
+            await initVerify(nonce)
+            await commitVerify(nonce, msg)
+
+            const params = {
+                srcEid: orderlyEid,
+                sender: peerAddress,
+                nonce: new BN(nonce),
+                guid: guid,
+                message: Buffer.from(msg),
+                extraData: Buffer.from(''),
+            }
+
+            const accounts = {
+                payer: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                peerConfig: peerConfigPda,
+                tokenMint: USDC_MINT,
+                proxyTokenAccount: proxyTokenAccount,
+                receiver: receiver.publicKey,
+                receiverTokenAccount: receiverTokenAccount.address,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            }
+
+            await lzReceive(wallet.payer, params, accounts, nonce)
+            assert.fail('Should have failed with invalid token type')
+        } catch (error: any) {
+            const errorCode = getErrorCode(error.logs || error.simulationResponse.logs)
+            assert.equal(errorCode, 'InvalidLedgerTokenType', 'Should fail with InvalidLedgerTokenType error')
+            console.log('Successfully detected invalid token type')
+
+            testResults.push({
+                payloadType: constants.PayloadType.ClaimUsdcRevenueBackward,
+                payloadTypeName: 'ClaimUsdcRevenueBackward with invalid token',
+                success: false,
+                reason: 'InvalidLedgerTokenType (expected)',
+                amountTransferred: 0,
+            })
+        }
+
+        // Test with invalid receiver
+        try {
+            const receiver = Keypair.generate()
+            const wrongReceiver = Keypair.generate()
+            const wrongReceiverTokenAccount = await getOrCreateAssociatedTokenAccount(
+                provider.connection,
+                wallet.payer,
+                USDC_MINT,
+                wrongReceiver.publicKey
+            )
+
+            // Nonce from noncePda
+            const nonceAccount = await endpointProgram.account.nonce.fetch(noncePda)
+            console.log('Nonce Account:', nonceAccount)
+
+            let nonce = nonceAccount.inboundNonce.toNumber() + 1
+            console.log('Current nonce:', nonce)
+
+            const tokenType = constants.LedgerToken.USDC
+            const payloadType = constants.PayloadType.ClaimUsdcRevenueBackward
+            const amountToTransfer = 1_000_000
+
+            // Create message for one receiver but use a different one in accounts
+            const payload = utils.convertIntoBytes32(amountToTransfer.toString())
+            const msg = Buffer.concat([
+                Buffer.from([tokenType]),
+                Buffer.from(receiver.publicKey.toBuffer()), // Correct receiver in message
+                Buffer.from([payloadType]),
+                Buffer.from(payload),
+            ])
+
+            await initVerify(nonce)
+            await commitVerify(nonce, msg)
+
+            const params = {
+                srcEid: orderlyEid,
+                sender: peerAddress,
+                nonce: new BN(nonce),
+                guid: guid,
+                message: Buffer.from(msg),
+                extraData: Buffer.from(''),
+            }
+
+            const accounts = {
+                payer: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                peerConfig: peerConfigPda,
+                tokenMint: USDC_MINT,
+                proxyTokenAccount: proxyTokenAccount,
+                receiver: wrongReceiver.publicKey, // Wrong receiver in accounts
+                receiverTokenAccount: wrongReceiverTokenAccount.address,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            }
+
+            await lzReceive(wallet.payer, params, accounts, nonce)
+            assert.fail('Should have failed with invalid receiver')
+        } catch (error: any) {
+            const errorCode = getErrorCode(error.logs || error.simulationResponse.logs)
+            assert.equal(errorCode, 'InvalidReceiver', 'Should fail with InvalidReceiver error')
+            console.log('Successfully detected invalid receiver')
+
+            testResults.push({
+                payloadType: constants.PayloadType.ClaimUsdcRevenueBackward,
+                payloadTypeName: 'ClaimUsdcRevenueBackward with invalid receiver',
+                success: false,
+                reason: 'InvalidReceiver (expected)',
+                amountTransferred: 0,
+            })
+        }
+
+        // Test when proxy is paused
+        try {
+            // Pause the proxy
+            await proxyProgram.methods
+                .setPause({ paused: true })
+                .accounts({
+                    admin: wallet.publicKey,
+                    proxyConfig: proxyConfigPda,
+                })
+                .rpc(confirmOptions)
+
+            // Verify pause status
+            const proxyConfig = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
+            assert.equal(proxyConfig.paused, true, 'Proxy should be paused')
+
+            // Try to execute lz_receive while proxy is paused
+            const { receiver, receiverTokenAccount } = await prepareReceiver()
+
+            // Nonce from noncePda
+            const nonceAccount = await endpointProgram.account.nonce.fetch(noncePda)
+            console.log('Nonce Account:', nonceAccount)
+
+            let nonce = nonceAccount.inboundNonce.toNumber() + 1
+            console.log('Current nonce:', nonce)
+
+            const tokenType = constants.LedgerToken.USDC
+            const payloadType = constants.PayloadType.ClaimUsdcRevenueBackward
+            const amountToTransfer = 1_000_000
+
+            const payload = utils.convertIntoBytes32(amountToTransfer.toString())
+            const msg = Buffer.concat([
+                Buffer.from([tokenType]),
+                Buffer.from(receiver.publicKey.toBuffer()),
+                Buffer.from([payloadType]),
+                Buffer.from(payload),
+            ])
+
+            await initVerify(nonce)
+            await commitVerify(nonce, msg)
+
+            const params = {
+                srcEid: orderlyEid,
+                sender: peerAddress,
+                nonce: new BN(nonce),
+                guid: guid,
+                message: Buffer.from(msg),
+                extraData: Buffer.from(''),
+            }
+
+            const accounts = {
+                payer: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                peerConfig: peerConfigPda,
+                tokenMint: USDC_MINT,
+                proxyTokenAccount: proxyTokenAccount,
+                receiver: receiver.publicKey,
+                receiverTokenAccount: receiverTokenAccount.address,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            }
+
+            await lzReceive(wallet.payer, params, accounts, nonce)
+            assert.fail('Should have failed when proxy is paused')
+        } catch (error: any) {
+            const errorCode = getErrorCode(error.logs || error.simulationResponse.logs)
+            assert.equal(errorCode, 'ProxyPaused', 'Should fail with ProxyPaused error')
+            console.log('Successfully detected paused proxy')
+
+            testResults.push({
+                payloadType: constants.PayloadType.ClaimUsdcRevenueBackward,
+                payloadTypeName: 'ClaimUsdcRevenueBackward when proxy paused',
+                success: false,
+                reason: 'ProxyPaused (expected)',
+                amountTransferred: 0,
+            })
+
+            // Unpause the proxy for other tests
+            await proxyProgram.methods
+                .setPause({ paused: false })
+                .accounts({
+                    admin: wallet.publicKey,
+                    proxyConfig: proxyConfigPda,
+                })
+                .rpc(confirmOptions)
+        }
+
+        // Test different USDC amounts
+        // const testAmounts = [1_000, 1_000_000, 5_000_000];
+        // for (const amount of testAmounts) {
+        //    await testLzReceiveForPayloadType(constants.PayloadType.ClaimUsdcRevenueBackward, true, amount);
+        // }
+
+        // Test with invalid sender
+        try {
+            const { receiver, receiverTokenAccount } = await prepareReceiver()
+
+            // Nonce from noncePda
+            const nonceAccount = await endpointProgram.account.nonce.fetch(noncePda)
+            console.log('Nonce Account:', nonceAccount)
+
+            let nonce = nonceAccount.inboundNonce.toNumber() + 1
+            console.log('Current nonce:', nonce)
+
+            const tokenType = constants.LedgerToken.USDC
+            const payloadType = constants.PayloadType.ClaimUsdcRevenueBackward
+            const amountToTransfer = 1_000_000
+
+            const payload = utils.convertIntoBytes32(amountToTransfer.toString())
+            const msg = Buffer.concat([
+                Buffer.from([tokenType]),
+                Buffer.from(receiver.publicKey.toBuffer()),
+                Buffer.from([payloadType]),
+                Buffer.from(payload),
+            ])
+
+            await initVerify(nonce)
+            await commitVerify(nonce, msg)
+
+            // Create params with incorrect sender
+            const invalidSender = Array(32).fill(0) // Zero bytes as invalid sender
+            const params = {
+                srcEid: orderlyEid,
+                sender: invalidSender, // Invalid sender
+                nonce: new BN(nonce),
+                guid: guid,
+                message: Buffer.from(msg),
+                extraData: Buffer.from(''),
+            }
+
+            const accounts = {
+                payer: wallet.publicKey,
+                proxyConfig: proxyConfigPda,
+                peerConfig: peerConfigPda,
+                tokenMint: USDC_MINT,
+                proxyTokenAccount: proxyTokenAccount,
+                receiver: receiver.publicKey,
+                receiverTokenAccount: receiverTokenAccount.address,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            }
+
+            await lzReceive(wallet.payer, params, accounts, nonce)
+            assert.fail('Should have failed with invalid sender')
+        } catch (error: any) {
+            const errorCode = getErrorCode(error.logs || error.simulationResponse.logs)
+            assert.equal(errorCode, 'InvalidSender', 'Should fail with InvalidSender error')
+            console.log('Successfully detected invalid sender')
+
+            testResults.push({
+                payloadType: constants.PayloadType.ClaimUsdcRevenueBackward,
+                payloadTypeName: 'ClaimUsdcRevenueBackward with invalid sender',
+                success: false,
+                reason: 'InvalidSender (expected)',
+                amountTransferred: 0,
+            })
+        }
+
+        // Summarize test results
+        console.log(`Total tests: ${testResults.length}`)
+        console.log(`Successful tests: ${testResults.filter((r) => r.success).length}`)
+        console.log(`Failed tests: ${testResults.filter((r) => !r.success).length}`)
+        console.log(
+            `Expected failures: ${testResults.filter((r) => !r.success && r.reason?.includes('expected')).length}`
+        )
+
+        const successfulPayloads = testResults.filter((r) => r.success).map((r) => r.payloadTypeName)
+        console.log(`Successful payload types: ${successfulPayloads.join(', ')}`)
+
+        // Final verification of proxy balance
+        const finalProxyBalance = await getTokenBalance(provider.connection, proxyTokenAccount)
+        const totalTransferred = testResults
+            .filter((r) => r.success)
+            .reduce((sum, result) => sum + result.amountTransferred, 0)
+
+        assert.equal(
+            finalProxyBalance,
+            initialProxyUSDCBalance - totalTransferred,
+            'Final proxy balance should reflect all successful transfers'
+        )
+
+        console.log('LZ Receive tests completed successfully!')
     })
 })

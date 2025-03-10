@@ -154,20 +154,25 @@ impl PayloadType {
         }
     }
 
-    pub fn check_vault_payload_type(&self) -> bool {
-        // The following payload types are supported to send through Solana Proxy
+    pub fn check_claim_payload_type(&self) -> bool {
+        match self {
+            PayloadType::ClaimRewardSolana => true,
+            _ => false,
+        }
+    }
+
+    pub fn check_request_payload_type(&self) -> bool {
         match self {
             PayloadType::CreateOrderUnstakeRequest => true,
             PayloadType::CancelOrderUnstakeRequest => true,
             PayloadType::WithdrawOrder => true,
             PayloadType::EsOrderUnstakeAndVest => true,
             PayloadType::CancelVestingRequest => true,
-            PayloadType::CancelAllVestingRequests => true,
+            PayloadType::CancelAllVestingRequests => false,
             PayloadType::ClaimVestingRequest => true,
             PayloadType::RedeemValor => true,
             PayloadType::ClaimUsdcRevenue => true,
             PayloadType::UnstakeOrderNow => true,
-            PayloadType::ClaimRewardSolana => true,
             _ => false,
         }
     }

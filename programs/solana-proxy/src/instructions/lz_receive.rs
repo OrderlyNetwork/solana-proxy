@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 // use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
 use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::associated_token::AssociatedToken;
 use oapp::endpoint::{cpi::accounts::Clear, instructions::ClearParams, ConstructCPIContext};
 use crate::instructions::LzReceiveParams;
 
@@ -38,7 +39,7 @@ pub struct LzReceive<'info> {
     pub token_mint: Account<'info, Mint>,
 
     #[account(
-        mut,
+        mut, 
         associated_token::mint = token_mint,
         associated_token::authority = proxy_config,
         associated_token::token_program = token_program
@@ -52,7 +53,8 @@ pub struct LzReceive<'info> {
     pub receiver: AccountInfo<'info>,
 
     #[account(
-        mut,    
+        init_if_needed, 
+        payer = payer,
         associated_token::mint = token_mint,
         associated_token::authority = receiver,
         associated_token::token_program = token_program
@@ -60,6 +62,8 @@ pub struct LzReceive<'info> {
     pub receiver_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,  
 }
 
 impl<'info> LzReceive<'info> {

@@ -68,6 +68,15 @@ export function getOAppConfigPda(programId: PublicKey): PublicKey {
     return PublicKey.findProgramAddressSync([Buffer.from(OAPP_SEED, 'utf8')], programId)[0]
 }
 
+export function getPayloadOptionsPda(programId: PublicKey, payloadType: number) {
+    const bufferPayloadType = Buffer.alloc(4)
+    bufferPayloadType.writeUInt32BE(payloadType)
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from(constants.PAYLOAD_OPTIONS_SEED), bufferPayloadType],
+        programId
+    )[0]
+}
+
 export function getAccountListPda(programId: PublicKey, configPda: PublicKey): PublicKey {
     return PublicKey.findProgramAddressSync(
         [Buffer.from(constants.ACCOUNT_LIST_SEED, 'utf8'), configPda.toBuffer()],

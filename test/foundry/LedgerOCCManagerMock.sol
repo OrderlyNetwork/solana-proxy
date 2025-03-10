@@ -28,4 +28,8 @@ contract LedgerOCCManagerMock is ILedgerOCCManager {
     function ledgerOappReceive(OCCVaultMessage memory /*message*/) external pure {
         return;
     }
+
+    receive() external payable {}
+
+    fallback() external payable {}
 }

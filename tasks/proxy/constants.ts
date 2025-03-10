@@ -76,6 +76,7 @@ export const PROXY_CONFIG_SEED = 'ProxyConfig'
 export const CLAIM_DATA_SEED = 'ClaimData'
 export const ACCOUNT_LIST_SEED = 'AccountList'
 export const BACKWARD_FEE_SEED = 'BackwardFee'
+export const PAYLOAD_OPTIONS_SEED = 'PayloadOptions'
 
 export const PROXY_ACCOUNTS: { [key: string]: any } = {
     local: {
@@ -168,7 +169,6 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         evmOftAddress: addressToBytes32('0x4E200fE2f3eFb977d5fd9c430A41531FB04d97B8'),
     },
 }
-
 export const LEDGER_OAPP_ACCOUNTS: { [key: string]: any } = {
     local: {
         proxy: '0xdD733F92F99A584bD46F37f3558034B4268B5EB8',
@@ -199,31 +199,31 @@ export const LEDGER_OAPP_ACCOUNTS: { [key: string]: any } = {
 
 export const OPTIONS: { [key: string]: any } = {
     local: {
-        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_GAS: 800000,
         LZ_RECEIVE_VALUE: 0,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,
     },
     dev: {
-        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_GAS: 800000,
         LZ_RECEIVE_VALUE: 0,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,
     },
     qa: {
-        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_GAS: 800000,
         LZ_RECEIVE_VALUE: 0,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,
     },
     staging: {
-        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_GAS: 800000,
         LZ_RECEIVE_VALUE: 0,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,
     },
     mainnet: {
-        LZ_RECEIVE_GAS: 500000,
+        LZ_RECEIVE_GAS: 1000000,
         LZ_RECEIVE_VALUE: 0,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,

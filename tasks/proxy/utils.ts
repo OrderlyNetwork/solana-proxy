@@ -490,12 +490,16 @@ export function createStakingMsg(amount: string, sender: PublicKey, ENV: string)
             ],
         ]
     )
+    console.log('encodedStr:', encodedStr)
     const encodedBytes = arrayify(encodedStr)
     return encodedBytes
 }
 
 export function getStakingOptions() {
-    return Options.newOptions().addExecutorComposeOption(0, 500000, 0).toBytes() // Buffer.from('')  for deployed oft
+    // Due to the tx size limit, we need to use empty options or only add executor compose option,
+    // return Options.newOptions().addExecutorComposeOption(0, 500000, 0).toBytes() // Buffer.from('')  for deployed oft
+    // based on the configuration already set on the OFT contract, we can use empty options
+    return Buffer.from('')
 }
 
 export async function quoteStakingFee(wallet: Wallet, amount: string, ENV: string) {
@@ -519,7 +523,7 @@ export async function quoteStakingFee(wallet: Wallet, amount: string, ENV: strin
         dstEid: orderlyEid,
         to: oftAccounts.ledgerOccManger,
         amountLd: amountInBigInt,
-        minAmountLd: 0n, // TODO: should be the same as amount for deployed oft
+        minAmountLd: amountInBigInt, // TODO: should be the same as amount for deployed oft
         options: stakingOptions,
         composeMsg: Buffer.from(stakingMsg),
         payInLzToken: false,
@@ -553,12 +557,14 @@ export async function sendStakingRequest(
         dstEid: orderlyEid,
         to: oftAccounts.ledgerOccManger,
         amountLd: new BN(amountInBigInt.toString()),
-        minAmountLd: new BN(0), // should be the same as amount for deployed oft
+        minAmountLd: new BN(amountInBigInt.toString()), // should be the same as amount for deployed oft
         options: Buffer.from(stakingOptions),
         composeMsg: Buffer.from(stakingMsg),
         nativeFee: new BN(fee),
         lzTokenFee: new BN(0),
     }
+
+    console.log(stakingMsg)
     const [eventAuthorityPDA] = new EventPDADeriver(oftAccounts.programId).eventAuthority()
     const oftPeerPda = getPeerPda(oftAccounts.programId, oftAccounts.oftStore, orderlyEid)
     const senderATA = getTokenATA(oftAccounts.mint, wallet.publicKey)
@@ -932,7 +938,7 @@ export function getPeerAddress(ENV: string) {
 export function getOptions(ENV: string, localNetwork: string) {
     checkENV(ENV)
     if (localNetwork === 'soldev' || localNetwork === 'solana') {
-        return constants.OPTIONS_TO_ORDERLY[ENV]
+        return constants.OPTIONS_TO_SOLANA[ENV]
     } else if (localNetwork === 'orderlysepolia' || localNetwork === 'orderly') {
         return constants.OPTIONS_TO_ORDERLY[ENV]
     } else {

@@ -1,7 +1,8 @@
 use crate::instructions::msg_codec::SolanaLedgerOCCMessage;
 use crate::state::{AccountList, ProxyConfig, ACCOUNT_LIST_SEED, PEER_SEED, PROXY_CONFIG_SEED};
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::get_associated_token_address;
+use anchor_lang::system_program::ID as SYSTEM_PROGRAM_ID;
+use anchor_spl::associated_token::{get_associated_token_address, ID as ASSOCIATED_TOKEN_ID};
 use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
 use oapp::endpoint_cpi::LzAccount;
 // use oapp::LzReceiveParams;
@@ -37,6 +38,8 @@ impl LzReceiveTypes<'_> {
         let receiver = SolanaLedgerOCCMessage::get_receiver(&params.message);
         let receiver_token_account = get_associated_token_address(&receiver, &token_mint);
         let token_program = TOKEN_PROGRAM_ID;
+        let system_program = SYSTEM_PROGRAM_ID;
+        let associated_token_program = ASSOCIATED_TOKEN_ID;
 
         accounts.extend_from_slice(&[
             LzAccount { pubkey: peer_config, is_signer: false, is_writable: false },
@@ -45,6 +48,8 @@ impl LzReceiveTypes<'_> {
             LzAccount { pubkey: receiver, is_signer: false, is_writable: false },
             LzAccount { pubkey: receiver_token_account, is_signer: false, is_writable: true },
             LzAccount { pubkey: token_program, is_signer: false, is_writable: false },
+            LzAccount { pubkey: associated_token_program, is_signer: false, is_writable: false },
+            LzAccount { pubkey: system_program, is_signer: false, is_writable: false },
         ]);
 
         let (event_authority_account, _) = Pubkey::find_program_address(&[oapp::endpoint_cpi::EVENT_SEED], &ctx.program_id);

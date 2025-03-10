@@ -5,6 +5,8 @@ use anchor_lang::prelude::error_code;
 pub enum ProxyError {
     #[msg("Signer is not the Proxy admin")]
     InvalidProxyAdmin,
+    #[msg("The same admin is set")]
+    SameAdmin,
     #[msg("Rate limit exceeded")]
     RateLimitExceeded,
     #[msg("Invalid fee")]
