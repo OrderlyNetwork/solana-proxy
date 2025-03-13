@@ -7,6 +7,9 @@ target
 typechain
 typechain-types
 
+# Endpoint program lib
+programs/oft/src/lib.rs
+
 # Hardhat files
 cache
 artifacts
@@ -26,3 +29,6 @@ pnpm-error.log
 .idea
 
 test-ledger
+
+# Harhdat deployments
+deployments

@@ -11,7 +11,7 @@ mod test_msg_codec {
         let sender: Pubkey = Pubkey::new_unique();
         let compose_msg: Option<Vec<u8>> = Some(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
         let encoded = msg_codec::encode(send_to, amount_sd, sender, &compose_msg);
-        assert_eq!(encoded.len(), 72 + compose_msg.clone().unwrap().len());
+        assert_eq!(encoded.len(), 96 + compose_msg.clone().unwrap().len());
         assert_eq!(msg_codec::send_to(&encoded), send_to);
         assert_eq!(msg_codec::amount_sd(&encoded), amount_sd);
         assert_eq!(
@@ -26,8 +26,9 @@ mod test_msg_codec {
         let amount_sd: u64 = 123456789;
         let sender: Pubkey = Pubkey::new_unique();
         let compose_msg: Option<Vec<u8>> = None;
+        // let compose_msg: = Some([]);
         let encoded = msg_codec::encode(send_to, amount_sd, sender, &compose_msg);
-        assert_eq!(encoded.len(), 40);
+        assert_eq!(encoded.len(), 64);
         assert_eq!(msg_codec::send_to(&encoded), send_to);
         assert_eq!(msg_codec::amount_sd(&encoded), amount_sd);
         assert_eq!(msg_codec::compose_msg(&encoded), None);
@@ -46,10 +47,27 @@ mod test_msg_codec {
             amount_ld,
             &[&compose_from[..], &compose_msg].concat(),
         );
-        assert_eq!(encoded.len(), 20 + [&compose_from[..], &compose_msg].concat().len());
+        assert_eq!(
+            encoded.len(),
+            20 + [&compose_from[..], &compose_msg].concat().len()
+        );
         assert_eq!(compose_msg_codec::nonce(&encoded), nonce);
         assert_eq!(compose_msg_codec::src_eid(&encoded), src_eid);
         assert_eq!(compose_msg_codec::amount_ld(&encoded), amount_ld);
         assert_eq!(compose_msg_codec::compose_msg(&encoded), compose_msg);
+    }
+
+    #[test]
+    fn test_bytes32_to_u64() {
+        let hex_str_1b = "000000000000000000000000000000000000000000000006049b1439f1c74b87";
+        let mut byte_array = [0u8; 32];
+        for i in 0..32 {
+            byte_array[i] = u8::from_str_radix(&hex_str_1b[i * 2..i * 2 + 2], 16).unwrap();
+        }
+        println!("{:?}", byte_array);
+
+        let (zero_padding, amount) = msg_codec::bytes32_to_u64(&byte_array);
+        assert_eq!(zero_padding, 0);
+        assert_eq!(amount, 1110123456789);
     }
 }

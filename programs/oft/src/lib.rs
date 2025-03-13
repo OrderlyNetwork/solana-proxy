@@ -14,13 +14,9 @@ use oapp::{
     endpoint::{MessagingFee, MessagingReceipt},
     LzReceiveParams,
 };
-use solana_helper::program_id_from_env;
 use state::*;
 
-declare_id!(Pubkey::new_from_array(program_id_from_env!(
-    "OFT_ID",
-    "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa"
-)));
+declare_id!("GZGX6QfUo62VbPyYqPZS6t27Uke1dJmoAP6V3rw6ntTH");
 
 pub const OFT_SEED: &[u8] = b"OFT";
 pub const PEER_SEED: &[u8] = b"Peer";
@@ -32,7 +28,10 @@ pub mod oft {
     use super::*;
 
     pub fn oft_version(_ctx: Context<OFTVersion>) -> Result<Version> {
-        Ok(Version { interface: 2, message: 1 })
+        Ok(Version {
+            interface: 2,
+            message: 1,
+        })
     }
 
     pub fn init_oft(mut ctx: Context<InitOFT>, params: InitOFTParams) -> Result<()> {
@@ -92,25 +91,10 @@ pub mod oft {
 }
 
 #[derive(Accounts)]
-pub struct OFTVersion<'info> {
-    pub system_program: Program<'info, System>,
-}
+pub struct OFTVersion {}
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct Version {
     pub interface: u64,
     pub message: u64,
-}
-
-#[cfg(feature = "cpi")]
-pub trait ConstructCPIContext<'a, 'b, 'c, 'info, T>
-where
-    T: ToAccountMetas + ToAccountInfos<'info>,
-{
-    const MIN_ACCOUNTS_LEN: usize;
-
-    fn construct_context(
-        program_id: Pubkey,
-        accounts: &[AccountInfo<'info>],
-    ) -> Result<CpiContext<'a, 'b, 'c, 'info, T>>;
 }
