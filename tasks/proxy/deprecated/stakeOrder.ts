@@ -16,7 +16,7 @@ import {
     getOrderlyEid,
     getSolanaEid,
     LedgerToken,
-    PayloadDataType,
+    PayloadType,
     setupAnchor,
 } from '../utils'
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults'
@@ -63,12 +63,12 @@ task('proxy:stake-order', 'Stake Order token from the Solana network to the Omni
         const emptyPayload = Buffer.from('')
 
         const composeMsg = encodeOCCVaultMessage(
-            chainedEventId,
+            BigInt(chainedEventId),
             getSolanaEid(),
             LedgerToken.ORDER,
             amount,
             wallet.publicKey,
-            PayloadDataType.Stake,
+            PayloadType.Stake,
             emptyPayload
         )
 

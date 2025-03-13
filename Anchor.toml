@@ -6,38 +6,33 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-oft = "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa"
-solana_proxy = "8KmTH6XgYBjehQwvcG1qjheBBE9oX7djuWvVbArvomFv"
+solana_proxy = "DATLWKEWMR3weq4VxN28e16T31aDL5ENvR49w3unjahv"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
-wallet = "/home/dmitry/.config/solana/id.json"
+cluster = "Localnet"
+wallet = "/Users/zion/.config/solana/id.json"
 
 [scripts]
 test = "npx jest test/anchor"
+
+[test]
+startup_wait = 5000
+shutdown_wait = 2000
+upgradeable = false
 
 [[test.genesis]]
 address = "76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6"
 program = "test/anchor/bin/endpoint.so"
 
 [[test.genesis]]
-address = "7a4WjyR8VZ7yZz5XJAKm39BUGn5iT9CKcv2pmG9tdXVH"
+address = "279tDX6wTFgrJaRnGEdjik3NLR8B9AKY1pKVFYcxvw7c"
 program = "test/anchor/bin/uln.so"
-
 
 [test.validator]
 bind_address = "127.0.0.1"
 url = "https://api.devnet.solana.com"
 ledger = ".anchor/test-ledger"
 rpc_port = 8899
-
-# OFT
-[[test.validator.clone]]
-address = "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa"
-
-# mintPda
-[[test.validator.clone]]
-address = "8nUroYvjdDAQNmob4JuryrGPjsWUUx29uoR7bKTMggfN"

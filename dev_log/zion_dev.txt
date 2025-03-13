@@ -1,0 +1,80 @@
+npx hardhat sol:proxy:submitproof --env local --distribution-id 1 --cumulative-amount 1 --merkle-proof "0xd8b413ffc6023e4aea407df01bac0abcfac6b349db16bb6b2d49e6fa9f834040"
+Claiming reward from the Solana network...
+Distribution ID: 1
+cumulative amount: 1
+Merkle proof: [
+  '0xd8b413ffc6023e4aea407df01bac0abcfac6b349db16bb6b2d49e6fa9f834040'
+]
+Proxy program ID: 5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ
+Tx to submit claim proof to Solana Proxy: 5iTtcsLxY3rqE2rUzKZcnyiQVYVkkAxmqPaNYg7CFZTCjRRPiCJ8MPauaStM1xtcybfLgJVeuxPL9MTawyD4JFjo
+Solana transaction:    https://explorer.solana.com/tx/5iTtcsLxY3rqE2rUzKZcnyiQVYVkkAxmqPaNYg7CFZTCjRRPiCJ8MPauaStM1xtcybfLgJVeuxPL9MTawyD4JFjo?cluster=devnet
+LzyerZero transaction: https://testnet.layerzeroscan.com/tx/5iTtcsLxY3rqE2rUzKZcnyiQVYVkkAxmqPaNYg7CFZTCjRRPiCJ8MPauaStM1xtcybfLgJVeuxPL9MTawyD4JFjo
+
+
+npx hardhat sol:proxy:claim --env local 
+lzTokenFee: 0
+nativeFee: 1102205
+Sending claim request
+Tx to send request for Solana Proxy: 5tJKM4xs2LgqCZGRRvodD7Uan3z8GoRjXtkz3XUHTx19kjBxBNMakHvfyoCef2x7vmo2LmoEQmnvSjHJ37kB2cky
+Solana transaction:    https://explorer.solana.com/tx/5tJKM4xs2LgqCZGRRvodD7Uan3z8GoRjXtkz3XUHTx19kjBxBNMakHvfyoCef2x7vmo2LmoEQmnvSjHJ37kB2cky?cluster=devnet
+LzyerZero transaction: https://testnet.layerzeroscan.com/tx/5tJKM4xs2LgqCZGRRvodD7Uan3z8GoRjXtkz3XUHTx19kjBxBNMakHvfyoCef2x7vmo2LmoEQmnvSjHJ37kB2cky
+
+
+npx hardhat sol:proxy:request --env dev --payload-type CreateOrderUnstakeRequest --payload 1  
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+Could not find MNEMONIC or PRIVATE_KEY environment variables. It will not be possible to execute transactions in your example.
+Running on dev environment. Rpc: https://api.devnet.solana.com
+Proxy program ID: 5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ
+✅ Quoted fee
+lzTokenFee: 0
+nativeFee: 1102190
+Tx to send request for Solana Proxy: 5qf8fLK9mNeQ8W1xcH3gJf42eZCu2TnpijXN4gR42Rm4L9inBQUjEA68AsTUEoDSmR8VRNTHM7vNjGXX1p7Tjvq5
+Solana transaction:    https://explorer.solana.com/tx/5qf8fLK9mNeQ8W1xcH3gJf42eZCu2TnpijXN4gR42Rm4L9inBQUjEA68AsTUEoDSmR8VRNTHM7vNjGXX1p7Tjvq5?cluster=devnet
+LzyerZero transaction: https://testnet.layerzeroscan.com/tx/5qf8fLK9mNeQ8W1xcH3gJf42eZCu2TnpijXN4gR42Rm4L9inBQUjEA68AsTUEoDSmR8VRNTHM7vNjGXX1p7Tjvq5
+
+npx hardhat sol:proxy:request --env dev --payload-type WithdrawOrder --payload 1
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+Could not find MNEMONIC or PRIVATE_KEY environment variables. It will not be possible to execute transactions in your example.
+Running on dev environment. Rpc: https://api.devnet.solana.com
+Proxy program ID: 5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ
+✅ Quoted fee
+lzTokenFee: 0
+nativeFee: 1102190
+Tx to send request for Solana Proxy: 3tP3Ts5Q5yLyTuz686Q7afq4te4HKwdUHAmxqnJaR4nHcbxPJRDM6Nc9yxwtNDHUiwwXNsD8U8z69adr42s7CSLd
+Solana transaction:    https://explorer.solana.com/tx/3tP3Ts5Q5yLyTuz686Q7afq4te4HKwdUHAmxqnJaR4nHcbxPJRDM6Nc9yxwtNDHUiwwXNsD8U8z69adr42s7CSLd?cluster=devnet
+LzyerZero transaction: https://testnet.layerzeroscan.com/tx/3tP3Ts5Q5yLyTuz686Q7afq4te4HKwdUHAmxqnJaR4nHcbxPJRDM6Nc9yxwtNDHUiwwXNsD8U8z69adr42s7CSLd
+
+
+
+
+test for esOrder claim
+(base) ➜  solana-proxy git:(zion/dev) ✗ npx hardhat sol:proxy:claim --env dev  
+
+Sending claim request
+Tx to send request for Solana Proxy: 4Mf3LWvgsh3TMjHuF8kWYYf8Vy63BuQTVVtm94WABecnaFx6ncqb9dREQh8oWDT29Rre9nCGQLffrzk7TG2BS1cx
+Solana transaction:    https://explorer.solana.com/tx/4Mf3LWvgsh3TMjHuF8kWYYf8Vy63BuQTVVtm94WABecnaFx6ncqb9dREQh8oWDT29Rre9nCGQLffrzk7TG2BS1cx?cluster=devnet
+LzyerZero transaction: https://testnet.layerzeroscan.com/tx/4Mf3LWvgsh3TMjHuF8kWYYf8Vy63BuQTVVtm94WABecnaFx6ncqb9dREQh8oWDT29Rre9nCGQLffrzk7TG2BS1cx
+
+
+(base) ➜  solana-proxy git:(zion/dev) ✗ npx hardhat sol:proxy:request --env dev --payload-type EsOrderUnstakeAndVest --payload 1
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+Could not find MNEMONIC or PRIVATE_KEY environment variables. It will not be possible to execute transactions in your example.
+Running on dev environment. Rpc: https://api.devnet.solana.com
+Proxy program ID: 5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ
+✅ Quoted fee
+lzTokenFee: 0
+nativeFee: 1102190
+Tx to send request for Solana Proxy: 3QcGh42C21NiXfhyHBgkzZKKTCadayDJwfuTFHVnPAxfk5prfuFh477TcEkBpyBhM9C1DCxoqYeShoVhnz6Pj5am
+Solana transaction:    https://explorer.solana.com/tx/3QcGh42C21NiXfhyHBgkzZKKTCadayDJwfuTFHVnPAxfk5prfuFh477TcEkBpyBhM9C1DCxoqYeShoVhnz6Pj5am?cluster=devnet
+LzyerZero transaction: https://testnet.layerzeroscan.com/tx/3QcGh42C21NiXfhyHBgkzZKKTCadayDJwfuTFHVnPAxfk5prfuFh477TcEkBpyBhM9C1DCxoqYeShoVhnz6Pj5am
+(base) ➜  solana-proxy git:(zion/dev) ✗ npx hardhat sol:proxy:request --env dev --payload-type ClaimVestingRequest --payload 0
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+Could not find MNEMONIC or PRIVATE_KEY environment variables. It will not be possible to execute transactions in your example.
+Running on dev environment. Rpc: https://api.devnet.solana.com
+Proxy program ID: 5jnoCeAzwFmqQbABqm5hPT7fB9SaDu8xfm5mm1CfGsMQ
+✅ Quoted fee
+lzTokenFee: 0
+nativeFee: 1102190
+Tx to send request for Solana Proxy: 3BS7wzV38A3KpFWDZTx2SM9mdNX7JACYXMVmkprNssX6GYA8sZNDztcDwXFFRbhyUfVkLxxGbYmnzEdpKSQkyrqm
+Solana transaction:    https://explorer.solana.com/tx/3BS7wzV38A3KpFWDZTx2SM9mdNX7JACYXMVmkprNssX6GYA8sZNDztcDwXFFRbhyUfVkLxxGbYmnzEdpKSQkyrqm?cluster=devnet
+LzyerZero transaction: https://testnet.layerzeroscan.com/tx/3BS7wzV38A3KpFWDZTx2SM9mdNX7JACYXMVmkprNssX6GYA8sZNDztcDwXFFRbhyUfVkLxxGbYmnzEdpKSQkyrqm

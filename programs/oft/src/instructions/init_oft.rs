@@ -13,7 +13,7 @@ pub struct InitOFT<'info> {
         seeds = [OFT_SEED, token_escrow.key().as_ref()],
         bump
     )]
-    pub oft_store: Account<'info, OFTStore>,
+    pub oft_store: Box<Account<'info, OFTStore>>,
     #[account(
         init,
         payer = payer,
@@ -21,7 +21,7 @@ pub struct InitOFT<'info> {
         seeds = [LZ_RECEIVE_TYPES_SEED, oft_store.key().as_ref()],
         bump
     )]
-    pub lz_receive_types_accounts: Account<'info, LzReceiveTypesAccounts>,
+    pub lz_receive_types_accounts: Box<Account<'info, LzReceiveTypesAccounts>>,
     #[account(mint::token_program = token_program)]
     pub token_mint: InterfaceAccount<'info, Mint>,
     #[account(
@@ -71,8 +71,14 @@ impl InitOFT<'_> {
             ctx.accounts.oft_store.endpoint_program,
             ctx.accounts.oft_store.key(),
             ctx.remaining_accounts,
-            &[OFT_SEED, ctx.accounts.token_escrow.key().as_ref(), &[ctx.bumps.oft_store]],
-            RegisterOAppParams { delegate: params.admin },
+            &[
+                OFT_SEED,
+                ctx.accounts.token_escrow.key().as_ref(),
+                &[ctx.bumps.oft_store],
+            ],
+            RegisterOAppParams {
+                delegate: params.admin,
+            },
         )
     }
 }
