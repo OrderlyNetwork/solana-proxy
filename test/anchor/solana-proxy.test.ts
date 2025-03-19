@@ -2598,20 +2598,21 @@ describe('Test Solana Proxy', () => {
 
     it('Cancel Claim', async () => {
         // Skip if not testing with the expected wallet
-        if (wallet.publicKey.toString() !== '8UjQHfis2YPXGfbWzHTr5wZe1sEf8HMVAZMsXauWZXau') {
+        if (wallet.publicKey.toString() !== 'Zions51qQNUgWNyp4JegUFoMUpgFx43jBUsYmHtDPdr') {
             console.log('Please contact Zion or Dmitry to generate merkle proof for your address')
             return
         }
 
-        const distributionId = 1
-        const cumulativeAmount = '123'
-        const merkleRoot = '0x4b8c052a7597d0119286e9af0f763b407e43c5770e37e89406c3968c56610692'
-        // These proofs are specific to the solana wallet address 8UjQHfis2YPXGfbWzHTr5wZe1sEf8HMVAZMsXauWZXau
+        const distributionId = 420394
+        const cumulativeAmount = '1'
+        // these proof only valid for solana address DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE
         const merkleProof = [
-            'ae04af11dc3968a94f29f8d0b4f11c1890c2483a239c5a333545fc73d953bb1d',
-            '590893f24028650ab894297fd622a4bfc53fe044e4bb034929456a47bf93728f',
-            'a66eec1eb7a82fa086ba89575fb1268f55030149639f571e02425dc3468f1b02',
+            '130c75b69219ec74853d9c37442ea1d0b7d81599b5f5d6499879d24868717b26',
+            '619c95d3eeded6bd18861d72cb2c2bbfdf5ebe66e28e9a7c2fc540be54d6fcf5',
+            '89eb2b2bf6ec53c75c8e1bcea0b101fc2297b236717f9bc8d0aaf2dc421984d0',
+            '55263bafd0cc2f75f0f9234c768b955b5f05392f0e70d66940f13ab9d748e973',
         ]
+        const merkleRoot = '0xcd30e62fdc74fa221b98b1012f46bed187aaceb82dfffdea63945672097a4a55'
 
         // First submit proof to create ClaimData account
         const claimDataPda = pdaHelper.getClaimDataPda(proxyProgram.programId, wallet.publicKey)
@@ -2981,7 +2982,7 @@ describe('Test Solana Proxy', () => {
 
         // Try to send claim when proxy is paused (should fail)
         try {
-            await sendClaim(lzTokenFee, nativeFee)
+            await sendClaim(lzTokenFee, nativeFee, wallet)
             assert.fail('Should not be able to send claim when proxy is paused')
         } catch (error: any) {
             let logs
@@ -3012,7 +3013,7 @@ describe('Test Solana Proxy', () => {
         await utils.createAndSendV0Tx([setUnpauseIx2], provider, wallet)
 
         // Create send claim instruction
-        await sendClaim(lzTokenFee, nativeFee)
+        await sendClaim(lzTokenFee, nativeFee, wallet)
 
         // Verify ClaimData account has been closed (after successful claim)
         try {

@@ -659,10 +659,11 @@ export async function submitProof(
     }
 
     const claimDataPda = getClaimDataPda(program.programId, user)
-
+    const proxyConfigPda = getProxyConfigPda(program.programId)
     const claimRewardAccounts = {
         user: user,
         claimData: claimDataPda,
+        proxyConfig: proxyConfigPda,
     }
 
     const ixSubmitProof = await program.methods
