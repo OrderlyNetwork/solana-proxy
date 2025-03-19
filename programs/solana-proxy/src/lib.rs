@@ -35,6 +35,10 @@ pub mod solana_proxy {
         SendClaim::apply(&mut ctx, &msg_fee)
     }
 
+    pub fn cancel_claim(mut ctx: Context<CancelClaim>) -> Result<()> {
+        CancelClaim::apply(&mut ctx)
+    }
+
     pub fn quote_claim(ctx: Context<QuoteClaim>) -> Result<MessagingFee> {
         QuoteClaim::apply(ctx)
     }
