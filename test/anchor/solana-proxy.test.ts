@@ -1,5 +1,5 @@
 import * as anchor from '@coral-xyz/anchor'
-import { BN, Program, Idl } from '@coral-xyz/anchor'
+import { BN, Program, Idl, Wallet } from '@coral-xyz/anchor'
 import { accounts, oft } from '@layerzerolabs/oft-v2-solana-sdk'
 import { SolanaProxy } from '../../target/types/solana_proxy'
 import { Endpoint } from './types/endpoint'
@@ -654,8 +654,8 @@ describe('Test Solana Proxy', () => {
         assert.equal(backwardFee.orderBackwardFee.toString(), orderBackwardFee.toString())
         assert.equal(backwardFee.usdcBackwardFee.toString(), usdcBackwardFee.toString())
 
-        const fakeNativeFee = new BN(1000)
-        const fakeLzTokenFee = new BN(0)
+        const fakeNativeFee = new BN(1000) // hardcoded in the mock uln program
+        const fakeLzTokenFee = new BN(0) // hardcoded in the mock uln program
 
         const payloadType = constants.PayloadType.UnstakeOrderNow
         const payload = utils.checkPayload(payloadType, '1')
@@ -673,7 +673,7 @@ describe('Test Solana Proxy', () => {
         assert.equal(lzTokenFee.toString(), fakeLzTokenFee.toString())
     })
 
-    const sendRequest = async (params: any, lzTokenFee: BN, nativeFee: BN) => {
+    const sendRequest = async (params: any, lzTokenFee: BN, nativeFee: BN, wallet: Wallet) => {
         const accounts = {
             user: wallet.publicKey,
             peerConfig: peerConfigPda,
@@ -721,7 +721,7 @@ describe('Test Solana Proxy', () => {
         return { lzTokenFee, nativeFee }
     }
 
-    const sendClaim = async (lzTokenFee: BN, nativeFee: BN) => {
+    const sendClaim = async (lzTokenFee: BN, nativeFee: BN, wallet: Wallet) => {
         const msgFee = {
             lzTokenFee: lzTokenFee,
             nativeFee: nativeFee,
@@ -780,9 +780,14 @@ describe('Test Solana Proxy', () => {
         assert.equal(uint8ArrayToHex(Uint8Array.from(claimData.root)), merkleRoot)
         assert.equal(claimData.user.toString(), wallet.publicKey.toString())
 
+        // attacker try to claim reward
+        // try {
+
+        // }
+
         const { lzTokenFee, nativeFee } = await quoteClaimFee()
 
-        await sendClaim(lzTokenFee, nativeFee)
+        await sendClaim(lzTokenFee, nativeFee, wallet)
     })
 
     it('Send Request', async () => {
@@ -798,7 +803,7 @@ describe('Test Solana Proxy', () => {
 
         const { lzTokenFee, nativeFee } = await quoteFee(params)
 
-        await sendRequest(params, lzTokenFee, nativeFee)
+        await sendRequest(params, lzTokenFee, nativeFee, wallet)
 
         // Try to send fake claim through request instruction
         const claimPayloadType = constants.PayloadType.ClaimRewardSolana
@@ -831,7 +836,7 @@ describe('Test Solana Proxy', () => {
         try {
             const claimLzTokenFee = new BN(0)
             const claimNativeFee = new BN(1234567890)
-            await sendRequest(claimParams, claimLzTokenFee, claimNativeFee)
+            await sendRequest(claimParams, claimLzTokenFee, claimNativeFee, wallet)
         } catch (error: any) {
             // Error msg returned from transaction logs
             // console.log(error.transactionLogs)
