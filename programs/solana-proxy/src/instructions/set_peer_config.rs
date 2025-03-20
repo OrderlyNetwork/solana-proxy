@@ -44,18 +44,21 @@ impl SetPeerConfig<'_> {
                 oapp::options::assert_type_3(&send_and_call)?;
                 ctx.accounts.peer_config.enforced_options.send_and_call = send_and_call;
             },
-            PeerConfigParam::OutboundRateLimit(rate_limit_params) => {
-                Self::update_rate_limiter(&mut ctx.accounts.peer_config.outbound_rate_limiter, &rate_limit_params)?;
-            },
-            PeerConfigParam::InboundRateLimit(rate_limit_params) => {
-                Self::update_rate_limiter(&mut ctx.accounts.peer_config.inbound_rate_limiter, &rate_limit_params)?;
+            // PeerConfigParam::OutboundRateLimit(rate_limit_params) => {
+            //     Self::update_rate_limiter(&mut ctx.accounts.peer_config.outbound_rate_limiter, &rate_limit_params)?;
+            // },
+            // PeerConfigParam::InboundRateLimit(rate_limit_params) => {
+            //     Self::update_rate_limiter(&mut ctx.accounts.peer_config.inbound_rate_limiter, &rate_limit_params)?;
+            // },
+            _ => {
+                return Err(ProxyError::InvalidPeerConfigParam.into());
             },
         }
         ctx.accounts.peer_config.bump = ctx.bumps.peer_config;
         Ok(())
     }
 
-    fn update_rate_limiter(rate_limiter: &mut Option<RateLimiter>, params: &Option<RateLimitParams>) -> Result<()> {
+    fn _update_rate_limiter(rate_limiter: &mut Option<RateLimiter>, params: &Option<RateLimitParams>) -> Result<()> {
         if let Some(param) = params {
             let mut limiter = rate_limiter.clone().unwrap_or_default();
             if let Some(capacity) = param.capacity {

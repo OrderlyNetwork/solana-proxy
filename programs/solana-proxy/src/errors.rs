@@ -33,4 +33,6 @@ pub enum ProxyError {
     InsufficientBalance,
     #[msg("Invalid Ledger token type")]
     InvalidLedgerTokenType,
+    #[msg("Invalid peer config param")]
+    InvalidPeerConfigParam,
 }
