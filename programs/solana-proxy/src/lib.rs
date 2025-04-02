@@ -12,7 +12,7 @@ use instructions::*;
 // use oapp::endpoint::MessagingReceipt;
 // use oft::instructions::OFTReceipt;
 
-declare_id!("6sH1YKAatvQqMCQcQoh3feMzXipuaYkHKGeDLUHpatrz");
+declare_id!("7X5WKxXLPy9TbJDFejq288HezLmWayZWudKMmUC2d9rB");
 
 #[program]
 pub mod solana_proxy {
@@ -33,6 +33,10 @@ pub mod solana_proxy {
 
     pub fn send_claim(mut ctx: Context<SendClaim>, msg_fee: MessagingFee) -> Result<MessagingReceipt> {
         SendClaim::apply(&mut ctx, &msg_fee)
+    }
+
+    pub fn cancel_claim(mut ctx: Context<CancelClaim>) -> Result<()> {
+        CancelClaim::apply(&mut ctx)
     }
 
     pub fn quote_claim(ctx: Context<QuoteClaim>) -> Result<MessagingFee> {
