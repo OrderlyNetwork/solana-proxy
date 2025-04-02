@@ -12,7 +12,7 @@ use instructions::*;
 // use oapp::endpoint::MessagingReceipt;
 // use oft::instructions::OFTReceipt;
 
-declare_id!("6sH1YKAatvQqMCQcQoh3feMzXipuaYkHKGeDLUHpatrz");
+declare_id!("7X5WKxXLPy9TbJDFejq288HezLmWayZWudKMmUC2d9rB");
 
 #[program]
 pub mod solana_proxy {

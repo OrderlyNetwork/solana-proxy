@@ -6,16 +6,14 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-solana_proxy = "DATLWKEWMR3weq4VxN28e16T31aDL5ENvR49w3unjahv"
-# solana_proxy = "6sH1YKAatvQqMCQcQoh3feMzXipuaYkHKGeDLUHpatrz"
+solana_proxy = "7X5WKxXLPy9TbJDFejq288HezLmWayZWudKMmUC2d9rB"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "Devnet"
 wallet = "/Users/zion/.config/solana/id.json"
-# wallet = "/home/hannesgao/.config/solana/id.json"
 
 [scripts]
 test = "npx jest test/anchor"
