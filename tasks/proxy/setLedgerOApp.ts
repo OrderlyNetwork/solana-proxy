@@ -15,6 +15,7 @@ import {
     getOrderlyNetwork,
     getSolanaNetwork,
     equalDVNs,
+    getOccManagerAddress,
 } from './utils'
 
 import { getLzConfig } from './utils'
@@ -43,8 +44,7 @@ task('orderly:deploy', 'Deploys the contract to Orderly network')
                 lzEndpointAddress = getLocalLzConfig(orderlyNetwork).endpointAddress
                 owner = signer.address
                 console.log(`Owner: ${owner}`)
-                const solEid = getSolanaEid(ENV)
-                initArgs = [lzEndpointAddress, owner, solEid]
+                initArgs = [lzEndpointAddress, owner]
             } else {
                 return console.error('Invalid contract name')
             }
@@ -142,7 +142,7 @@ task('orderly:ledgeroapp:setpeer', 'Sets the peer contract for the contract')
         const [signer] = await hre.ethers.getSigners()
         const contractAddress = getLedgerOAppAddress(ENV)
         const LedgerOApp = await hre.ethers.getContractAt(contractName, contractAddress, signer)
-        const solEid = await LedgerOApp.solanaEid()
+        const solEid = getSolanaEid(ENV)
         console.log(`Solana EID: ${solEid}`)
         const solanaPeerAddress = hexlify(base58.decode(getProxyAccounts(ENV).configPda.toString()))
         const peerAddressOnContract = await LedgerOApp.peers(solEid)
@@ -169,6 +169,25 @@ task('orderly:ledgeroapp:setpeer', 'Sets the peer contract for the contract')
         } else {
             console.log(`Options already set`)
         }
+    })
+
+task('orderly:ledgeroapp:setOccManager', 'Sets the OCCManager for the contract')
+    .addParam('env', 'The environment to send the transaction', undefined, types.string)
+    .setAction(async (taskArgs, hre) => {
+        checkOrderlyNetwork(hre.network.name)
+        const orderlyNetwork = hre.network.name
+        checkENV(taskArgs.env)
+        const ENV = taskArgs.env
+        const contractName = 'LedgerOApp'
+        console.log(`Running on ${hre.network.name}`)
+        const [signer] = await hre.ethers.getSigners()
+        const contractAddress = getLedgerOAppAddress(ENV)
+        const LedgerOApp = await hre.ethers.getContractAt(contractName, contractAddress, signer)
+        const occManagerAddress = getOccManagerAddress(ENV)
+        console.log(`OCCManager contract for ${ENV} is ${occManagerAddress}`)
+        const txSetOccManager = await LedgerOApp.setOCCManagerAddr(occManagerAddress)
+        await txSetOccManager.wait()
+        console.log(`Setting OCCManager with tx hash ${txSetOccManager.hash}`)
     })
 
 // task('orderly:owner', 'Set the owner of SolConnector ')

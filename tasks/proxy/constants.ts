@@ -79,12 +79,6 @@ export const BACKWARD_FEE_SEED = 'BackwardFee'
 export const PAYLOAD_OPTIONS_SEED = 'PayloadOptions'
 
 export const PROXY_ACCOUNTS: { [key: string]: any } = {
-    local: {
-        programId: new PublicKey('DATLWKEWMR3weq4VxN28e16T31aDL5ENvR49w3unjahv'),
-        configPda: new PublicKey('v6RzpFC2veBhP9iZEPYvxDCDBLAqTCnhu5NV4GMkeuc'), // placeholder
-        usdcMint: DEV_USDC_MINT,
-        multisig: new PublicKey('AbQgW1N8JAZxQFdh3VTx3ukGdGCN1vQYADktp3d2HDYw'),
-    },
     dev: {
         programId: new PublicKey('DATLWKEWMR3weq4VxN28e16T31aDL5ENvR49w3unjahv'),
         configPda: new PublicKey('v6RzpFC2veBhP9iZEPYvxDCDBLAqTCnhu5NV4GMkeuc'),
@@ -92,8 +86,8 @@ export const PROXY_ACCOUNTS: { [key: string]: any } = {
         multisig: new PublicKey('AbQgW1N8JAZxQFdh3VTx3ukGdGCN1vQYADktp3d2HDYw'),
     },
     qa: {
-        programId: new PublicKey('2HH2MwVZKqizwQ8DV4CAibLiTqQtkR7SmHDLPimut6rV'),
-        configPda: new PublicKey('HY978ZaHEjjyCnhfjt2yStBTNtQHtqCsAJ9pYrBvcuUU'),
+        programId: new PublicKey('6Z4axe9fpgXhq9AK3AorcyXPrnD7c9FrWzWCx2T3rpLF'),
+        configPda: new PublicKey('8BXHJ3kHUQRQbmG4951SX2dh9oyw3k11v4houat54SKr'),
         usdcMint: DEV_USDC_MINT,
         multisig: new PublicKey('2WG7UG81NsutAzKDpJp6ZepEisMKrXS9XvMVPhsfqtuB'),
     },
@@ -112,18 +106,6 @@ export const PROXY_ACCOUNTS: { [key: string]: any } = {
 }
 
 export const OFT_ACCOUNTS: { [key: string]: any } = {
-    local: {
-        programId: new PublicKey('Cz7PQf471Pg3MiHKbKSTTZD5am2ZjJ93bon3gPThyH6v'),
-        mint: new PublicKey('DW7MkwAmEUV72vQNi8dCu9rzeqaBrR8AtxyVaj2rXBxT'),
-        mintAuthority: new PublicKey('6oRZ8usrt5gfARp2HB8yq2A1qUZft9UkGaP3kWRvj77F'),
-        escrow: new PublicKey('BsePJupeGSfvi919fg5pvvxGY5Y1uZS7x7uFyzMaYJuP'),
-        oftStore: new PublicKey('6oRZ8usrt5gfARp2HB8yq2A1qUZft9UkGaP3kWRvj77F'),
-        ledgerOccManger: addressToBytes32('0xb846DF606b592B9646db03aE2568951651D9D5BC'),
-        evmOftAddress: addressToBytes32('0xe2eB2df1CA9D90c8501049bAEEEf57f111782903'),
-        // alt: address lookup table account for oft
-        alt: new PublicKey('9JLjAcaHGwJXqk8HFJtgvu5qWnWqcNhq59m7tW1XN9Ab'), // TODO: placeholder
-        //
-    },
     dev: {
         programId: new PublicKey('Cz7PQf471Pg3MiHKbKSTTZD5am2ZjJ93bon3gPThyH6v'),
         mint: new PublicKey('DW7MkwAmEUV72vQNi8dCu9rzeqaBrR8AtxyVaj2rXBxT'),
@@ -139,9 +121,10 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         programId: new PublicKey('B2BBh7JdvdsmzuG7b4dedeBjSMfmiS91z6gQS3DhRLns'),
         mint: new PublicKey('HJzi8SG3NtDx3vyuw3Gaq1jdCEYDqiWCyCrVKHCqKW2H'),
         mintAuthority: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
+        oftStore: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
         escrow: new PublicKey('85FsyjiLqfyZciG1s3ERzsc47LuxQiEnoUfcnV9urAYZ'),
         // alt: address lookup table account for oft
-        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        alt: new PublicKey('3orQmjTarm58PwbSzutYAUhrog45h5Vk4rUdsDByrqft'),
         ledgerOccManger: addressToBytes32('0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53'),
         evmOftAddress: addressToBytes32('0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18'),
     },
@@ -170,40 +153,29 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
     },
 }
 export const LEDGER_OAPP_ACCOUNTS: { [key: string]: any } = {
-    local: {
-        proxy: '0xdD733F92F99A584bD46F37f3558034B4268B5EB8',
-        impl: '0x4DFF7A3746b7bd934123715a2E9F5FC669E1Ae7e',
-        multisig: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
-    },
     dev: {
         proxy: '0xdD733F92F99A584bD46F37f3558034B4268B5EB8',
-        impl: '0x4DFF7A3746b7bd934123715a2E9F5FC669E1Ae7e',
-        multisig: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
+        occManager: '0xb846DF606b592B9646db03aE2568951651D9D5BC',
+        multisig: '0xFae9CAF31EeD9f6480262808920dA03eb7f76E7E',
     },
     qa: {
-        proxy: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
-        impl: '0x5E01a54187DD679119B6562C0c897916B7CAD47f',
-        multisig: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
+        proxy: '0x5710A4B3aA6F0EBabE2Dc146DA2559b67E9dA935',
+        occManager: '0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53',
+        multisig: '0xc1465019B3e04602a50d34A558c6630Ac50f8fbb',
     },
     staging: {
         proxy: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
-        impl: '0x5E01a54187DD679119B6562C0c897916B7CAD47f',
-        multisig: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
+        occManager: '0x45f3039A9A0eefcC8997e030d9F3cCBb1A7AC6C1',
+        multisig: '0x7D1e7BeAd9fBb72e35Dc8E6d1966c2e57DbDA3F0',
     },
     mainnet: {
         proxy: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
-        impl: '0x5E01a54187DD679119B6562C0c897916B7CAD47f',
-        multisig: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
+        occManager: '0x68835941c7C300bFEF44D1D68b83798791901eB8',
+        multisig: '0x4e834Ca9310d7710a409638A7aa70CB22F141Df3',
     },
 }
 
 export const OPTIONS: { [key: string]: any } = {
-    local: {
-        LZ_RECEIVE_GAS: 800000,
-        LZ_RECEIVE_VALUE: 0,
-        LZ_COMPOSE_GAS: 0,
-        LZ_COMPOSE_VALUE: 0,
-    },
     dev: {
         LZ_RECEIVE_GAS: 800000,
         LZ_RECEIVE_VALUE: 0,
@@ -231,12 +203,6 @@ export const OPTIONS: { [key: string]: any } = {
 }
 
 export const OPTIONS_TO_ORDERLY: { [key: string]: any } = {
-    local: {
-        LZ_RECEIVE_GAS: 1000000,
-        LZ_RECEIVE_VALUE: 0,
-        LZ_COMPOSE_GAS: 0,
-        LZ_COMPOSE_VALUE: 0,
-    },
     dev: {
         LZ_RECEIVE_GAS: 1000000,
         LZ_RECEIVE_VALUE: 0,
@@ -264,12 +230,6 @@ export const OPTIONS_TO_ORDERLY: { [key: string]: any } = {
 }
 
 export const OPTIONS_TO_SOLANA: { [key: string]: any } = {
-    local: {
-        LZ_RECEIVE_GAS: 1000000,
-        LZ_RECEIVE_VALUE: 0,
-        LZ_COMPOSE_GAS: 0,
-        LZ_COMPOSE_VALUE: 0,
-    },
     dev: {
         LZ_RECEIVE_GAS: 1000000,
         LZ_RECEIVE_VALUE: 0,
@@ -278,7 +238,7 @@ export const OPTIONS_TO_SOLANA: { [key: string]: any } = {
     },
     qa: {
         LZ_RECEIVE_GAS: 1000000,
-        LZ_RECEIVE_VALUE: 0,
+        LZ_RECEIVE_VALUE: 2500000,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,
     },

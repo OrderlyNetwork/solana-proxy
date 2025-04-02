@@ -471,27 +471,28 @@ export function encodeOCCVaultMessage(
 }
 
 export function createStakingMsg(amount: string, sender: PublicKey, ENV: string): Uint8Array {
-    const amountInBytese32 = getOrderAmountInBytes32(amount)
-    let token = constants.LedgerToken.ORDER
-    const payload = Buffer.from('')
+    // const amountInBytese32 = getOrderAmountInBytes32(amount)
+    // let token = constants.LedgerToken.ORDER
+    // const payload = Buffer.from('')
 
     // TODO: using enpacked encode
-    const encodedStr = defaultAbiCoder.encode(
-        ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
-        [
-            [
-                getChainEventId(),
-                getSolChainId(ENV),
-                token,
-                amountInBytese32,
-                sender.toBytes(),
-                getPayloadType().Stake,
-                payload,
-            ],
-        ]
-    )
-    console.log('encodedStr:', encodedStr)
-    const encodedBytes = arrayify(encodedStr)
+    // const encodedStr = defaultAbiCoder.encode(
+    //     ['tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)'],
+    //     [
+    //         [
+    //             getChainEventId(),
+    //             getSolChainId(ENV),
+    //             token,
+    //             amountInBytese32,
+    //             sender.toBytes(),
+    //             getPayloadType().Stake,
+    //             payload,
+    //         ],
+    //     ]
+    // )
+    // console.log('encodedStr:', encodedStr)
+
+    const encodedBytes = arrayify('1')
     return encodedBytes
 }
 
@@ -566,7 +567,9 @@ export async function sendStakingRequest(
 
     console.log(stakingMsg)
     const [eventAuthorityPDA] = new EventPDADeriver(oftAccounts.programId).eventAuthority()
+    console.log('eventAuthorityPDA:', eventAuthorityPDA)
     const oftPeerPda = getPeerPda(oftAccounts.programId, oftAccounts.oftStore, orderlyEid)
+    console.log('oftPeerPda:', oftPeerPda)
     const senderATA = getTokenATA(oftAccounts.mint, wallet.publicKey)
     const oftSendAccounts = {
         signer: wallet.publicKey,
@@ -939,9 +942,9 @@ export function getPeerAddress(ENV: string) {
 export function getOptions(ENV: string, localNetwork: string) {
     checkENV(ENV)
     if (localNetwork === 'soldev' || localNetwork === 'solana') {
-        return constants.OPTIONS_TO_SOLANA[ENV]
-    } else if (localNetwork === 'orderlysepolia' || localNetwork === 'orderly') {
         return constants.OPTIONS_TO_ORDERLY[ENV]
+    } else if (localNetwork === 'orderlysepolia' || localNetwork === 'orderly') {
+        return constants.OPTIONS_TO_SOLANA[ENV]
     } else {
         throw new Error(`Invalid local network: ${localNetwork}`)
     }
@@ -1098,7 +1101,7 @@ export function getSolanaNetwork(ENV: string) {
 // ================================ Utility functions for LedgerOApp ================================
 
 export function checkOrderlyNetwork(network: string) {
-    if (network !== 'orderlysepolia' && network !== 'orderlymainnet') {
+    if (network !== 'orderlysepolia' && network !== 'orderly') {
         throw new Error(`LedgerOApp is only supported on Orderly chain`)
     }
 }
@@ -1112,6 +1115,10 @@ export function getOrderlyNetwork(ENV: string) {
 
 export function getLedgerOAppAddress(ENV: string) {
     return constants.LEDGER_OAPP_ACCOUNTS[ENV].proxy
+}
+
+export function getOccManagerAddress(ENV: string) {
+    return constants.LEDGER_OAPP_ACCOUNTS[ENV].occManager
 }
 
 export function equalDVNs<T>(dvn1: T[], dvn2: T[]): boolean {
