@@ -3,7 +3,11 @@ node_modules
 .env
 coverage
 coverage.json
-target
+target/debug
+target/release
+target/deploy
+target/.rustc_info.json
+target/sbf-solana-solana
 typechain
 typechain-types
 

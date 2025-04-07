@@ -1,0 +1,2879 @@
+export type SolanaProxy = {
+  "version": "0.1.0",
+  "name": "solana_proxy",
+  "instructions": [
+    {
+      "name": "sendRequest",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "RequestParams"
+          }
+        },
+        {
+          "name": "msgFee",
+          "type": {
+            "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+          }
+        }
+      ],
+      "returns": {
+        "defined": "MessagingReceipt"
+      }
+    },
+    {
+      "name": "quoteRequest",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "RequestParams"
+          }
+        }
+      ],
+      "returns": {
+        "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+      }
+    },
+    {
+      "name": "submitProof",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "claimData",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SubmitProofParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sendClaim",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "claimData",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "msgFee",
+          "type": {
+            "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+          }
+        }
+      ],
+      "returns": {
+        "defined": "MessagingReceipt"
+      }
+    },
+    {
+      "name": "cancelClaim",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "The user who owns the ClaimData account and will receive the rent refund"
+          ]
+        },
+        {
+          "name": "claimData",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The ClaimData account to be closed. It's closed to the user, refunding the rent.",
+            "The constraint ensures that only the owner of the account can close it."
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "quoteClaim",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "claimData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+      }
+    },
+    {
+      "name": "lzReceive",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "proxyTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "receiver",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "receiverTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "LzReceiveParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "lzReceiveTypes",
+      "accounts": [
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "accountList",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "LzReceiveParams"
+          }
+        }
+      ],
+      "returns": {
+        "vec": {
+          "defined": "LzAccount"
+        }
+      }
+    },
+    {
+      "name": "initProxy",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lzReceiveTypesAccounts",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "proxyTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "InitProxyParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setBackwardFee",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetBackwardFeeParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdrawFee",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "feeCollector",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "WithdrawFeeParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setPause",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetPauseParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setAccountList",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "lzReceiveTypes",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "accountList",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetAccountListParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setPeerConfig",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "peerConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetPeerConfigParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setDelegate",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetDelegateParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "transferAdmin",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "TransferAdminParams"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "backwardFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "orderBackwardFee",
+            "type": "u64"
+          },
+          {
+            "name": "usdcBackwardFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "claimData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "distributionId",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "user",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "peerConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "peerAddress",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "enforcedOptions",
+            "type": {
+              "defined": "EnforcedOptions"
+            }
+          },
+          {
+            "name": "outboundRateLimiter",
+            "type": {
+              "option": {
+                "defined": "RateLimiter"
+              }
+            }
+          },
+          {
+            "name": "inboundRateLimiter",
+            "type": {
+              "option": {
+                "defined": "RateLimiter"
+              }
+            }
+          },
+          {
+            "name": "feeBps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "accountList",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lzReceiveTypesAccounts",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proxyConfig",
+            "type": "publicKey"
+          },
+          {
+            "name": "accountList",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "proxyConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "endpointProgram",
+            "type": "publicKey"
+          },
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "orderlyEid",
+            "type": "u32"
+          },
+          {
+            "name": "solChainId",
+            "type": "u32"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "messagelib_interface::MessagingFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nativeFee",
+            "type": "u64"
+          },
+          {
+            "name": "lzTokenFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MessagingReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guid",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "type": {
+              "defined": "messagelib_interface::MessagingFee"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LzAccount",
+      "docs": [
+        "same to anchor_lang::prelude::AccountMeta"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pubkey",
+            "type": "publicKey"
+          },
+          {
+            "name": "isSigner",
+            "type": "bool"
+          },
+          {
+            "name": "isWritable",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitProxyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "endpointProgram",
+            "type": "publicKey"
+          },
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "orderlyEid",
+            "type": "u32"
+          },
+          {
+            "name": "solChainId",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LzReceiveParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "srcEid",
+            "type": "u32"
+          },
+          {
+            "name": "sender",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "guid",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "message",
+            "type": "bytes"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "solana_proxy::instructions::quote_request::MessagingFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nativeFee",
+            "type": "u64"
+          },
+          {
+            "name": "lzTokenFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SubmitProofParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "distributionId",
+            "type": "u32"
+          },
+          {
+            "name": "cumulativeAmount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "merkleProof",
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RequestParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payloadType",
+            "type": "u8"
+          },
+          {
+            "name": "payload",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetAccountListParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetBackwardFeeParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "orderBackwardFee",
+            "type": "u64"
+          },
+          {
+            "name": "usdcBackwardFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetDelegateParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "delegate",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetPauseParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PeerConfigParam",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "PeerAddress",
+            "fields": [
+              {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            ]
+          },
+          {
+            "name": "FeeBps",
+            "fields": [
+              {
+                "option": "u16"
+              }
+            ]
+          },
+          {
+            "name": "EnforcedOptions",
+            "fields": [
+              {
+                "name": "send",
+                "type": "bytes"
+              },
+              {
+                "name": "sendAndCall",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "OutboundRateLimit",
+            "fields": [
+              {
+                "option": {
+                  "defined": "RateLimitParams"
+                }
+              }
+            ]
+          },
+          {
+            "name": "InboundRateLimit",
+            "fields": [
+              {
+                "option": {
+                  "defined": "RateLimitParams"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateLimitParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "refillPerSecond",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "capacity",
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetPeerConfigParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "remoteEid",
+            "type": "u32"
+          },
+          {
+            "name": "config",
+            "type": {
+              "defined": "PeerConfigParam"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransferAdminParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "newAdmin",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawFeeParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EnforcedOptions",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "send",
+            "type": "bytes"
+          },
+          {
+            "name": "sendAndCall",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateLimiter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "capacity",
+            "type": "u64"
+          },
+          {
+            "name": "tokens",
+            "type": "u64"
+          },
+          {
+            "name": "refillPerSecond",
+            "type": "u64"
+          },
+          {
+            "name": "lastRefillTime",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "AdminRoleTransferred",
+      "fields": [
+        {
+          "name": "oldAdmin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newAdmin",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimCancelled",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "distributionId",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "cumulativeAmount",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimProofSubmitted",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "distributionId",
+          "type": "u32",
+          "index": false
+        },
+        {
+          "name": "cumulativeAmount",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimRequestSent",
+      "fields": [
+        {
+          "name": "guid",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "distributionId",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "cumulativeAmount",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ProxyPaused",
+      "fields": [
+        {
+          "name": "paused",
+          "type": "bool",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "RequestSent",
+      "fields": [
+        {
+          "name": "guid",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "request",
+          "type": {
+            "defined": "RequestParams"
+          },
+          "index": false
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidProxyAdmin",
+      "msg": "Signer is not the Proxy admin"
+    },
+    {
+      "code": 6001,
+      "name": "SameAdmin",
+      "msg": "The same admin is set"
+    },
+    {
+      "code": 6002,
+      "name": "RateLimitExceeded",
+      "msg": "Rate limit exceeded"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidFee",
+      "msg": "Invalid fee"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidMintAuthority",
+      "msg": "Invalid mint authority"
+    },
+    {
+      "code": 6005,
+      "name": "ProxyPaused",
+      "msg": "Solana Proxy is Paused"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidUser",
+      "msg": "User is not the owner of the account"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidPayloadType",
+      "msg": "Invalid payload type"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidUSDCAccount",
+      "msg": "Invalid USDC account"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidReceiver",
+      "msg": "Invalid receiver"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidLedgerPayloadType",
+      "msg": "Invalid Ledger payload type"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidSender",
+      "msg": "Invalid sender"
+    },
+    {
+      "code": 6012,
+      "name": "InsufficientMessagingFee",
+      "msg": "Insufficient messaging fee"
+    },
+    {
+      "code": 6013,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidLedgerTokenType",
+      "msg": "Invalid Ledger token type"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidPeerConfigParam",
+      "msg": "Invalid peer config param"
+    }
+  ]
+};
+
+export const IDL: SolanaProxy = {
+  "version": "0.1.0",
+  "name": "solana_proxy",
+  "instructions": [
+    {
+      "name": "sendRequest",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "RequestParams"
+          }
+        },
+        {
+          "name": "msgFee",
+          "type": {
+            "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+          }
+        }
+      ],
+      "returns": {
+        "defined": "MessagingReceipt"
+      }
+    },
+    {
+      "name": "quoteRequest",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "RequestParams"
+          }
+        }
+      ],
+      "returns": {
+        "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+      }
+    },
+    {
+      "name": "submitProof",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "claimData",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SubmitProofParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sendClaim",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "claimData",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "msgFee",
+          "type": {
+            "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+          }
+        }
+      ],
+      "returns": {
+        "defined": "MessagingReceipt"
+      }
+    },
+    {
+      "name": "cancelClaim",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "The user who owns the ClaimData account and will receive the rent refund"
+          ]
+        },
+        {
+          "name": "claimData",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The ClaimData account to be closed. It's closed to the user, refunding the rent.",
+            "The constraint ensures that only the owner of the account can close it."
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "quoteClaim",
+      "accounts": [
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "claimData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [],
+      "returns": {
+        "defined": "solana_proxy::instructions::quote_request::MessagingFee"
+      }
+    },
+    {
+      "name": "lzReceive",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "peerConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "proxyTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "receiver",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "receiverTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "LzReceiveParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "lzReceiveTypes",
+      "accounts": [
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "accountList",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "LzReceiveParams"
+          }
+        }
+      ],
+      "returns": {
+        "vec": {
+          "defined": "LzAccount"
+        }
+      }
+    },
+    {
+      "name": "initProxy",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lzReceiveTypesAccounts",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "proxyTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "InitProxyParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setBackwardFee",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "backwardFee",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetBackwardFeeParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdrawFee",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "feeCollector",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "WithdrawFeeParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setPause",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetPauseParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setAccountList",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "lzReceiveTypes",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "accountList",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetAccountListParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setPeerConfig",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "peerConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetPeerConfigParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setDelegate",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "SetDelegateParams"
+          }
+        }
+      ]
+    },
+    {
+      "name": "transferAdmin",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "proxyConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "TransferAdminParams"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "backwardFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "orderBackwardFee",
+            "type": "u64"
+          },
+          {
+            "name": "usdcBackwardFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "claimData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "distributionId",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "user",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "peerConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "peerAddress",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "enforcedOptions",
+            "type": {
+              "defined": "EnforcedOptions"
+            }
+          },
+          {
+            "name": "outboundRateLimiter",
+            "type": {
+              "option": {
+                "defined": "RateLimiter"
+              }
+            }
+          },
+          {
+            "name": "inboundRateLimiter",
+            "type": {
+              "option": {
+                "defined": "RateLimiter"
+              }
+            }
+          },
+          {
+            "name": "feeBps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "accountList",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lzReceiveTypesAccounts",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proxyConfig",
+            "type": "publicKey"
+          },
+          {
+            "name": "accountList",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "proxyConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "endpointProgram",
+            "type": "publicKey"
+          },
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "orderlyEid",
+            "type": "u32"
+          },
+          {
+            "name": "solChainId",
+            "type": "u32"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "messagelib_interface::MessagingFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nativeFee",
+            "type": "u64"
+          },
+          {
+            "name": "lzTokenFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MessagingReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "guid",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "type": {
+              "defined": "messagelib_interface::MessagingFee"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LzAccount",
+      "docs": [
+        "same to anchor_lang::prelude::AccountMeta"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pubkey",
+            "type": "publicKey"
+          },
+          {
+            "name": "isSigner",
+            "type": "bool"
+          },
+          {
+            "name": "isWritable",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitProxyParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "endpointProgram",
+            "type": "publicKey"
+          },
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          },
+          {
+            "name": "admin",
+            "type": "publicKey"
+          },
+          {
+            "name": "orderlyEid",
+            "type": "u32"
+          },
+          {
+            "name": "solChainId",
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LzReceiveParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "srcEid",
+            "type": "u32"
+          },
+          {
+            "name": "sender",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "guid",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "message",
+            "type": "bytes"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "solana_proxy::instructions::quote_request::MessagingFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "nativeFee",
+            "type": "u64"
+          },
+          {
+            "name": "lzTokenFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SubmitProofParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "distributionId",
+            "type": "u32"
+          },
+          {
+            "name": "cumulativeAmount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "merkleProof",
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RequestParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payloadType",
+            "type": "u8"
+          },
+          {
+            "name": "payload",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetAccountListParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "usdcTokenAccount",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetBackwardFeeParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "orderBackwardFee",
+            "type": "u64"
+          },
+          {
+            "name": "usdcBackwardFee",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetDelegateParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "delegate",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetPauseParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PeerConfigParam",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "PeerAddress",
+            "fields": [
+              {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            ]
+          },
+          {
+            "name": "FeeBps",
+            "fields": [
+              {
+                "option": "u16"
+              }
+            ]
+          },
+          {
+            "name": "EnforcedOptions",
+            "fields": [
+              {
+                "name": "send",
+                "type": "bytes"
+              },
+              {
+                "name": "sendAndCall",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "OutboundRateLimit",
+            "fields": [
+              {
+                "option": {
+                  "defined": "RateLimitParams"
+                }
+              }
+            ]
+          },
+          {
+            "name": "InboundRateLimit",
+            "fields": [
+              {
+                "option": {
+                  "defined": "RateLimitParams"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateLimitParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "refillPerSecond",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "capacity",
+            "type": {
+              "option": "u64"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetPeerConfigParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "remoteEid",
+            "type": "u32"
+          },
+          {
+            "name": "config",
+            "type": {
+              "defined": "PeerConfigParam"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TransferAdminParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "newAdmin",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawFeeParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EnforcedOptions",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "send",
+            "type": "bytes"
+          },
+          {
+            "name": "sendAndCall",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateLimiter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "capacity",
+            "type": "u64"
+          },
+          {
+            "name": "tokens",
+            "type": "u64"
+          },
+          {
+            "name": "refillPerSecond",
+            "type": "u64"
+          },
+          {
+            "name": "lastRefillTime",
+            "type": "u64"
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "AdminRoleTransferred",
+      "fields": [
+        {
+          "name": "oldAdmin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newAdmin",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimCancelled",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "distributionId",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "cumulativeAmount",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimProofSubmitted",
+      "fields": [
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "distributionId",
+          "type": "u32",
+          "index": false
+        },
+        {
+          "name": "cumulativeAmount",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimRequestSent",
+      "fields": [
+        {
+          "name": "guid",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "user",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "distributionId",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "cumulativeAmount",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "merkleRoot",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ProxyPaused",
+      "fields": [
+        {
+          "name": "paused",
+          "type": "bool",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "RequestSent",
+      "fields": [
+        {
+          "name": "guid",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "request",
+          "type": {
+            "defined": "RequestParams"
+          },
+          "index": false
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidProxyAdmin",
+      "msg": "Signer is not the Proxy admin"
+    },
+    {
+      "code": 6001,
+      "name": "SameAdmin",
+      "msg": "The same admin is set"
+    },
+    {
+      "code": 6002,
+      "name": "RateLimitExceeded",
+      "msg": "Rate limit exceeded"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidFee",
+      "msg": "Invalid fee"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidMintAuthority",
+      "msg": "Invalid mint authority"
+    },
+    {
+      "code": 6005,
+      "name": "ProxyPaused",
+      "msg": "Solana Proxy is Paused"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidUser",
+      "msg": "User is not the owner of the account"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidPayloadType",
+      "msg": "Invalid payload type"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidUSDCAccount",
+      "msg": "Invalid USDC account"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidReceiver",
+      "msg": "Invalid receiver"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidLedgerPayloadType",
+      "msg": "Invalid Ledger payload type"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidSender",
+      "msg": "Invalid sender"
+    },
+    {
+      "code": 6012,
+      "name": "InsufficientMessagingFee",
+      "msg": "Insufficient messaging fee"
+    },
+    {
+      "code": 6013,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidLedgerTokenType",
+      "msg": "Invalid Ledger token type"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidPeerConfigParam",
+      "msg": "Invalid peer config param"
+    }
+  ]
+};
