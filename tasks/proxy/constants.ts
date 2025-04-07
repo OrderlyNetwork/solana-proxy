@@ -92,10 +92,10 @@ export const PROXY_ACCOUNTS: { [key: string]: any } = {
         multisig: new PublicKey('2WG7UG81NsutAzKDpJp6ZepEisMKrXS9XvMVPhsfqtuB'),
     },
     staging: {
-        programId: new PublicKey('Dwnm7RyRY9mYLwqZbwfc54qKqziapBL39XHgZexJmnAq'),
-        configPda: new PublicKey('HY978ZaHEjjyCnhfjt2yStBTNtQHtqCsAJ9pYrBvcuUU'),
+        programId: new PublicKey('A7QtBhcE9pbi2LvLqt1SWV1EKjXAgFxAcEcViKg7reha'),
+        configPda: new PublicKey('5myNA3cHMwCWxkenKm3ATPhAfxPGsnwWFtnRdyNdWRcv'),
         usdcMint: DEV_USDC_MINT,
-        oftStore: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
+        multisig: new PublicKey('48usEusxMDBxpjLkyrarHupqodAfxXyoaLDVNDJFvkME'),
     },
     mainnet: {
         programId: new PublicKey('Dwnm7RyRY9mYLwqZbwfc54qKqziapBL39XHgZexJmnAq'),
@@ -121,8 +121,8 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         programId: new PublicKey('B2BBh7JdvdsmzuG7b4dedeBjSMfmiS91z6gQS3DhRLns'),
         mint: new PublicKey('HJzi8SG3NtDx3vyuw3Gaq1jdCEYDqiWCyCrVKHCqKW2H'),
         mintAuthority: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
-        oftStore: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
         escrow: new PublicKey('85FsyjiLqfyZciG1s3ERzsc47LuxQiEnoUfcnV9urAYZ'),
+        oftStore: new PublicKey('2CTq4P25faaymcqMCCwHzdiyvbUJShtPS74qDRZwYX6J'),
         // alt: address lookup table account for oft
         alt: new PublicKey('3orQmjTarm58PwbSzutYAUhrog45h5Vk4rUdsDByrqft'),
         ledgerOccManger: addressToBytes32('0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53'),
@@ -136,7 +136,7 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         oftStore: new PublicKey('76XwEc7cdcrYpi7PNn5t9TxX3fUQiXjeqVN68GsBdcpk'),
         multisig: new PublicKey('48usEusxMDBxpjLkyrarHupqodAfxXyoaLDVNDJFvkME'),
         // alt: address lookup table account for oft
-        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        alt: new PublicKey('Fi9f76pizBG2qHZTiZigQCZgFx5eGsJJZQowfA9K7aVT'),
         ledgerOccManger: addressToBytes32('0x45f3039A9A0eefcC8997e030d9F3cCBb1A7AC6C1'),
         evmOftAddress: addressToBytes32('0x5f11B4510BC50EfB82Fb55D7839a46e9b621f8C2'),
     },
@@ -164,7 +164,7 @@ export const LEDGER_OAPP_ACCOUNTS: { [key: string]: any } = {
         multisig: '0xc1465019B3e04602a50d34A558c6630Ac50f8fbb',
     },
     staging: {
-        proxy: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
+        proxy: '0x6Ea2DAd2C827AfE08855a426E78E405A0dE8EFC0',
         occManager: '0x45f3039A9A0eefcC8997e030d9F3cCBb1A7AC6C1',
         multisig: '0x7D1e7BeAd9fBb72e35Dc8E6d1966c2e57DbDA3F0',
     },
@@ -244,7 +244,7 @@ export const OPTIONS_TO_SOLANA: { [key: string]: any } = {
     },
     staging: {
         LZ_RECEIVE_GAS: 1000000,
-        LZ_RECEIVE_VALUE: 0,
+        LZ_RECEIVE_VALUE: 2500000,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,
     },
