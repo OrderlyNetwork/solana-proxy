@@ -335,7 +335,6 @@ task('orderly:getconfig', 'Gets the configuration of the contract')
             let nonce = await signer.getTransactionCount()
             if (taskArgs.setConfig) {
                 const isDefaultSendLib = await endpointV2.isDefaultSendLibrary(ledgerOApp.address, solanaEid)
-                console.log(`Is Default SendLib: ${isDefaultSendLib}`)
                 if (isDefaultSendLib) {
                     const txSetSendLib = await endpointV2.setSendLibrary(
                         ledgerOApp.address,

@@ -28,13 +28,13 @@ export const MAIN_SOL_CHAIN_ID = 900900900 // the chainid for solana mainnet, de
 export const SOLANA_MAINNET_EID = EndpointId.SOLANA_V2_MAINNET
 export const SOLANA_DEVNET_EID = EndpointId.SOLANA_V2_TESTNET
 
-export const ORDER_BACKWARD_FEE = new BN(100000)
-export const USDC_BACKWARD_FEE = new BN(100000)
+export const ORDER_BACKWARD_FEE = new BN(500000)
+export const USDC_BACKWARD_FEE = new BN(500000)
 
 export const DEV_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU')
 export const MAIN_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
 
-export const ENV = ['local', 'dev', 'qa', 'staging', 'mainnet']
+export const ENV = ['dev', 'qa', 'staging', 'mainnet']
 
 export const SOLANA_INFO: { [key: string]: any } = {
     local: {
@@ -98,8 +98,8 @@ export const PROXY_ACCOUNTS: { [key: string]: any } = {
         multisig: new PublicKey('48usEusxMDBxpjLkyrarHupqodAfxXyoaLDVNDJFvkME'),
     },
     mainnet: {
-        programId: new PublicKey('Dwnm7RyRY9mYLwqZbwfc54qKqziapBL39XHgZexJmnAq'),
-        configPda: new PublicKey('HY978ZaHEjjyCnhfjt2yStBTNtQHtqCsAJ9pYrBvcuUU'),
+        programId: new PublicKey('7X5WKxXLPy9TbJDFejq288HezLmWayZWudKMmUC2d9rB'),
+        configPda: new PublicKey('FmJ9ih78XTZyHcFTFuRL4gCN1eevtSVELrHFCHp4Crmt'),
         usdcMint: MAIN_USDC_MINT,
         multisig: new PublicKey('6aQHPsgaSxCGwf1uAVetEmzuz9bpv9Rn4bq9jTg91RH8'),
     },
@@ -147,7 +147,7 @@ export const OFT_ACCOUNTS: { [key: string]: any } = {
         escrow: new PublicKey('7PGWT8rti8jpRiySA9pfG3fiReW5Go8jQp3UWXc5SrSk'),
         oftStore: new PublicKey('Efvf2QfcPAJc8XCd1MV1MN1JLNDZRKj2ZbJ3xg6pAf7'),
         // alt: address lookup table account for oft
-        alt: new PublicKey('HdLTw2ASK3GBqpUxTyW6bnAVBb4JkBomuGZQFeDnVFxm'),
+        alt: new PublicKey('GcSXU7ogWQpa9tnM2ZJ5mQ7CAroK3hGRC6XC7jdbpPCW'),
         ledgerOccManger: addressToBytes32('0x68835941c7C300bFEF44D1D68b83798791901eB8'),
         evmOftAddress: addressToBytes32('0x4E200fE2f3eFb977d5fd9c430A41531FB04d97B8'),
     },
@@ -169,7 +169,7 @@ export const LEDGER_OAPP_ACCOUNTS: { [key: string]: any } = {
         multisig: '0x7D1e7BeAd9fBb72e35Dc8E6d1966c2e57DbDA3F0',
     },
     mainnet: {
-        proxy: '0xF2BC568E4bD0F7437C77FA982F4b51786086872a',
+        proxy: '0x14127afA930eEaDEda7cD9754Ad8011f4E96FD86',
         occManager: '0x68835941c7C300bFEF44D1D68b83798791901eB8',
         multisig: '0x4e834Ca9310d7710a409638A7aa70CB22F141Df3',
     },
@@ -222,7 +222,7 @@ export const OPTIONS_TO_ORDERLY: { [key: string]: any } = {
         LZ_COMPOSE_VALUE: 0,
     },
     mainnet: {
-        LZ_RECEIVE_GAS: 500000,
+        LZ_RECEIVE_GAS: 800000,
         LZ_RECEIVE_VALUE: 0,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,

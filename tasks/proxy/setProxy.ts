@@ -93,6 +93,8 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
+        console.log('Wallet:', wallet.publicKey.toBase58())
+        // return
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         console.log('Proxy Config PDA:', proxyConfigPda.toBase58())
@@ -143,7 +145,8 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
             const tx = await createAndSendV0Tx([initOAppNonceIx], provider, wallet)
             console.log('Tx to init OApp Nonce for Solana Proxy:', tx)
             await delay(taskArgs.env)
-        } catch {
+        } catch (e) {
+            // console.log(e)
             console.log('OApp Nonce already initialized')
         }
 
@@ -152,7 +155,8 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
             const tx = await createAndSendV0Tx([initSendLibIx], provider, wallet)
             console.log('Tx to init Send Lib for Solana Proxy:', tx)
             await delay(taskArgs.env)
-        } catch {
+        } catch (e) {
+            // console.log(e)
             console.log('Send lib already initialized')
         }
 
@@ -161,7 +165,8 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
             const tx = await createAndSendV0Tx([initReceiveLibIx], provider, wallet)
             console.log('Tx to init Receive Lib for Solana Proxy:', tx)
             await delay(taskArgs.env)
-        } catch {
+        } catch (e) {
+            // console.log(e)
             console.log('Receive lib already initialized')
         }
 
@@ -172,6 +177,7 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
             console.log('Tx to set Send Lib for Solana Proxy:', tx)
             await delay(taskArgs.env)
         } catch (e) {
+            // console.log(e)
             console.log('Receive lib already set')
         }
 
@@ -187,7 +193,8 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
             const tx = await createAndSendV0Tx([setReceiveLibIx], provider, wallet)
             console.log('Tx to set Receive Lib for Solana Proxy:', tx)
             await delay(taskArgs.env)
-        } catch {
+        } catch (e) {
+            // console.log(e)
             console.log('Receive lib already set')
         }
     })
@@ -287,6 +294,8 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         // const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
 
         try {
+            console.log('init config')
+            // console.log('admin', admin.publicKey.toString())
             const initIx = oft.initConfig(
                 {
                     admin: admin,
@@ -310,13 +319,14 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
                 console.log('Base58 encoded transaction to init config ', bs58.encode(web3Tx.serializeMessage()))
             } else {
                 console.log('🛎️ Send tx to init config')
-                const txBuild = transactionBuilder([initIx])
-                const result = await txBuild.sendAndConfirm(umi)
-                console.log(`Init config for orderly network: `, bs58.encode(result.signature))
+                const ix = intoIx([initIx])
+                const tx = await createAndSendV0Tx(ix, provider, wallet)
+                console.log('Tx to init Config for Solana Proxy:', tx)
                 // wait for 5s to ensure the mint is created
                 await new Promise((resolve) => setTimeout(resolve, 5000))
             }
         } catch (e) {
+            // console.log(e)
             console.log('Config already initialized')
         }
 

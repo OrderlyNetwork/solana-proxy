@@ -65,8 +65,8 @@ const config: HardhatUserConfig = {
             accounts,
         },
         orderly: {
-            eid: EndpointId.ORDERLY_V2_TESTNET,
-            url: process.env.RPC_URL_ORDERLY || 'https://rpc.orderly.org',
+            eid: EndpointId.ORDERLY_V2_MAINNET,
+            url: process.env.RPC_URL_ORDERLY || 'https://rpc.orderly.network/Gn5CvDkZXiirKPkTgxf2LkUQ5GYbQQGwV',
             accounts,
         },
         hardhat: {

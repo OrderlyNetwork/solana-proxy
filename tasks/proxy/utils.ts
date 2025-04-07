@@ -95,14 +95,14 @@ export function getProxyAccounts(ENV: string) {
 }
 
 export function getSolanaEid(ENV: string): number {
-    if (ENV === constants.ENV[4]) {
+    if (ENV === constants.ENV[3]) {
         return EndpointId.SOLANA_V2_MAINNET
     }
     return EndpointId.SOLANA_V2_TESTNET
 }
 
 export function isDevnet(ENV: string): boolean {
-    return ENV !== constants.ENV[4]
+    return ENV !== constants.ENV[3]
 }
 
 export function getProxyProgram(ENV: string, provider: AnchorProvider): Program<SolanaProxy> {
@@ -907,7 +907,7 @@ export function getTokenATA(tokenAccount: PublicKey, owner: PublicKey) {
 }
 
 export function getOrderlyEid(ENV: string) {
-    if (ENV === constants.ENV[4]) {
+    if (ENV === constants.ENV[3]) {
         return EndpointId.ORDERLY_V2_MAINNET
     } else {
         return EndpointId.ORDERLY_V2_TESTNET
@@ -992,7 +992,7 @@ export function intoIx(wrappedIx: WrappedInstruction[]) {
 }
 
 export async function delay(ENV: string) {
-    if (ENV === constants.ENV[4]) {
+    if (ENV === constants.ENV[3]) {
         // sleep for 2 seconds
         await new Promise((resolve) => setTimeout(resolve, 5000))
     }
@@ -1097,7 +1097,7 @@ export function checkENV(ENV: string) {
 }
 
 export function getSolanaNetwork(ENV: string) {
-    if (ENV === constants.ENV[4]) {
+    if (ENV === constants.ENV[3]) {
         return 'solana'
     }
     return 'soldev'
@@ -1112,7 +1112,7 @@ export function checkOrderlyNetwork(network: string) {
 }
 
 export function getOrderlyNetwork(ENV: string) {
-    if (ENV === constants.ENV[4]) {
+    if (ENV === constants.ENV[3]) {
         return 'orderly'
     }
     return 'orderlysepolia'
