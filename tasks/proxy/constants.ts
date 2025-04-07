@@ -28,8 +28,8 @@ export const MAIN_SOL_CHAIN_ID = 900900900 // the chainid for solana mainnet, de
 export const SOLANA_MAINNET_EID = EndpointId.SOLANA_V2_MAINNET
 export const SOLANA_DEVNET_EID = EndpointId.SOLANA_V2_TESTNET
 
-export const ORDER_BACKWARD_FEE = new BN(112233)
-export const USDC_BACKWARD_FEE = new BN(112234)
+export const ORDER_BACKWARD_FEE = new BN(100000)
+export const USDC_BACKWARD_FEE = new BN(100000)
 
 export const DEV_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU')
 export const MAIN_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
@@ -204,7 +204,7 @@ export const OPTIONS: { [key: string]: any } = {
 
 export const OPTIONS_TO_ORDERLY: { [key: string]: any } = {
     dev: {
-        LZ_RECEIVE_GAS: 1000000,
+        LZ_RECEIVE_GAS: 800000,
         LZ_RECEIVE_VALUE: 0,
         LZ_COMPOSE_GAS: 0,
         LZ_COMPOSE_VALUE: 0,

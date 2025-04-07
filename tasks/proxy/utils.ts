@@ -148,6 +148,11 @@ export function printProxyConfig(proxyConfig: any) {
     console.log('Paused:', proxyConfig.paused)
 }
 
+export function printBackwardFee(backwardFee: any) {
+    console.log('ORDER Backward Fee:', backwardFee.orderBackwardFee.toString())
+    console.log('USDC Backward Fee:', backwardFee.usdcBackwardFee.toString())
+}
+
 export function printOptions(options: any, enforcedOptions: any) {
     const [optionSend, optionSendAndCall] = getEncodedOptions(options)
     console.log(

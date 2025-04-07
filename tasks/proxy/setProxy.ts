@@ -39,6 +39,7 @@ import {
     getLocalLzConfig,
     getSolanaNetwork,
     getLedgerOAppAddress,
+    printBackwardFee,
 } from './utils'
 import * as constants from './constants'
 import {
@@ -55,7 +56,15 @@ import {
     getBackwardFeePda,
     getAccountListPda,
 } from './pdaHelper'
-import { PublicKey, AccountMeta, Connection, ComputeBudgetProgram, SystemProgram } from '@solana/web3.js'
+import {
+    PublicKey,
+    AccountMeta,
+    Connection,
+    ComputeBudgetProgram,
+    SystemProgram,
+    Transaction as Web3Transaction,
+    sendAndConfirmTransaction,
+} from '@solana/web3.js'
 import {
     fromWeb3JsInstruction,
     fromWeb3JsPublicKey,
@@ -74,7 +83,7 @@ import {
 import { addressToBytes32, bytes32ToEthAddress, Options } from '@layerzerolabs/lz-v2-utilities'
 import { oft } from '@layerzerolabs/oft-v2-solana-sdk'
 import { EventPDADeriver, SendHelper, EndpointProgram, EndpointPDADeriver } from '@layerzerolabs/lz-solana-sdk-v2'
-import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM } from './constants'
+import { DECIMALS_SCALE_FACTOR, ORDER_DECIMALS_ON_ETHEREUM, PROXY_ACCOUNTS } from './constants'
 import { config } from 'process'
 import { setComputeUnitLimit } from '@metaplex-foundation/mpl-toolbox'
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
@@ -185,14 +194,20 @@ task('sol:proxy:init', 'Create and init Proxy Config PDA')
 
 task('sol:proxy:setpeer', 'Set Peer Config for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addFlag('multisig', 'Use the multisig to execute the transaction')
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const orderlyEid = getOrderlyEid(taskArgs.env)
         const peerAddress = addressToBytes32(getLedgerOAppAddress(taskArgs.env))
+        const umi = getUmi(taskArgs.env)
+        const multisig = PROXY_ACCOUNTS[taskArgs.env].multisig
+        const admin = taskArgs.multisig
+            ? createNoopSigner(multisig)
+            : createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
 
-        const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
+        // const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
         const solanaNetwork = getSolanaNetwork(taskArgs.env)
         const options = getOptions(taskArgs.env, solanaNetwork)
@@ -236,14 +251,27 @@ task('sol:proxy:setpeer', 'Set Peer Config for Solana Proxy')
             ),
         ]
 
-        const ix = intoIx(wrappedIx)
-        const tx = await createAndSendV0Tx(ix, provider, wallet)
-        console.log('Tx to set Peer for Solana Proxy:', tx)
-        await delay(taskArgs.env)
+        if (taskArgs.multisig) {
+            console.log('🛎️ Print tx in base58 for multisig')
+            const ixs = wrappedIx.map((wrapped) => wrapped.instruction)
+            const web3Tx = new Web3Transaction()
+            for (const ix of ixs) {
+                web3Tx.add(toWeb3JsInstruction(ix))
+            }
+            web3Tx.recentBlockhash = (await umi.rpc.getLatestBlockhash()).blockhash
+            web3Tx.feePayer = wallet.publicKey
+            console.log('Base58 encoded transaction for set peer: ', bs58.encode(web3Tx.serializeMessage()))
+        } else {
+            const ix = intoIx(wrappedIx)
+            const tx = await createAndSendV0Tx(ix, provider, wallet)
+            console.log('Tx to set Peer for Solana Proxy:', tx)
+            await delay(taskArgs.env)
+        }
     })
 
 task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addFlag('multisig', 'Use the multisig to execute the transaction')
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
@@ -251,23 +279,43 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
         const orderlyEid = getOrderlyEid(taskArgs.env)
         const rpc = getUmi(taskArgs.env).rpc
-        const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
+        const umi = getUmi(taskArgs.env)
+        const multisig = PROXY_ACCOUNTS[taskArgs.env].multisig
+        const admin = taskArgs.multisig
+            ? createNoopSigner(multisig)
+            : createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
+        // const admin = createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
 
         try {
-            const initIx = [
-                oft.initConfig(
-                    {
-                        admin: admin,
-                        oftStore: oftStore,
-                        payer: admin,
-                    },
-                    orderlyEid
-                ),
-            ]
-            const ix = intoIx(initIx)
-            const tx = await createAndSendV0Tx(ix, provider, wallet)
-            console.log('Tx to init Config for Solana Proxy:', tx)
-            await delay(taskArgs.env)
+            const initIx = oft.initConfig(
+                {
+                    admin: admin,
+                    oftStore: oftStore,
+                    payer: admin,
+                },
+                orderlyEid
+            )
+
+            // const ix = intoIx(initIx)
+            // const tx = await createAndSendV0Tx(ix, provider, wallet)
+            // console.log('Tx to init Config for Solana Proxy:', tx)
+            // await delay(taskArgs.env)
+
+            if (taskArgs.multisig) {
+                console.log('🛎️ Print tx in base58 for multisig')
+                const ix = initIx.instruction
+                const web3Tx = new Web3Transaction().add(toWeb3JsInstruction(ix))
+                web3Tx.recentBlockhash = (await umi.rpc.getLatestBlockhash()).blockhash
+                web3Tx.feePayer = wallet.publicKey
+                console.log('Base58 encoded transaction to init config ', bs58.encode(web3Tx.serializeMessage()))
+            } else {
+                console.log('🛎️ Send tx to init config')
+                const txBuild = transactionBuilder([initIx])
+                const result = await txBuild.sendAndConfirm(umi)
+                console.log(`Init config for orderly network: `, bs58.encode(result.signature))
+                // wait for 5s to ensure the mint is created
+                await new Promise((resolve) => setTimeout(resolve, 5000))
+            }
         } catch (e) {
             console.log('Config already initialized')
         }
@@ -275,111 +323,154 @@ task('sol:proxy:setconfig', 'Set Config for Solana Proxy')
         const connection = new Connection(rpc.getEndpoint(), 'confirmed')
         const localNetwork = getSolanaNetwork(taskArgs.env)
         const config = getLocalLzConfig(localNetwork)
-        const ix = [
-            await oft.setConfig(
-                connection,
-                {
-                    signer: admin.publicKey,
-                    oftStore: oftStore,
-                },
-                {
-                    remoteEid: orderlyEid,
-                    configType: 1, // EXECUTOR
-                    config: {
-                        maxMessageSize: config.sendLibConfig.executorConfig.maxMessageSize,
-                        executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
-                    },
-                }
-            ),
-            await oft.setConfig(
-                connection,
-                {
-                    signer: admin.publicKey,
-                    oftStore: oftStore,
-                },
-                {
-                    remoteEid: orderlyEid,
-                    configType: 2, // SEND ULN
-                    config: {
-                        confirmations: config.sendLibConfig.ulnConfig.confirmations,
-                        requiredDvnCount: config.sendLibConfig.ulnConfig.requiredDVNCount,
-                        optionalDvnCount: config.sendLibConfig.ulnConfig.optionalDVNCount,
-                        optionalDvnThreshold: config.sendLibConfig.ulnConfig.optionalDVNThreshold,
-                        requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map(
-                            (address: string) => new PublicKey(address)
-                        ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
-                        optionalDvns: [],
-                    },
-                }
-            ),
 
-            await oft.setConfig(
-                connection,
-                {
-                    signer: admin.publicKey,
-                    oftStore: oftStore,
+        const ix1 = await oft.setConfig(
+            connection,
+            {
+                signer: admin.publicKey,
+                oftStore: oftStore,
+            },
+            {
+                remoteEid: orderlyEid,
+                configType: 1, // EXECUTOR
+                config: {
+                    maxMessageSize: config.sendLibConfig.executorConfig.maxMessageSize,
+                    executor: new PublicKey(config.sendLibConfig.executorConfig.executorAddress),
                 },
-                {
-                    remoteEid: orderlyEid,
-                    configType: 3, // RECEIVE ULN
-                    config: {
-                        confirmations: config.receiveLibConfig?.ulnConfig.confirmations,
-                        requiredDvnCount: config.receiveLibConfig?.ulnConfig.requiredDVNCount,
-                        optionalDvnCount: config.receiveLibConfig?.ulnConfig.optionalDVNCount,
-                        optionalDvnThreshold: config.receiveLibConfig?.ulnConfig.optionalDVNThreshold,
-                        requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map(
-                            (address: string) => new PublicKey(address)
-                        ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
-                        optionalDvns: [],
-                    },
-                }
-            ),
-        ]
+            }
+        )
 
-        const web3Ix = ix.map((ix) => toWeb3JsInstruction(ix))
-        const tx = await createAndSendV0Tx(web3Ix, provider, wallet)
-        console.log('Tx to set Config for Solana Proxy:', tx)
+        const web3Ix1 = toWeb3JsInstruction(ix1)
+
+        const ix2 = await oft.setConfig(
+            connection,
+            {
+                signer: admin.publicKey,
+                oftStore: oftStore,
+            },
+            {
+                remoteEid: orderlyEid,
+                configType: 2, // SEND ULN
+                config: {
+                    confirmations: config.sendLibConfig.ulnConfig.confirmations,
+                    requiredDvnCount: config.sendLibConfig.ulnConfig.requiredDVNCount,
+                    optionalDvnCount: config.sendLibConfig.ulnConfig.optionalDVNCount,
+                    optionalDvnThreshold: config.sendLibConfig.ulnConfig.optionalDVNThreshold,
+                    requiredDvns: config.sendLibConfig.ulnConfig.requiredDVNs.map(
+                        (address: string) => new PublicKey(address)
+                    ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
+                    optionalDvns: [],
+                },
+            }
+        )
+        const web3Ix2 = toWeb3JsInstruction(ix2)
+
+        const ix3 = await oft.setConfig(
+            connection,
+            {
+                signer: admin.publicKey,
+                oftStore: oftStore,
+            },
+            {
+                remoteEid: orderlyEid,
+                configType: 3, // RECEIVE ULN
+                config: {
+                    confirmations: config.receiveLibConfig?.ulnConfig.confirmations,
+                    requiredDvnCount: config.receiveLibConfig?.ulnConfig.requiredDVNCount,
+                    optionalDvnCount: config.receiveLibConfig?.ulnConfig.optionalDVNCount,
+                    optionalDvnThreshold: config.receiveLibConfig?.ulnConfig.optionalDVNThreshold,
+                    requiredDvns: config.receiveLibConfig?.ulnConfig.requiredDVNs.map(
+                        (address: string) => new PublicKey(address)
+                    ), // [new Web3PublicKey(config.sendLibConfig?.ulnConfig.requiredDVNs[0]!)]
+                    optionalDvns: [],
+                },
+            }
+        )
+        const web3Ix3 = toWeb3JsInstruction(ix3)
+
+        const web3Tx = new Web3Transaction().add(web3Ix1).add(web3Ix2).add(web3Ix3)
+
+        if (taskArgs.multisig) {
+            console.log('🛎️ Print tx in base58 for multisig')
+            web3Tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+            web3Tx.feePayer = wallet.publicKey
+            console.log('Base58 encoded transaction to set config: ', bs58.encode(web3Tx.serializeMessage()))
+        } else {
+            console.log('🛎️ Send tx to set config')
+            const txSig = await sendAndConfirmTransaction(connection, web3Tx, [wallet.payer])
+            console.log(`✅ Set Config for orderly network: `, txSig)
+            // sleep for 5s
+            await new Promise((resolve) => setTimeout(resolve, 10000))
+        }
     })
 
 task('sol:proxy:setfee', 'Set backwar fee for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addFlag('multisig', 'Use the multisig to execute the transaction')
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const backwardFeePda = getBackwardFeePda(proxyProgram.programId)
+        const umi = getUmi(taskArgs.env)
+        const multisig = PROXY_ACCOUNTS[taskArgs.env].multisig
+        const admin = taskArgs.multisig
+            ? createNoopSigner(multisig)
+            : createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
         const { orderBackwardFee, usdcBackwardFee } = getBackwardFee()
         const ixSetBackwardFee = await proxyProgram.methods
             .setBackwardFee({
                 orderBackwardFee: orderBackwardFee,
                 usdcBackwardFee: usdcBackwardFee,
             })
-            .accounts({ admin: wallet.publicKey, proxyConfig: proxyConfigPda, backwardFee: backwardFeePda })
+            .accounts({ admin: admin.publicKey, proxyConfig: proxyConfigPda, backwardFee: backwardFeePda })
             .instruction()
-        const tx = await createAndSendV0Tx([ixSetBackwardFee], provider, wallet)
-        console.log('Tx to set Backward Fee for Solana Proxy:', tx)
+        if (taskArgs.multisig) {
+            console.log('🛎️ Print tx in base58 for multisig')
+            const web3Tx = new Web3Transaction().add(ixSetBackwardFee)
+            web3Tx.recentBlockhash = (await umi.rpc.getLatestBlockhash()).blockhash
+            web3Tx.feePayer = wallet.publicKey
+            console.log('Base58 encoded transaction to set backward fee: ', bs58.encode(web3Tx.serializeMessage()))
+        } else {
+            const tx = await createAndSendV0Tx([ixSetBackwardFee], provider, wallet)
+            console.log('Tx to set Backward Fee for Solana Proxy:', tx)
+        }
     })
 
 task('sol:proxy:setaccountlist', 'Set Account List for Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
+    .addFlag('multisig', 'Use the multisig to execute the transaction')
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const accountListPda = getAccountListPda(proxyProgram.programId, proxyConfigPda)
         const lzReceiveTypesPda = getLzReceiveTypesPda(proxyProgram.programId, proxyConfigPda)
+        const umi = getUmi(taskArgs.env)
+        const multisig = PROXY_ACCOUNTS[taskArgs.env].multisig
+        const admin = taskArgs.multisig
+            ? createNoopSigner(multisig)
+            : createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
         const usdcMint = getUsdcMint(taskArgs.env)
         const ixSetAccountList = await proxyProgram.methods
             .setAccountList({ usdcTokenAccount: usdcMint })
             .accounts({
-                admin: wallet.publicKey,
+                admin: admin.publicKey,
                 proxyConfig: proxyConfigPda,
                 lzReceiveTypes: lzReceiveTypesPda,
                 accountList: accountListPda,
             })
             .instruction()
-        const tx = await createAndSendV0Tx([ixSetAccountList], provider, wallet)
-        console.log('Tx to set Account List for Solana Proxy:', tx)
+        if (taskArgs.multisig) {
+            console.log('🛎️ Print tx in base58 for multisig')
+            const web3Tx = new Web3Transaction().add(ixSetAccountList)
+            web3Tx.recentBlockhash = (await umi.rpc.getLatestBlockhash()).blockhash
+            web3Tx.feePayer = wallet.publicKey
+            console.log('Base58 encoded transaction to set account list: ', bs58.encode(web3Tx.serializeMessage()))
+        } else {
+            const tx = await createAndSendV0Tx([ixSetAccountList], provider, wallet)
+            console.log('Tx to set account list for Solana Proxy:', tx)
+        }
     })
 
 task('sol:proxy:withdrawfee', 'Withdraw fee for Solana Proxy')
@@ -389,33 +480,59 @@ task('sol:proxy:withdrawfee', 'Withdraw fee for Solana Proxy')
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const umi = getUmi(taskArgs.env)
+        const multisig = PROXY_ACCOUNTS[taskArgs.env].multisig
+        const admin = taskArgs.multisig
+            ? createNoopSigner(multisig)
+            : createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
         const amount = new BN(1234568)
         const { orderBackwardFee, usdcBackwardFee } = getBackwardFee()
         const ixWithdrawFee = await proxyProgram.methods
             .withdrawFee({ amount: amount })
-            .accounts({ admin: wallet.publicKey, proxyConfig: proxyConfigPda, feeCollector: wallet.publicKey })
+            .accounts({ admin: admin.publicKey, proxyConfig: proxyConfigPda, feeCollector: wallet.publicKey })
             .instruction()
-        const tx = await createAndSendV0Tx([ixWithdrawFee], provider, wallet)
-        console.log('Tx to withdraw fee for Solana Proxy:', tx)
+        if (taskArgs.multisig) {
+            console.log('🛎️ Print tx in base58 for multisig')
+            const web3Tx = new Web3Transaction().add(ixWithdrawFee)
+            web3Tx.recentBlockhash = (await umi.rpc.getLatestBlockhash()).blockhash
+            web3Tx.feePayer = wallet.publicKey
+            console.log('Base58 encoded transaction to withdraw fee: ', bs58.encode(web3Tx.serializeMessage()))
+        } else {
+            const tx = await createAndSendV0Tx([ixWithdrawFee], provider, wallet)
+            console.log('Tx to withdraw fee from Solana Proxy:', tx)
+        }
     })
 
 task('sol:proxy:pause', 'Pause Solana Proxy')
     .addParam('env', 'The environment to run the task', undefined, devtoolsTypes.string)
     .addParam('paused', 'The paused state', undefined, devtoolsTypes.boolean)
+    .addFlag('multisig', 'Use the multisig to execute the transaction')
     .setAction(async (taskArgs, hre) => {
         const [provider, wallet] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
-        console.log(taskArgs.paused)
+        const umi = getUmi(taskArgs.env)
+        const multisig = PROXY_ACCOUNTS[taskArgs.env].multisig
+        const admin = taskArgs.multisig
+            ? createNoopSigner(multisig)
+            : createNoopSigner(fromWeb3JsPublicKey(wallet.publicKey))
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
         const ixSetPause = await proxyProgram.methods
             .setPause({ paused: taskArgs.paused })
             .accounts({
-                admin: wallet.publicKey,
+                admin: admin.publicKey,
                 proxyConfig: proxyConfigPda,
             })
             .instruction()
-        const tx = await createAndSendV0Tx([ixSetPause], provider, wallet)
-        console.log('Tx to set Pause for Solana Proxy:', tx)
+        if (taskArgs.multisig) {
+            console.log('🛎️ Print tx in base58 for multisig')
+            const web3Tx = new Web3Transaction().add(ixSetPause)
+            web3Tx.recentBlockhash = (await umi.rpc.getLatestBlockhash()).blockhash
+            web3Tx.feePayer = wallet.publicKey
+            console.log('Base58 encoded transaction to set pause: ', bs58.encode(web3Tx.serializeMessage()))
+        } else {
+            const tx = await createAndSendV0Tx([ixSetPause], provider, wallet)
+            console.log('Tx to set Pause for Solana Proxy:', tx)
+        }
     })
 
 task('sol:proxy:admin', 'Transfer Admin for Solana Proxy')
@@ -455,7 +572,7 @@ task('sol:proxy:admin', 'Transfer Admin for Solana Proxy')
         )
 
         // console.log('remainingAccounts', remainingAccounts)
-
+        console.log('proxyAccounts.multisig', proxyAccounts.multisig)
         const ixSetDelegateAndAdmin = await proxyProgram.methods
             .setDelegate({ delegate: proxyAccounts.multisig })
             .accounts({
@@ -479,6 +596,7 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         const [provider] = setupAnchor(taskArgs.env)
         const proxyProgram = getProxyProgram(taskArgs.env, provider)
         const proxyConfigPda = getProxyConfigPda(proxyProgram.programId)
+        const backwardFeePda = getBackwardFeePda(proxyProgram.programId)
         const oftStore = fromWeb3JsPublicKey(proxyConfigPda)
         const programId = fromWeb3JsPublicKey(proxyProgram.programId)
         const orderlyEid = getOrderlyEid(taskArgs.env)
@@ -486,6 +604,9 @@ task('sol:proxy:getconfig', 'Get Config for Solana Proxy')
         console.log('=============== Proxy Config ===============')
         const proxyConfigData = await proxyProgram.account.proxyConfig.fetch(proxyConfigPda)
         printProxyConfig(proxyConfigData)
+
+        const backwardFeeData = await proxyProgram.account.backwardFee.fetch(backwardFeePda)
+        printBackwardFee(backwardFeeData)
 
         console.log('=============== OAPP Options ===============')
         const peerAddress = await oft.getPeerAddress(rpc, oftStore, orderlyEid, programId)
