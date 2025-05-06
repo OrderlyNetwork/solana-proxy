@@ -28,8 +28,8 @@ export const MAIN_SOL_CHAIN_ID = 900900900 // the chainid for solana mainnet, de
 export const SOLANA_MAINNET_EID = EndpointId.SOLANA_V2_MAINNET
 export const SOLANA_DEVNET_EID = EndpointId.SOLANA_V2_TESTNET
 
-export const ORDER_BACKWARD_FEE = new BN(500000)
-export const USDC_BACKWARD_FEE = new BN(500000)
+export const ORDER_BACKWARD_FEE = new BN(10000000) // 0.01 SOL = 10000000 lamports
+export const USDC_BACKWARD_FEE = new BN(10000000) // 0.01 SOL = 10000000 lamports
 
 export const DEV_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU')
 export const MAIN_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
